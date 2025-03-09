@@ -1,0 +1,15 @@
+[package]
+name = "foxtive-macros"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Foxtive Macros"
+repository = "https://github.com/foxtive/foxtive"
+authors = ["ahmard"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = { version = "1.0.37" }
+syn = { version = "2.0.99", features = ["full"] }

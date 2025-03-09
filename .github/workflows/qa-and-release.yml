@@ -1,0 +1,40 @@
+name: Code QA & Release
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features
+
+      - name: Run Tests
+        run: cargo test --workspace --features=regex,crypto,base64,hmac,reqwest,multipart
+
+      - name: Run cargo fmt
+        if: github.event_name == 'push'
+        run: cargo fmt --all
+
+      - name: Commit fmt changes
+        if: github.event_name == 'push'
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add .
+          git commit -m "style(cargo-fmt): apply changes" || echo "No changes to commit"
+
+      - name: Push fmt changes
+        if: github.event_name == 'push' && success()
+        run: git push origin HEAD:${{ github.ref }}
