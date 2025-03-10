@@ -36,6 +36,7 @@ pub fn generate_diesel_enum(input: TokenStream) -> TokenStream {
 
 #[cfg(feature = "database")]
 #[proc_macro]
+/// Generate Diesel enum with optional features
 pub fn generate_diesel_enum_with_optional_features(input: TokenStream) -> TokenStream {
     enum_diesel_generate::generate_diesel_enum_with_optional_features(input)
 }

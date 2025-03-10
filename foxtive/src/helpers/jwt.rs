@@ -256,7 +256,7 @@ mod tests {
         let auth_token_data = result.unwrap();
         assert_eq!(auth_token_data.token_type, "bearer");
         assert_eq!(auth_token_data.expires_in, 60);
-        assert_eq!(auth_token_data.access_token.is_empty(), false);
+        assert!(!auth_token_data.access_token.is_empty());
     }
 
     #[test]
@@ -276,15 +276,11 @@ mod tests {
 
         let mut validation = Validation::new(Algorithm::RS256);
         validation.set_audience(&["test_audience"]);
-        let decoded_claims = match jwt.decode::<JwtTokenClaims>(&generated_token.access_token, &validation) {
-            Ok(claims) => {
-                assert!(true);
-                claims.claims
-            },
-            Err(err) => {
-                panic!("Error decoding token: {err}");
-            }
-        };
+        let result = jwt.decode::<JwtTokenClaims>(&generated_token.access_token, &validation);
+
+        assert!(result.is_ok());
+
+        let decoded_claims = result.unwrap().claims;
 
         assert_eq!(decoded_claims.sub, claims.sub);
         assert_eq!(decoded_claims.iat, claims.iat);
