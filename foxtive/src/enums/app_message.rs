@@ -63,12 +63,12 @@ impl AppMessage {
     }
 
     /// Convert to anyhow::Error
-    pub fn ah(self) -> anyhow::Error {
+    pub fn ae(self) -> anyhow::Error {
         self.into_anyhow()
     }
 
     /// Convert to AppResult
-    pub fn ahr<T>(self) -> AppResult<T> {
+    pub fn ar<T>(self) -> AppResult<T> {
         self.into_result::<T>()
     }
 
