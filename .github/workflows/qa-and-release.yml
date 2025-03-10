@@ -50,23 +50,19 @@ jobs:
           toolchain: stable
           target: x86_64-unknown-linux-gnu
 
-      - name: Run Clippy on changed crates
+      - name: Run Clippy and Tests on changed crates
         run: |
-          if [[ "${{ needs.detect-changes.outputs.changed_crates }}" == *"foxtive"* ]]; then
-            cargo clippy --package foxtive --all-targets --all-features
-          fi
-          if [[ "${{ needs.detect-changes.outputs.changed_crates }}" == *"foxtive-macros"* ]]; then
-            cargo clippy --package foxtive-macros --all-targets --all-features
+          CHANGED_CRATES="${{ needs.detect-changes.outputs.changed_crates }}"
+          if [ -z "$CHANGED_CRATES" ]; then
+            echo "No crates changed."
+            exit 0
           fi
 
-      - name: Run Tests on changed crates
-        run: |
-          if [[ "${{ needs.detect-changes.outputs.changed_crates }}" == *"foxtive"* ]]; then
-            cargo test --package foxtive --features=regex,crypto,base64,hmac,reqwest
-          fi
-          if [[ "${{ needs.detect-changes.outputs.changed_crates }}" == *"foxtive-macros"* ]]; then
-            cargo test --package foxtive-macros --features=database
-          fi
+          for CRATE in $CHANGED_CRATES; do
+            echo "Running Clippy and Tests for crate: $CRATE"
+            cargo clippy --package $CRATE --all-targets --all-features
+            cargo test --package $CRATE --all-features
+          done
 
   release:
     name: Release Package
@@ -84,16 +80,18 @@ jobs:
           toolchain: stable
           target: x86_64-unknown-linux-gnu
 
-      - name: Detect changes in crates and release updated crates
+      - name: Publish changed crates
         run: |
-          if [[ "${{ needs.detect-changes.outputs.changed_crates }}" == *"foxtive"* ]]; then
-            echo "Changes detected in foxtive, publishing..."
-            cargo publish -p foxtive
+          CHANGED_CRATES="${{ needs.detect-changes.outputs.changed_crates }}"
+          if [ -z "$CHANGED_CRATES" ]; then
+            echo "No crates changed. Skipping release."
+            exit 0
           fi
-          if [[ "${{ needs.detect-changes.outputs.changed_crates }}" == *"foxtive-macros"* ]]; then
-            echo "Changes detected in foxtive-macros, publishing..."
-            cargo publish -p foxtive-macros
-          fi
+
+          for CRATE in $CHANGED_CRATES; do
+            echo "Changes detected in $CRATE, publishing..."
+            cargo publish -p $CRATE
+          done
 
   lint-code:
     name: Lint Codebase
