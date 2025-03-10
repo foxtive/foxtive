@@ -33,8 +33,17 @@ jobs:
             # If HEAD~1 does not exist, assume all crates are changed (e.g., first commit)
             CHANGED_CRATES=$(find . -maxdepth 1 -type d -not -path './.*' -not -path '.' | cut -d '/' -f 2 | sort | uniq)
           fi
-          echo "Changed crates: $CHANGED_CRATES"
-          echo "::set-output name=changed_crates::$CHANGED_CRATES"
+
+          # Filter directories to include only those with "foxtive" in their names
+          VALID_CRATES=""
+          for CRATE in $CHANGED_CRATES; do
+            if [[ "$CRATE" == *"foxtive"* ]] && [ -f "$CRATE/Cargo.toml" ]; then
+              VALID_CRATES="$VALID_CRATES $CRATE"
+            fi
+          done
+
+          echo "Changed crates: $VALID_CRATES"
+          echo "::set-output name=changed_crates::$VALID_CRATES"
 
   test-code:
     name: Build & Test
