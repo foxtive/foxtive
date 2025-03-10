@@ -1,8 +1,5 @@
 use std::sync::OnceLock;
 
-use crate::app_state::FoxtiveState;
-
-pub mod app_state;
 pub mod enums;
 pub mod results;
 
@@ -11,22 +8,22 @@ pub mod redis;
 
 pub mod helpers;
 
-pub mod app_setup;
+#[cfg(feature = "redis")]
+pub mod cache;
+#[cfg(feature = "database")]
+pub mod database;
 pub mod env_logger;
 #[cfg(feature = "rabbitmq")]
 pub mod rabbitmq;
+pub mod setup;
 pub mod tokio;
-#[cfg(feature = "database")]
-pub mod database;
-#[cfg(feature = "redis")]
-pub mod cache;
 
 pub static FOXTIVE: OnceLock<FoxtiveState> = OnceLock::new();
 
+pub use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
 pub use anyhow::Error;
 
 pub mod prelude {
-    pub use crate::app_state::FoxtiveState;
     pub use crate::enums::app_message::AppMessage;
     pub use crate::helpers::once_lock::OnceLockHelper;
     #[cfg(feature = "rabbitmq")]

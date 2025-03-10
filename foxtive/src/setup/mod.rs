@@ -1,12 +1,7 @@
-use std::path::Path;
-#[allow(unused_imports)]
-use std::sync::Arc;
-use std::{env, fs};
+#[cfg(feature = "redis")]
+use crate::cache::Cache;
 #[cfg(feature = "database")]
-use diesel::{r2d2, PgConnection};
-#[cfg(feature = "database")]
-use diesel::r2d2::ConnectionManager;
-use crate::app_state::{AppHelpers, FoxtiveState};
+use crate::database::DBPool;
 #[cfg(feature = "jwt")]
 use crate::helpers::jwt::Jwt;
 #[cfg(feature = "crypto")]
@@ -19,13 +14,20 @@ use crate::prelude::Redis;
 use crate::rabbitmq::conn::establish_rabbit_connection_pool;
 #[cfg(feature = "redis")]
 use crate::redis::conn::establish_redis_connection_pool;
+#[cfg(feature = "database")]
+use diesel::r2d2::ConnectionManager;
+#[cfg(feature = "database")]
+use diesel::{r2d2, PgConnection};
 use log::info;
+use std::path::Path;
+#[allow(unused_imports)]
+use std::sync::Arc;
+use std::{env, fs};
 #[cfg(feature = "templating")]
 use tera::Tera;
-#[cfg(feature = "redis")]
-use crate::cache::Cache;
-#[cfg(feature = "database")]
-use crate::database::DBPool;
+use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
+
+pub(crate) mod state;
 
 pub struct FoxtiveSetup {
     pub env_prefix: String,
@@ -100,10 +102,6 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
         tera: tera_templating,
 
         #[cfg(feature = "jwt")]
-        auth_iss_public_key: setup.auth_iss_public_key,
-        #[cfg(feature = "jwt")]
-        auth_pat_prefix: env::var(format!("{}_AUTH_PAT_PREFIX", env_prefix)).unwrap(),
-        #[cfg(feature = "jwt")]
         auth_token_lifetime: env::var(format!("{}_AUTH_TOKEN_LIFETIME", env_prefix))
             .unwrap()
             .parse()
@@ -114,7 +112,7 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
     }
 }
 
-pub fn get_server_host_config(env_prefix: &String) -> (String, u16, usize) {
+pub fn get_server_host_config(env_prefix: &str) -> (String, u16, usize) {
     let host: String = env::var(format!("{}_SERVER_HOST", env_prefix)).unwrap();
     let port: u16 = env::var(format!("{}_SERVER_PORT", env_prefix))
         .unwrap()
@@ -128,7 +126,7 @@ pub fn get_server_host_config(env_prefix: &String) -> (String, u16, usize) {
 }
 
 #[allow(unused_variables)]
-fn make_helpers(env_prefix: &str, setup: &FoxtiveSetup) -> AppHelpers {
+fn make_helpers(env_prefix: &str, setup: &FoxtiveSetup) -> FoxtiveHelpers {
     #[cfg(feature = "crypto")]
     let app_key = env::var(format!("{}_APP_KEY", env_prefix)).unwrap();
 
@@ -138,7 +136,7 @@ fn make_helpers(env_prefix: &str, setup: &FoxtiveSetup) -> AppHelpers {
         .parse()
         .unwrap();
 
-    AppHelpers {
+    FoxtiveHelpers {
         #[cfg(feature = "jwt")]
         jwt: Arc::new(Jwt::new(
             setup.auth_iss_public_key.clone(),
@@ -151,7 +149,7 @@ fn make_helpers(env_prefix: &str, setup: &FoxtiveSetup) -> AppHelpers {
 }
 
 #[cfg(feature = "database")]
-pub fn establish_database_connection(env_prefix: &String) -> DBPool {
+pub fn establish_database_connection(env_prefix: &str) -> DBPool {
     let db_url: String = env::var(format!("{}_DATABASE_DSN", env_prefix)).unwrap();
     let manager = ConnectionManager::<PgConnection>::new(db_url);
     r2d2::Pool::builder()

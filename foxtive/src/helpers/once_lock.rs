@@ -1,17 +1,24 @@
-#[allow(unused_imports)]
-use std::sync::{Arc, OnceLock};
-
-use crate::app_state::{AppHelpers, FoxtiveState};
 #[cfg(feature = "redis")]
 use crate::cache::Cache;
+#[cfg(feature = "database")]
+use crate::database::DatabaseConnectionHelper;
+use crate::{FoxtiveHelpers, FoxtiveState};
 use crate::FOXTIVE;
+#[cfg(feature = "database")]
+use diesel::r2d2::ConnectionManager;
+#[cfg(feature = "database")]
+use diesel::{r2d2, PgConnection};
+#[allow(unused_imports)]
+use std::sync::{Arc, OnceLock};
+#[cfg(feature = "database")]
+use crate::prelude::AppResult;
 
 pub trait OnceLockHelper {
     fn app(&self) -> &FoxtiveState {
         FOXTIVE.get().unwrap()
     }
 
-    fn helpers(&self) -> &AppHelpers {
+    fn helpers(&self) -> &FoxtiveHelpers {
         &FOXTIVE.get().unwrap().helpers
     }
 
@@ -42,6 +49,11 @@ pub trait OnceLockHelper {
     #[cfg(feature = "redis")]
     fn cache(&self) -> Arc<Cache> {
         FOXTIVE.get().unwrap().cache.clone()
+    }
+
+    #[cfg(feature = "database")]
+    fn db_conn(&self) -> AppResult<r2d2::PooledConnection<ConnectionManager<PgConnection>>> {
+        self.app().database.connection()
     }
 }
 

@@ -44,36 +44,18 @@ pub struct FoxtiveState {
     #[cfg(feature = "rabbitmq")]
     pub rabbitmq: Arc<tokio::sync::Mutex<RabbitMQ>>,
 
-    /// personal access token prefix
-    #[cfg(feature = "jwt")]
-    pub auth_pat_prefix: String,
-
     /// authentication token lifetime (in minutes)
     #[cfg(feature = "jwt")]
     pub auth_token_lifetime: i64,
 
-    /// authentication issuer public key
-    #[cfg(feature = "jwt")]
-    pub auth_iss_public_key: String,
-
     #[cfg(feature = "redis")]
     pub cache: Arc<Cache>,
 
-    pub helpers: AppHelpers,
-}
-
-#[cfg(feature = "reqwest")]
-#[derive(Clone)]
-pub struct AppMailerConfig {
-    pub from_name: String,
-    pub from_email: String,
-    pub server_endpoint: String,
-    pub server_auth_token: String,
-    pub server_application_id: String,
+    pub helpers: FoxtiveHelpers,
 }
 
 #[derive(Clone)]
-pub struct AppHelpers {
+pub struct FoxtiveHelpers {
     #[cfg(feature = "jwt")]
     pub jwt: Arc<Jwt>,
     #[cfg(feature = "crypto")]
