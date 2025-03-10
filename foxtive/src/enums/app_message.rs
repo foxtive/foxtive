@@ -8,7 +8,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum AppMessage {
-    UnAuthorized,
+    Unauthorized,
     Forbidden,
     InternalServerError,
     ErrorMessage(String, StatusCode),
@@ -34,7 +34,7 @@ fn get_status_code(status: &AppMessage) -> StatusCode {
             StatusCode::BAD_REQUEST
         }
         AppMessage::ErrorMessage(_, status) => *status,
-        AppMessage::UnAuthorized
+        AppMessage::Unauthorized
         | AppMessage::UnAuthorizedMessage(_)
         | AppMessage::UnAuthorizedMessageString(_) => StatusCode::UNAUTHORIZED,
         AppMessage::Forbidden
