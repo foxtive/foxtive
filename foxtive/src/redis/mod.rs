@@ -175,12 +175,12 @@ impl Redis {
     /// ```
     /// use foxtive::redis::Redis;
     ///
-    /// async {
+    /// let fut = async {
     ///     Redis::poll_queue("my_queue".to_string(), None, None, |item| async move {
     ///         println!("Processing item: {}", item);
     ///         Ok(())
     ///     }).await;
-    /// }
+    /// };
     /// ```
     pub async fn poll_queue<F, Fut>(
         queue: String,

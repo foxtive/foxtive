@@ -59,8 +59,7 @@ impl Jwt {
     /// ```
     /// use foxtive::helpers::jwt::{Jwt, JwtTokenClaims};
     ///
-    /// let private_key = "private_key".to_string();
-    /// let public_key = "public_key".to_string();
+    /// let (private_key, public_key) = Jwt::dummy_keys();
     /// let jwt = Jwt::new(public_key, private_key, 60);
     /// ```
     pub fn new(public_key: String, private_key: String, token_lifetime: i64) -> Self {
@@ -84,8 +83,7 @@ impl Jwt {
     /// ```
     /// use foxtive::helpers::jwt::{Jwt, JwtTokenClaims};
     ///
-    /// let private_key = "private_key".to_string();
-    /// let public_key = "public_key".to_string();
+    /// let (public_key, private_key) = Jwt::dummy_keys();
     /// let jwt = Jwt::new(public_key, private_key, 60);
     ///
     /// let claims = JwtTokenClaims {
@@ -126,13 +124,24 @@ impl Jwt {
     ///
     /// ```
     /// use foxtive::helpers::jwt::{Jwt, Validation, JwtTokenClaims, Algorithm};
+    /// use foxtive::helpers::time::current_timestamp;
     ///
-    /// let private_key = "private_key".to_string();
-    /// let public_key = "public_key".to_string();
+    /// let (public_key, private_key) = Jwt::dummy_keys();
     /// let jwt = Jwt::new(public_key, private_key, 60);
     ///
-    /// let token = "my-jwt-token";
-    /// let val = Validation::new(Algorithm::RS256);
+    /// let claims = JwtTokenClaims {
+    ///     sub: "".to_string(),
+    ///     iat: current_timestamp() as usize,
+    ///     exp: (current_timestamp() + 100) as usize,
+    ///     iss: "example.com".to_string(),
+    ///     aud: "my-audience".to_string(),
+    ///     jti: "abc".to_string(),
+    /// };
+    ///
+    /// let token = jwt.generate(claims).unwrap().access_token;
+    ///
+    /// let mut val = Validation::new(Algorithm::RS256);
+    /// val.set_audience(&["my-audience"]);
     /// let claims = jwt.decode::<JwtTokenClaims>(&token, &val).unwrap();
     ///
     /// println!("Token Payload: {}", claims.claims.sub);
@@ -148,15 +157,12 @@ impl Jwt {
             val,
         )?)
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use jsonwebtoken::errors::{Error, ErrorKind};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn get_sample_keys() -> (String, String) {
+    /// Returns sample keys for testing purposes.
+    /// Returns a tuple of private and public keys.
+    /// # Returns
+    /// `(public_key, private_key)`
+    pub fn dummy_keys() -> (String, String) {
         // Replace with your actual test RSA keys or mock keys
         let private_key = "-----BEGIN RSA PRIVATE KEY-----
 MIIEogIBAAKCAQEA45YvzSUfRDq2wHp7kvgCn1wk6MVGyosLIf9nAutXNVA4DLDI
@@ -195,6 +201,13 @@ eTkx3HO0Z4DJuTLqgAtKDr/+CWhE+ROQQQIDAQAB
 -----END RSA PUBLIC KEY-----";
         (public_key.to_string(), private_key.to_string())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use jsonwebtoken::errors::{Error, ErrorKind};
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn get_sample_claim() -> JwtTokenClaims {
         JwtTokenClaims {
@@ -216,7 +229,7 @@ eTkx3HO0Z4DJuTLqgAtKDr/+CWhE+ROQQQIDAQAB
 
     #[test]
     fn test_jwt_new() {
-        let (public_key, private_key) = get_sample_keys();
+        let (public_key, private_key) = Jwt::dummy_keys();
         let jwt = Jwt::new(public_key.clone(), private_key.clone(), 60);
 
         assert_eq!(jwt.public_key, public_key);
@@ -226,35 +239,53 @@ eTkx3HO0Z4DJuTLqgAtKDr/+CWhE+ROQQQIDAQAB
 
     #[test]
     fn test_jwt_generate() {
-        let (public_key, private_key) = get_sample_keys();
+        let (public_key, private_key) = Jwt::dummy_keys();
+        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 1");
         let jwt = Jwt::new(public_key, private_key, 60);
 
+        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 2");
         let claims = get_sample_claim();
 
+        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 3");
         let result = jwt.generate(claims);
 
+        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 4");
+
         assert!(result.is_ok());
+
         let auth_token_data = result.unwrap();
         assert_eq!(auth_token_data.token_type, "bearer");
         assert_eq!(auth_token_data.expires_in, 60);
-        assert!(!auth_token_data.access_token.is_empty());
+        assert_eq!(auth_token_data.access_token.is_empty(), false);
     }
 
     #[test]
     fn test_jwt_decode() {
-        let (public_key, private_key) = get_sample_keys();
+        let (public_key, private_key) = Jwt::dummy_keys();
+        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 1");
         let jwt = Jwt::new(public_key.clone(), private_key, 60);
+        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 2");
 
         let claims = get_sample_claim();
+        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 3");
 
         let generated_token = jwt.generate(claims.clone()).unwrap();
+        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 4");
+
+        println!("GENERATED: {}", generated_token.access_token);
 
         let mut validation = Validation::new(Algorithm::RS256);
         validation.set_audience(&["test_audience"]);
-        let decoded = jwt.decode::<JwtTokenClaims>(&generated_token.access_token, &validation);
+        let decoded_claims = match jwt.decode::<JwtTokenClaims>(&generated_token.access_token, &validation) {
+            Ok(claims) => {
+                assert!(true);
+                claims.claims
+            },
+            Err(err) => {
+                panic!("Error decoding token: {err}");
+            }
+        };
 
-        assert!(decoded.is_ok());
-        let decoded_claims = decoded.unwrap().claims;
         assert_eq!(decoded_claims.sub, claims.sub);
         assert_eq!(decoded_claims.iat, claims.iat);
         assert_eq!(decoded_claims.exp, claims.exp);
@@ -263,7 +294,7 @@ eTkx3HO0Z4DJuTLqgAtKDr/+CWhE+ROQQQIDAQAB
 
     #[test]
     fn test_jwt_decode_invalid_token() {
-        let (public_key, private_key) = get_sample_keys();
+        let (public_key, private_key) = Jwt::dummy_keys();
         let jwt = Jwt::new(public_key, private_key, 60);
 
         let invalid_token = "invalid_token";
