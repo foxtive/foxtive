@@ -1124,7 +1124,7 @@ dependencies = [
 
 [[package]]
 name = "foxtive-macros"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "quote",
  "syn",
