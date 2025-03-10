@@ -68,9 +68,12 @@ jobs:
           fi
 
           for CRATE in $CHANGED_CRATES; do
+            echo -e "\n"
+            echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
             echo "Running Clippy and Tests for crate: $CRATE"
             cargo clippy --package $CRATE --all-targets --all-features
             cargo test --package $CRATE --all-features
+            echo "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
           done
 
   release:
@@ -90,6 +93,8 @@ jobs:
           target: x86_64-unknown-linux-gnu
 
       - name: Publish changed crates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           CHANGED_CRATES="${{ needs.detect-changes.outputs.changed_crates }}"
           if [ -z "$CHANGED_CRATES" ]; then
@@ -98,8 +103,11 @@ jobs:
           fi
 
           for CRATE in $CHANGED_CRATES; do
+            echo -e "\n"
+            echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
             echo "Changes detected in $CRATE, publishing..."
             cargo publish -p $CRATE
+            echo "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
           done
 
   lint-code:
