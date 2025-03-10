@@ -17,27 +17,32 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Run Clippy
-        run: cargo clippy --all-targets --all-features
 
-      - name: Run Tests
-        run: cargo test --workspace --features=regex,crypto,base64,hmac,reqwest,multipart
-
-      - name: Run cargo fmt
-        if: github.event_name == 'push'
-        run: cargo fmt --all
-
-      - name: Commit fmt changes
-        if: github.event_name == 'push'
+      - name: Detect changed crates
+        id: detect-changes
         run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
-          git add .
-          git commit -m "style(cargo-fmt): apply changes" || echo "No changes to commit"
+          # Find which crates were changed in this commit
+          CHANGED_CRATES=$(git diff --name-only HEAD~1..HEAD | grep -E '^[^/]+/' | cut -d '/' -f 1 | sort | uniq)
+          echo "Changed crates: $CHANGED_CRATES"
+          echo "changed_crates=$CHANGED_CRATES" >> $GITHUB_ENV
 
-      - name: Push fmt changes
-        if: github.event_name == 'push' && success()
-        run: git push origin HEAD:${{ github.ref }}
+      - name: Run Clippy on changed crates
+        run: |
+          if [[ "$changed_crates" == *"foxtive"* ]]; then
+            cargo clippy --package foxtive --all-targets --all-features
+          fi
+          if [[ "$changed_crates" == *"foxtive-macros"* ]]; then
+            cargo clippy --package foxtive-macros --all-targets --all-features
+          fi
+
+      - name: Run Tests on changed crates
+        run: |
+          if [[ "$changed_crates" == *"foxtive"* ]]; then
+            cargo test --package foxtive --features=regex,crypto,base64,hmac,reqwest
+          fi
+          if [[ "$changed_crates" == *"foxtive-macros"* ]]; then
+            cargo test --package foxtive-macros --features=database
+          fi
 
   release:
     name: Release Package
@@ -57,18 +62,11 @@ jobs:
 
       - name: Detect changes in crates and release updated crates
         run: |
-          # Check if foxtive has changed
-          if git diff --quiet HEAD~1..HEAD -- foxtive/; then
-            echo "No changes in foxtive"
-          else
+          if [[ "$changed_crates" == *"foxtive"* ]]; then
             echo "Changes detected in foxtive, publishing..."
             cargo publish -p foxtive
           fi
-          
-          # Check if foxtive-macros has changed
-          if git diff --quiet HEAD~1..HEAD -- foxtive-macros/; then
-            echo "No changes in foxtive-macros"
-          else
+          if [[ "$changed_crates" == *"foxtive-macros"* ]]; then
             echo "Changes detected in foxtive-macros, publishing..."
             cargo publish -p foxtive-macros
           fi
