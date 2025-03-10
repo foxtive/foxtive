@@ -1,10 +1,10 @@
 #[cfg(feature = "reqwest")]
 use crate::helpers::reqwest::ReqwestResponseError;
+use crate::results::AppResult;
 use http::StatusCode;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
-use crate::results::AppResult;
 
 #[derive(Error, Debug)]
 pub enum AppMessage {
@@ -51,19 +51,33 @@ impl Display for AppMessage {
 }
 
 impl AppMessage {
+    /// Get the status code
     pub fn status_code(&self) -> StatusCode {
         get_status_code(self)
     }
 
+    /// Get the message
     pub fn message(&self) -> String {
         #[allow(deprecated)]
         self.description().to_string()
     }
 
+    /// Convert to anyhow::Error
+    pub fn ah(self) -> anyhow::Error {
+        self.into_anyhow()
+    }
+
+    /// Convert to AppResult
+    pub fn ahr<T>(self) -> AppResult<T> {
+        self.into_result::<T>()
+    }
+
+    /// Convert to anyhow::Error
     pub fn into_anyhow(self) -> anyhow::Error {
         anyhow::Error::from(self)
     }
 
+    /// Convert to AppResult
     pub fn into_result<T>(self) -> AppResult<T> {
         Err(anyhow::Error::from(self))
     }
