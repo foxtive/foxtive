@@ -1,6 +1,6 @@
 [package]
 name = "foxtive-macros"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "MIT"
 description = "Foxtive Macros"
@@ -10,6 +10,9 @@ authors = ["ahmard"]
 [lib]
 proc-macro = true
 
+[features]
+database = []
+
 [dependencies]
-quote = { version = "1.0.39" }
-syn = { version = "2.0.100", features = ["full"] }
+quote = { version = "1.0" }
+syn = { version = "2.0", features = ["full"] }
