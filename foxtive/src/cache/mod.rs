@@ -1,9 +1,9 @@
-use std::future::Future;
-use std::sync::Arc;
 use anyhow::Error;
 use log::{debug, error};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use std::future::Future;
+use std::sync::Arc;
 
 use crate::prelude::Redis;
 use crate::results::AppResult;
@@ -34,9 +34,7 @@ impl Cache {
 
         match data {
             None => Ok(None),
-            Some(data) => Ok(Some(
-                serde_json::from_str::<T>(&data).map_err(Error::msg)?,
-            )),
+            Some(data) => Ok(Some(serde_json::from_str::<T>(&data).map_err(Error::msg)?)),
         }
     }
 

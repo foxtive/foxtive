@@ -14,6 +14,7 @@ use crate::prelude::Redis;
 use crate::rabbitmq::conn::establish_rabbit_connection_pool;
 #[cfg(feature = "redis")]
 use crate::redis::conn::establish_redis_connection_pool;
+use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
 #[cfg(feature = "database")]
 use diesel::r2d2::ConnectionManager;
 #[cfg(feature = "database")]
@@ -25,7 +26,6 @@ use std::sync::Arc;
 use std::{env, fs};
 #[cfg(feature = "templating")]
 use tera::Tera;
-use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
 
 pub(crate) mod state;
 

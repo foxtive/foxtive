@@ -25,7 +25,9 @@ impl<T> IntoAppResult<T> for QueryResult<T> {
     fn into_app_result(self) -> AppResult<T> {
         match self {
             Ok(value) => Ok(value),
-            Err(Error::NotFound) => Err(crate::prelude::AppMessage::EntityNotFound("".to_string()).into()),
+            Err(Error::NotFound) => {
+                Err(crate::prelude::AppMessage::EntityNotFound("".to_string()).into())
+            }
             Err(e) => Err(e.into()),
         }
     }

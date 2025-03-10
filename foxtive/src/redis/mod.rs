@@ -1,6 +1,8 @@
 use crate::prelude::{AppResult, OnceLockHelper};
+use crate::redis::conn::establish_redis_connection;
 use crate::results::redis_result::RedisResultToAppResult;
 use crate::FOXTIVE;
+use anyhow::Error;
 use futures_util::StreamExt;
 use log::{error, info};
 use redis::{AsyncCommands, FromRedisValue};
@@ -8,10 +10,8 @@ use serde::Serialize;
 use std::future::Future;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::time::Duration;
-use anyhow::Error;
 use tokio::runtime::Handle;
 use tokio::time;
-use crate::redis::conn::establish_redis_connection;
 
 pub mod conn;
 
@@ -57,7 +57,11 @@ impl Redis {
         conn.publish(channel, content).await.into_app_result()
     }
 
-    pub async fn rpop<V: FromRedisValue>(&self, key: &str, count: Option<NonZeroUsize>) -> AppResult<V> {
+    pub async fn rpop<V: FromRedisValue>(
+        &self,
+        key: &str,
+        count: Option<NonZeroUsize>,
+    ) -> AppResult<V> {
         let mut conn = self.redis().await?;
         conn.rpop(key, count).await.into_app_result()
     }
@@ -70,7 +74,11 @@ impl Redis {
     }
 
     // Left pop (remove from the front of a list)
-    pub async fn lpop<V: FromRedisValue>(&self, key: &str, count: Option<NonZeroUsize>) -> AppResult<V> {
+    pub async fn lpop<V: FromRedisValue>(
+        &self,
+        key: &str,
+        count: Option<NonZeroUsize>,
+    ) -> AppResult<V> {
         let mut conn = self.redis().await?;
         conn.lpop(key, count).await.into_app_result()
     }
@@ -120,7 +128,12 @@ impl Redis {
     }
 
     /// Retrieve a range of elements from a list
-    pub async fn lrange<T: FromRedisValue>(&self, key: &str, start: isize, stop: isize) -> AppResult<Vec<T>> {
+    pub async fn lrange<T: FromRedisValue>(
+        &self,
+        key: &str,
+        start: isize,
+        stop: isize,
+    ) -> AppResult<Vec<T>> {
         let mut conn = self.redis().await?;
         conn.lrange(key, start, stop).await.into_app_result()
     }
@@ -135,13 +148,19 @@ impl Redis {
     /// Flush all keys in the database
     pub async fn flush_all(&self) -> AppResult<()> {
         let mut conn = self.redis().await?;
-        redis::cmd("FLUSHALL").query_async(&mut *conn).await.into_app_result()
+        redis::cmd("FLUSHALL")
+            .query_async(&mut *conn)
+            .await
+            .into_app_result()
     }
 
     /// Flush all keys in the database
     pub async fn flush_db(&self) -> AppResult<()> {
         let mut conn = self.redis().await?;
-        redis::cmd("FLUSHDB").query_async(&mut *conn).await.into_app_result()
+        redis::cmd("FLUSHDB")
+            .query_async(&mut *conn)
+            .await
+            .into_app_result()
     }
 
     /// Polls a Redis queue at a given interval and processes items using `func`
@@ -173,7 +192,9 @@ impl Redis {
         Fut: Future<Output = AppResult<()>> + Send + 'static,
     {
         info!("[queue] polling: {}", queue);
-        let mut interval = time::interval(Duration::from_micros(interval.map(|v| v.get()).unwrap_or(500_000)));
+        let mut interval = time::interval(Duration::from_micros(
+            interval.map(|v| v.get()).unwrap_or(500_000),
+        ));
 
         loop {
             match FOXTIVE.redis().rpop(&queue, len).await {

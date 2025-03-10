@@ -1,8 +1,10 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
+    braced,
     parse::{Parse, ParseStream},
-    punctuated::Punctuated, braced, Ident, Token, Variant,
+    punctuated::Punctuated,
+    Ident, Token, Variant,
 };
 
 /// Struct to parse macro input
@@ -18,13 +20,19 @@ impl Parse for EnumInput {
         braced!(content in input); // Parse variants inside `{}`
 
         let variants = Punctuated::<Variant, Token![,]>::parse_terminated(&content)?;
-        Ok(EnumInput { enum_name, variants })
+        Ok(EnumInput {
+            enum_name,
+            variants,
+        })
     }
 }
 
 /// Procedural macro to generate a simple Rust enum with Strum traits
 pub fn generate_enum(input: TokenStream) -> TokenStream {
-    let EnumInput { enum_name, variants } = syn::parse_macro_input!(input as EnumInput);
+    let EnumInput {
+        enum_name,
+        variants,
+    } = syn::parse_macro_input!(input as EnumInput);
 
     let expanded = quote! {
         #[derive(strum_macros::EnumString, strum_macros::Display, Clone, Eq, PartialEq)]
