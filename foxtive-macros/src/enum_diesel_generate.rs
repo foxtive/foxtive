@@ -15,8 +15,8 @@ pub fn generate_diesel_enum(input: TokenStream) -> TokenStream {
             #variants
         }
 
-        foxtive::impl_enum_common_traits!(#enum_name);
-        foxtive::impl_enum_diesel_traits!(#enum_name);
+        foxtive_macros::impl_enum_common_traits!(#enum_name);
+        foxtive_macros::impl_enum_diesel_traits!(#enum_name);
     };
 
     expanded.into()
@@ -49,10 +49,10 @@ pub fn generate_diesel_enum(input: TokenStream) -> TokenStream {
 //             #variants
 //         }
 //
-//         foxtive::impl_enum_common_traits!(#enum_name);
+//         foxtive_macros::impl_enum_common_traits!(#enum_name);
 //
 //         #[cfg(feature = #feature_name)]
-//         foxtive::impl_enum_diesel_traits!(#enum_name);
+//         foxtive_macros::impl_enum_diesel_traits!(#enum_name);
 //     };
 //
 //     expanded.into()
