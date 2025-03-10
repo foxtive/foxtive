@@ -64,7 +64,7 @@ pub fn impl_enum_display_trait(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         impl std::fmt::Display for #variant_name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.write_str(self.as_ref())
+                f.write_str(self.as_str())
             }
         }
     };

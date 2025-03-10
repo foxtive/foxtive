@@ -1091,7 +1091,7 @@ dependencies = [
 
 [[package]]
 name = "foxtive"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1124,7 +1124,7 @@ dependencies = [
 
 [[package]]
 name = "foxtive-macros"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "quote",
  "syn",
