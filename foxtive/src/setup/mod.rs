@@ -102,6 +102,9 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
         tera: tera_templating,
 
         #[cfg(feature = "jwt")]
+        auth_iss_public_key: setup.auth_iss_public_key,
+
+        #[cfg(feature = "jwt")]
         auth_token_lifetime: env::var(format!("{}_AUTH_TOKEN_LIFETIME", env_prefix))
             .unwrap()
             .parse()

@@ -44,6 +44,10 @@ pub struct FoxtiveState {
     #[cfg(feature = "rabbitmq")]
     pub rabbitmq: Arc<tokio::sync::Mutex<RabbitMQ>>,
 
+    /// authentication issuer public key
+    #[cfg(feature = "jwt")]
+    pub auth_iss_public_key: String,
+
     /// authentication token lifetime (in minutes)
     #[cfg(feature = "jwt")]
     pub auth_token_lifetime: i64,
