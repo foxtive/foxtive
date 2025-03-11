@@ -1,6 +1,6 @@
-use crate::Error;
 use crate::ext::RecoverAppResultExt;
 use crate::prelude::{AppMessage, AppResult};
+use crate::Error;
 
 impl<T> RecoverAppResultExt<T> for AppResult<T> {
     fn recover_from<F>(self, func: F) -> AppResult<T>

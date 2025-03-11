@@ -13,12 +13,12 @@ pub mod cache;
 #[cfg(feature = "database")]
 pub mod database;
 pub mod env_logger;
+pub mod ext;
+mod ext_impl;
 #[cfg(feature = "rabbitmq")]
 pub mod rabbitmq;
 pub mod setup;
 pub mod tokio;
-mod ext_impl;
-pub mod ext;
 
 pub static FOXTIVE: OnceLock<FoxtiveState> = OnceLock::new();
 
