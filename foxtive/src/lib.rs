@@ -17,6 +17,8 @@ pub mod env_logger;
 pub mod rabbitmq;
 pub mod setup;
 pub mod tokio;
+mod ext_impl;
+pub mod ext;
 
 pub static FOXTIVE: OnceLock<FoxtiveState> = OnceLock::new();
 
@@ -31,5 +33,4 @@ pub mod prelude {
     #[cfg(feature = "redis")]
     pub use crate::redis::Redis;
     pub use crate::results::{app_result::IntoAppResult, AppResult};
-    pub use crate::FOXTIVE;
 }
