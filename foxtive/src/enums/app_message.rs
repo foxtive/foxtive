@@ -40,6 +40,9 @@ fn get_status_code(status: &AppMessage) -> StatusCode {
         AppMessage::Forbidden
         | AppMessage::ForbiddenMessage(_)
         | AppMessage::ForbiddenMessageString(_) => StatusCode::FORBIDDEN,
+        AppMessage::EntityNotFound(_) => StatusCode::NOT_FOUND,
+        #[cfg(feature = "reqwest")]
+        AppMessage::ReqwestResponseError(err) => *err.code(),
         _ => StatusCode::INTERNAL_SERVER_ERROR, // all database-related errors are 500
     }
 }

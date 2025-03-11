@@ -1,10 +1,16 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.5.1
+* fix(app-message): map other variants with status code
+
+### 0.5.0
+* feat(app-result): 'recover_from' to recover error from AppResult<T>
+
 ### 0.4.1
-* Added `AppResult<T>.map_app_msg(|m| m)`
+* added `AppResult<T>.map_app_msg(|m| m)`
 
 ### 0.4.0
-* Added database shareable ext
-* Move database traits to 'ext' folder
+* added database shareable ext
+* move database traits to 'ext' folder
 * impl From<crate::Error> for AppMessage 
