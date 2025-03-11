@@ -9,7 +9,7 @@ pub fn json_empty() -> JsonEmpty {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct JsonResponse<T: Serialize> {
+pub struct JsonResponse<T> {
     pub code: String,
     pub success: bool,
     pub timestamp: u64,
