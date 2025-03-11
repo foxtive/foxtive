@@ -82,3 +82,14 @@ impl AppMessage {
         Err(anyhow::Error::from(self))
     }
 }
+
+impl From<crate::Error> for AppMessage {
+    fn from(value: anyhow::Error) -> Self {
+        value.downcast::<AppMessage>().unwrap_or_else(|e| {
+            AppMessage::ErrorMessage(
+                e.to_string(),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            )
+        })
+    }
+}

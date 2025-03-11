@@ -1,7 +1,7 @@
 #[cfg(feature = "redis")]
 use crate::cache::Cache;
 #[cfg(feature = "database")]
-use crate::database::DatabaseConnectionHelper;
+use crate::database::ext::DatabaseConnectionExt;
 #[cfg(feature = "database")]
 use crate::prelude::AppResult;
 use crate::FOXTIVE;
