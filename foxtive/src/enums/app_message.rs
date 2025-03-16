@@ -6,7 +6,7 @@ use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum AppMessage {
     Unauthorized,
     Forbidden,
