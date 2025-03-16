@@ -1,6 +1,6 @@
 [package]
 name = "foxtive"
-version = "0.5.1"
+version = "0.6.0"
 edition = "2021"
 license = "MIT"
 description = "Foxtive Framework"
@@ -35,25 +35,25 @@ redis = { version = "0.29.1", default-features = false, optional = true, feature
 ] }
 deadpool-redis = { version = "0.20.0", features = ["rt_tokio_1"], optional = true }
 
-http = "1.2.0"
+http = "1.3.1"
 thiserror = "2.0.12"
-uuid = { version = "1.15.1", features = ["v4", "serde"] }
+uuid = { version = "1.16.0", features = ["v4", "serde"] }
 log = { version = "0.4.26" }
 serde = { version = "1.0.219", features = ["derive"] }
-tokio = { version = "1.44.0", features = ["rt-multi-thread", "macros", "time"] }
-chrono = { version = "0.4.40", features = ["serde"] }
+tokio = { version = "1.44.1", default-features = false }
+chrono = { version = "0.4.40", default-features = false }
 dotenv = { version = "0.15.0" }
 env_logger = { version = "0.11.7" }
-serde_json = { version = "1.0.140", features = ["raw_value"] }
-futures-util = { version = "0.3.31" }
+serde_json = { version = "1.0.140", default-features = false }
+futures-util = { version = "0.3.31", default-features = false }
 base64 = { version = "0.22.1", optional = true }
 hex = { version = "0.4.3", optional = true }
 sha2 = { version = "0.10.8", optional = true }
 hmac = { version = "0.12.1", optional = true }
 fancy-regex = { version = "0.14.0", optional = true }
 tera = { version = "1.20.0", optional = true }
-reqwest = { version = "0.12.12", features = ["json"], optional = true }
-diesel = { version = "2.2.8", features = ["postgres", "r2d2", "uuid", "chrono", "serde_json"], optional = true }
+reqwest = { version = "0.12.14", features = ["json"], optional = true }
+diesel = { version = "2.2.8", features = ["postgres", "r2d2"], optional = true }
 jsonwebtoken = { version = "9.3.1", optional = true }
 strum = { version = "0.27.1", default-features = false, features = ["std"], optional = true }
 rust-argon2 = { version = "2.1.0", optional = true }

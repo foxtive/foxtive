@@ -3,6 +3,7 @@ Foxtive changelog file
 
 ### 0.6.0
 * feat(app-message): impl Clone
+* fix(crates): remove unused features
 
 ### 0.5.1
 * fix(app-message): map other variants with status code
