@@ -4,6 +4,7 @@ use reqwest::StatusCode;
 use serde::de::DeserializeOwned;
 use std::fmt::{Debug, Display, Formatter};
 
+#[derive(Clone)]
 pub struct ReqwestResponseError {
     body: String,
     status: StatusCode,
