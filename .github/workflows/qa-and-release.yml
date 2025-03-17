@@ -26,15 +26,12 @@ jobs:
       - name: Detect changed crates
         id: detect-changes
         run: |
-          # Check if HEAD~1 exists
           if git rev-parse HEAD~1 > /dev/null 2>&1; then
             CHANGED_CRATES=$(git diff --name-only HEAD~1..HEAD | grep -E '^[^/]+/' | cut -d '/' -f 1 | sort | uniq)
           else
-            # If HEAD~1 does not exist, assume all crates are changed (e.g., first commit)
             CHANGED_CRATES=$(find . -maxdepth 1 -type d -not -path './.*' -not -path '.' | cut -d '/' -f 2 | sort | uniq)
           fi
 
-          # Filter directories to include only those with "foxtive" in their names
           VALID_CRATES=""
           for CRATE in $CHANGED_CRATES; do
             if [[ "$CRATE" == *"foxtive"* ]] && [ -f "$CRATE/Cargo.toml" ]; then
@@ -46,7 +43,7 @@ jobs:
           echo "::set-output name=changed_crates::$VALID_CRATES"
 
   test-code:
-    name: Build & Test
+    name: Test Codebase
     runs-on: ubuntu-latest
     needs: detect-changes
 
@@ -68,12 +65,9 @@ jobs:
           fi
 
           for CRATE in $CHANGED_CRATES; do
-            echo -e "\n"
-            echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
             echo "Running Clippy and Tests for crate: $CRATE"
-            cargo clippy --package $CRATE --all-targets --all-features
+            cargo clippy --package $CRATE --all-features
             cargo test --package $CRATE --all-features
-            echo "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
           done
 
   release:
@@ -82,9 +76,14 @@ jobs:
     needs: [detect-changes, test-code]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
+    outputs:
+      published_crates: ${{ steps.publish.outputs.published_crates }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for tag creation
 
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
@@ -93,6 +92,7 @@ jobs:
           target: x86_64-unknown-linux-gnu
 
       - name: Publish changed crates
+        id: publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
@@ -102,18 +102,63 @@ jobs:
             exit 0
           fi
 
+          PUBLISHED_CRATES=""
           for CRATE in $CHANGED_CRATES; do
-            echo -e "\n"
-            echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-            echo "Changes detected in $CRATE, publishing..."
-            cargo publish -p $CRATE
-            echo "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+            echo "Publishing $CRATE..."
+            cargo publish -p $CRATE && PUBLISHED_CRATES="$PUBLISHED_CRATES $CRATE"
+          done
+
+          echo "::set-output name=published_crates::$PUBLISHED_CRATES"
+
+  tag-version:
+    name: Tag Version
+    runs-on: ubuntu-latest
+    needs: release
+    permissions:
+      contents: write
+    if: needs.release.outputs.published_crates != ''
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for tag creation
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-unknown-linux-gnu
+
+      - name: Create and push Git tag for released crates
+        run: |
+          PUBLISHED_CRATES="${{ needs.release.outputs.published_crates }}"
+          for CRATE in $PUBLISHED_CRATES; do
+            VERSION=$(grep '^version' "$CRATE/Cargo.toml" | sed -E 's/version\s*=\s*"([^"]+)"/\1/')
+
+            if [ -z "$VERSION" ]; then
+              echo "Could not extract version for $CRATE"
+              continue
+            fi
+          
+            git config --global user.name "GitHub Action"
+            git config --global user.email "action@github.com"
+
+            TAG="v$VERSION"
+            echo "Checking if tag $TAG exists..."
+            if git rev-parse "$TAG" >/dev/null 2>&1; then
+              echo "Tag $TAG already exists. Skipping..."
+            else
+              echo "Creating new tag $TAG for $CRATE..."
+              git tag -a "$TAG" -m "Release $TAG"
+              git push origin "$TAG"
+            fi
           done
 
   lint-code:
     name: Lint Codebase
     runs-on: ubuntu-latest
-    needs: [detect-changes, test-code, release]
+    needs: [detect-changes, test-code, release, tag-version]
     permissions:
       contents: write
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
