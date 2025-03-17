@@ -76,6 +76,7 @@ impl AppMessage {
             AppMessage::ForbiddenMessage(msg) => msg.to_string(),
             AppMessage::ForbiddenMessageString(msg) => msg.to_string(),
             AppMessage::EntityNotFound(msg) => msg.to_string(),
+            #[cfg(feature = "reqwest")]
             AppMessage::ReqwestResponseError(_) => "Internal Server Error".to_string(),
         }
     }
