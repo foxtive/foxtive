@@ -2,7 +2,6 @@
 use crate::helpers::reqwest::ReqwestResponseError;
 use crate::results::AppResult;
 use http::StatusCode;
-use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 
@@ -61,8 +60,24 @@ impl AppMessage {
 
     /// Get the message
     pub fn message(&self) -> String {
-        #[allow(deprecated)]
-        self.description().to_string()
+        match self {
+            AppMessage::Unauthorized => "Unauthorized".to_string(),
+            AppMessage::Forbidden => "Forbidden".to_string(),
+            AppMessage::InternalServerError => "Internal Server Error".to_string(),
+            AppMessage::ErrorMessage(msg, _) => msg.to_owned(),
+            AppMessage::InternalServerErrorMessage(msg) => msg.to_string(),
+            AppMessage::Redirect(msg) => msg.to_string(),
+            AppMessage::SuccessMessage(msg) => msg.to_string(),
+            AppMessage::SuccessMessageString(msg) => msg.to_string(),
+            AppMessage::WarningMessage(msg) => msg.to_string(),
+            AppMessage::WarningMessageString(msg) => msg.to_string(),
+            AppMessage::UnAuthorizedMessage(msg) => msg.to_string(),
+            AppMessage::UnAuthorizedMessageString(msg) => msg.to_string(),
+            AppMessage::ForbiddenMessage(msg) => msg.to_string(),
+            AppMessage::ForbiddenMessageString(msg) => msg.to_string(),
+            AppMessage::EntityNotFound(msg) => msg.to_string(),
+            AppMessage::ReqwestResponseError(_) => "Internal Server Error".to_string(),
+        }
     }
 
     /// Convert to anyhow::Error
