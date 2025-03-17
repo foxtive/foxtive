@@ -1,6 +1,10 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.6.1 (2024-03-17)
+* fix(app-message): .message() should return error message
+* feat(workflow): tag version after release
+
 ### 0.6.0
 * feat(app-message): impl Clone
 * fix(crates): remove unused features
