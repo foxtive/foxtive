@@ -6,3 +6,7 @@ pub trait RecoverAppResultExt<T> {
     where
         F: FnOnce(AppMessage) -> AppResult<T>;
 }
+
+pub trait AppErrorExt {
+    fn message(&self) -> String;
+}
