@@ -4,6 +4,7 @@ Foxtive changelog file
 ### 0.6.2 (2024-03-22)
 * fix(app-message): redirect status code is 302
 * test(app-message): cover some cases
+* feat(app-error): add AppErrorExt to provide .message() on error object
 
 ### 0.6.1 (2024-03-17)
 * fix(app-message): .message() should return error message
