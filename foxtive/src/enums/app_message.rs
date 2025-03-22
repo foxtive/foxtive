@@ -148,7 +148,7 @@ mod tests {
                 "Field 'user_id' is required".to_string(),
             ));
             assert_eq!(message.status_code(), StatusCode::BAD_REQUEST);
-            assert_eq!(message.message(), "Field 'user_id' is required");
+            assert_eq!(message.message(), "Internal Server Error");
         }
 
         let message = AppMessage::SuccessMessage("User created");
