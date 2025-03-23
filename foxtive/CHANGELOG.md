@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.6.3 (2024-03-23)
+* feat(pagination-result): added PaginationResultExt trait to provide .map_page_data()
+
 ### 0.6.2 (2024-03-22)
 * fix(app-message): redirect status code is 302
 * test(app-message): cover some cases

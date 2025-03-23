@@ -1,6 +1,4 @@
-use crate::database::ext::{
-    DatabaseConnectionExt, OptionalResultExt, ShareablePaginationResultExt, ShareableResultExt,
-};
+use crate::database::ext::{DatabaseConnectionExt, OptionalResultExt, PaginationResultExt, ShareablePaginationResultExt, ShareableResultExt};
 use crate::database::{DBPool, Model};
 use crate::prelude::AppMessage::EntityNotFound;
 use crate::prelude::AppResult;
@@ -59,5 +57,11 @@ impl<'a, T> OptionalResultExt<'a, T> for QueryResult<T> {
             Err(Error::NotFound) => Ok(false),
             Err(e) => Err(e.into()),
         }
+    }
+}
+
+impl<T> PaginationResultExt<T> for AppPaginationResult<T> {
+    fn map_page_data<U>(self, mapper: fn(T) -> U) -> AppPaginationResult<U> {
+        self.map(|paged| paged.format(mapper))
     }
 }

@@ -22,3 +22,7 @@ pub trait OptionalResultExt<'a, T> {
 pub trait DatabaseConnectionExt {
     fn connection(&self) -> AppResult<PooledConnection<ConnectionManager<PgConnection>>>;
 }
+
+pub trait PaginationResultExt<T> {
+    fn map_page_data<U>(self, mapper: fn(T) -> U) -> AppPaginationResult<U>;
+}
