@@ -2,6 +2,7 @@
 use crate::helpers::reqwest::ReqwestResponseError;
 use crate::results::AppResult;
 use http::StatusCode;
+use log::{error, info};
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 
@@ -89,6 +90,14 @@ impl AppMessage {
     /// Check if the message is an error
     pub fn is_error(&self) -> bool {
         !self.is_success()
+    }
+
+    /// Log the message
+    pub fn log(self) {
+        match self.is_success() {
+            true => info!("{}", self.message()),
+            false => error!("{}", self.message()),
+        }
     }
 
     /// Convert to anyhow::Error
@@ -202,7 +211,8 @@ mod tests {
 
     #[test]
     fn test_app_message_ar() {
-        let result = AppMessage::ErrorMessage("Y2k huh?".to_string(), StatusCode::BAD_REQUEST).ar::<()>();
+        let result =
+            AppMessage::ErrorMessage("Y2k huh?".to_string(), StatusCode::BAD_REQUEST).ar::<()>();
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "Y2k huh?");
     }

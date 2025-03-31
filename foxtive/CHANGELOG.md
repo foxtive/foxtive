@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.6.4 (2024-03-31)
+* feat(app-message): add 'is_success()', 'is_error()' & 'log()'
+
 ### 0.6.3 (2024-03-23)
 * feat(pagination-result): added PaginationResultExt trait to provide .map_page_data()
 
