@@ -93,7 +93,7 @@ impl AppMessage {
     }
 
     /// Log the message
-    pub fn log(self) {
+    pub fn log(&self) {
         match self.is_success() {
             true => info!("{}", self.message()),
             false => error!("{}", self.message()),
