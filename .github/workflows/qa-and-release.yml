@@ -140,11 +140,11 @@ jobs:
               echo "Could not extract version for $CRATE"
               continue
             fi
-          
+
             git config --global user.name "GitHub Action"
             git config --global user.email "action@github.com"
 
-            TAG="v$VERSION"
+            TAG="$CRATE-$VERSION"
             echo "Checking if tag $TAG exists..."
             if git rev-parse "$TAG" >/dev/null 2>&1; then
               echo "Tag $TAG already exists. Skipping..."

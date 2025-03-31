@@ -439,7 +439,7 @@ impl RabbitMQ {
                 ChannelState::Closed | ChannelState::Closing | ChannelState::Error => {
                     warn!(
                         "Channel({}) is not usable: {state:?}, recreating...",
-                        channel.id().to_string()
+                        channel.id()
                     );
                     self.recreate_channel(is_publish_channel).await?;
                 }
@@ -504,7 +504,7 @@ impl RabbitMQ {
             }
         };
 
-        info!("Channel({}) recreation completed", channel.id().to_string());
+        info!("Channel({}) recreation completed", channel.id());
 
         // Run the user-provided setup function
         self.setup().await?;

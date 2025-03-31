@@ -2,6 +2,7 @@
 use crate::helpers::reqwest::ReqwestResponseError;
 use crate::results::AppResult;
 use http::StatusCode;
+use log::{error, info};
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 
@@ -26,27 +27,6 @@ pub enum AppMessage {
     ReqwestResponseError(ReqwestResponseError),
 }
 
-fn get_status_code(status: &AppMessage) -> StatusCode {
-    match status {
-        AppMessage::SuccessMessage(_) | AppMessage::SuccessMessageString(_) => StatusCode::OK,
-        AppMessage::WarningMessage(_) | AppMessage::WarningMessageString(_) => {
-            StatusCode::BAD_REQUEST
-        }
-        AppMessage::ErrorMessage(_, status) => *status,
-        AppMessage::Unauthorized
-        | AppMessage::UnAuthorizedMessage(_)
-        | AppMessage::UnAuthorizedMessageString(_) => StatusCode::UNAUTHORIZED,
-        AppMessage::Forbidden
-        | AppMessage::ForbiddenMessage(_)
-        | AppMessage::ForbiddenMessageString(_) => StatusCode::FORBIDDEN,
-        AppMessage::EntityNotFound(_) => StatusCode::NOT_FOUND,
-        #[cfg(feature = "reqwest")]
-        AppMessage::ReqwestResponseError(err) => *err.code(),
-        AppMessage::Redirect(_) => StatusCode::FOUND,
-        _ => StatusCode::INTERNAL_SERVER_ERROR, // all database-related errors are 500
-    }
-}
-
 impl Display for AppMessage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.message())
@@ -56,7 +36,24 @@ impl Display for AppMessage {
 impl AppMessage {
     /// Get the status code
     pub fn status_code(&self) -> StatusCode {
-        get_status_code(self)
+        match self {
+            AppMessage::SuccessMessage(_) | AppMessage::SuccessMessageString(_) => StatusCode::OK,
+            AppMessage::WarningMessage(_) | AppMessage::WarningMessageString(_) => {
+                StatusCode::BAD_REQUEST
+            }
+            AppMessage::ErrorMessage(_, status) => *status,
+            AppMessage::Unauthorized
+            | AppMessage::UnAuthorizedMessage(_)
+            | AppMessage::UnAuthorizedMessageString(_) => StatusCode::UNAUTHORIZED,
+            AppMessage::Forbidden
+            | AppMessage::ForbiddenMessage(_)
+            | AppMessage::ForbiddenMessageString(_) => StatusCode::FORBIDDEN,
+            AppMessage::EntityNotFound(_) => StatusCode::NOT_FOUND,
+            #[cfg(feature = "reqwest")]
+            AppMessage::ReqwestResponseError(err) => *err.code(),
+            AppMessage::Redirect(_) => StatusCode::FOUND,
+            _ => StatusCode::INTERNAL_SERVER_ERROR, // all database-related errors are 500
+        }
     }
 
     /// Get the message
@@ -76,9 +73,30 @@ impl AppMessage {
             AppMessage::UnAuthorizedMessageString(msg) => msg.to_string(),
             AppMessage::ForbiddenMessage(msg) => msg.to_string(),
             AppMessage::ForbiddenMessageString(msg) => msg.to_string(),
-            AppMessage::EntityNotFound(entity) => format!("Such {} does not exits", entity),
+            AppMessage::EntityNotFound(entity) => format!("Such {} does not exist", entity),
             #[cfg(feature = "reqwest")]
             AppMessage::ReqwestResponseError(_) => "Internal Server Error".to_string(),
+        }
+    }
+
+    /// Check if the message is a success
+    pub fn is_success(&self) -> bool {
+        matches!(
+            self,
+            AppMessage::SuccessMessage(_) | AppMessage::SuccessMessageString(_)
+        )
+    }
+
+    /// Check if the message is an error
+    pub fn is_error(&self) -> bool {
+        !self.is_success()
+    }
+
+    /// Log the message
+    pub fn log(&self) {
+        match self.is_success() {
+            true => info!("{}", self.message()),
+            false => error!("{}", self.message()),
         }
     }
 
@@ -139,7 +157,7 @@ mod tests {
 
         let message = AppMessage::EntityNotFound("User".to_string());
         assert_eq!(message.status_code(), StatusCode::NOT_FOUND);
-        assert_eq!(message.message(), "Such User does not exits");
+        assert_eq!(message.message(), "Such User does not exist");
 
         #[cfg(feature = "reqwest")]
         {
@@ -162,6 +180,41 @@ mod tests {
         let message = AppMessage::Redirect("https://foxtive.com");
         assert_eq!(message.status_code(), StatusCode::FOUND);
         assert_eq!(message.message(), "https://foxtive.com");
+    }
+
+    #[test]
+    fn test_app_message_is_success() {
+        let message = AppMessage::SuccessMessage("User created");
+        assert!(message.is_success());
+    }
+
+    #[test]
+    fn test_app_message_is_error() {
+        let message = AppMessage::ErrorMessage("Y2k huh?".to_string(), StatusCode::BAD_REQUEST);
+        assert!(message.is_error());
+
+        let message = AppMessage::WarningMessage("Invalid pin");
+        assert!(message.is_error());
+
+        let message = AppMessage::InternalServerErrorMessage("Y2k ever!");
+        assert!(message.is_error());
+
+        let message = AppMessage::UnAuthorizedMessage("Invalid auth token");
+        assert!(message.is_error());
+
+        let message = AppMessage::ForbiddenMessage("Insufficient permissions");
+        assert!(message.is_error());
+
+        let message = AppMessage::EntityNotFound("User".to_string());
+        assert!(message.is_error());
+    }
+
+    #[test]
+    fn test_app_message_ar() {
+        let result =
+            AppMessage::ErrorMessage("Y2k huh?".to_string(), StatusCode::BAD_REQUEST).ar::<()>();
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Y2k huh?");
     }
 
     #[test]
