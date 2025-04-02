@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.6.5 (2024-04-02)
+* feat(app-result): 'recover_from_async' to recover error from Error or AppResult<T>
+
 ### 0.6.4 (2024-03-31)
 * feat(app-message): add 'is_success()', 'is_error()' & 'log()'
 
