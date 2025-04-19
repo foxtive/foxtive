@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.7.0 (2024-04-02)
+* fix(redis): now accepts value that accepts ToRedisArgs to avoid auto serializing values
+
 ### 0.6.5 (2024-04-02)
 * feat(app-result): 'recover_from_async' to recover error from Error or AppResult<T>
 
