@@ -1,36 +1,83 @@
+//! HMAC (Hash-based Message Authentication Code) implementation supporting multiple SHA-2 variants.
+//!
+//! This module provides a flexible HMAC implementation that supports various SHA-2 hash functions
+//! for generating and verifying message authentication codes. The implementation is thread-safe
+//! and can be used in concurrent contexts.
+
 use crate::results::AppResult;
 use chrono::Utc;
 use hmac::{Hmac as HHmac, Mac};
 use sha2::{Sha224, Sha256, Sha384, Sha512, Sha512_224, Sha512_256};
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+/// Supported hash functions for HMAC generation and verification.
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub enum HashFunc {
+    /// SHA-224 hash function (224-bit output)
     Sha224,
+    #[default]
+    /// SHA-256 hash function (256-bit output)
     Sha256,
+    /// SHA-384 hash function (384-bit output)
     Sha384,
+    /// SHA-512 hash function (512-bit output)
     Sha512,
+    /// SHA-512/224 hash function (224-bits output using SHA-512 internal state)
     Sha512224,
+    /// SHA-512/256 hash function (256-bits output using SHA-512 internal state)
     Sha512256,
 }
 
-impl Default for HashFunc {
-    fn default() -> Self {
-        HashFunc::Sha256
-    }
-}
-
+/// HMAC generator and verifier structure.
+///
+/// This structure provides methods for generating and verifying HMACs using
+/// various SHA-2 hash functions. It is thread-safe and can be cloned.
 #[derive(Clone)]
 pub struct Hmac {
+    /// Secret key used for HMAC generation and verification
     secret: String,
 }
 
 impl Hmac {
+    /// Creates a new HMAC instance with the specified secret key.
+    ///
+    /// # Arguments
+    ///
+    /// * `secret` - The secret key to use for HMAC operations
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use foxtive::helpers::hmac::Hmac;
+    ///
+    /// let hmac = Hmac::new("my_secret_key");
+    /// ```
     pub fn new(secret: &str) -> Self {
         Hmac {
             secret: secret.to_string(),
         }
     }
 
+    /// Generates an HMAC for the given value using the specified hash function.
+    ///
+    /// # Arguments
+    ///
+    /// * `value` - The message to generate an HMAC for
+    /// * `fun` - The hash function to use
+    ///
+    /// # Returns
+    ///
+    /// Returns a Result containing the hexadecimal string representation of the HMAC
+    /// or an error if HMAC generation fails.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use foxtive::helpers::hmac::{Hmac, HashFunc};
+    ///
+    /// let hmac = Hmac::new("my_secret_key");
+    /// let value = "message".to_string();
+    /// let hash = hmac.hash(&value, HashFunc::Sha256).unwrap();
+    /// ```
     pub fn hash(&self, value: &String, fun: HashFunc) -> AppResult<String> {
         match fun {
             HashFunc::Sha224 => {
@@ -66,19 +113,71 @@ impl Hmac {
         }
     }
 
-    fn convert_to_string(slices: &[u8]) -> AppResult<String> {
-        Ok(hex::encode(slices))
-    }
-
+    /// Generates a random HMAC using the current timestamp as both the key and value.
+    ///
+    /// This method uses the default hash function (SHA-256) and the current timestamp
+    /// to generate a random HMAC. This can be useful for generating unique tokens
+    /// or identifiers.
+    ///
+    /// # Returns
+    ///
+    /// Returns a Result containing the generated random HMAC as a hexadecimal string
+    /// or an error if generation fails.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use foxtive::helpers::hmac::Hmac;
+    ///
+    /// let random_hmac = Hmac::generate_random().unwrap();
+    /// ```
     pub fn generate_random() -> AppResult<String> {
         let timestamp = Utc::now().timestamp_micros().to_string();
         // Using default hash function (Sha256) for random generation
         Hmac::new(&timestamp).hash(&timestamp, HashFunc::default())
     }
 
+    /// Verifies an HMAC against a provided value using the specified hash function.
+    ///
+    /// # Arguments
+    ///
+    /// * `value` - The original message
+    /// * `hash` - The HMAC to verify against
+    /// * `fun` - The hash function to use
+    ///
+    /// # Returns
+    ///
+    /// Returns a Result containing a boolean indicating whether the HMAC is valid
+    /// or an error if verification fails.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use foxtive::helpers::hmac::{Hmac, HashFunc};
+    ///
+    /// let hmac = Hmac::new("my_secret_key");
+    /// let value = "message".to_string();
+    /// let hash = hmac.hash(&value, HashFunc::Sha256).unwrap();
+    ///
+    /// assert!(hmac.verify(&value, &hash, HashFunc::Sha256).unwrap());
+    /// ```
     pub fn verify(&self, value: &String, hash: &String, fun: HashFunc) -> AppResult<bool> {
         let computed = self.hash(value, fun)?;
         Ok(hash == &computed)
+    }
+
+    /// Converts a byte slice to its hexadecimal string representation.
+    ///
+    /// # Arguments
+    ///
+    /// * `slices` - The byte slice to convert
+    ///
+    /// # Returns
+    ///
+    /// Returns a Result containing the hexadecimal string representation
+    /// or an error if conversion fails.
+    fn convert_to_string(slices: &[u8]) -> AppResult<String> {
+        Ok(hex::encode(slices))
     }
 }
 
