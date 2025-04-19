@@ -7,6 +7,9 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::future::Future;
 use std::sync::Arc;
 
+#[cfg(not(any(feature = "cache-redis", feature = "cache-filesystem")))]
+compile_error!("At least one cache driver must be enabled when the 'cache' feature is enabled");
+
 pub struct Cache {
     driver: Arc<dyn CacheDriverContract>,
 }
