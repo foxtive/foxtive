@@ -1,6 +1,6 @@
-use std::future::Future;
 use crate::prelude::AppMessage;
 use crate::results::AppResult;
+use std::future::Future;
 
 pub trait RecoverAppResultExt<T> {
     fn recover_from<F>(self, func: F) -> AppResult<T>

@@ -1,4 +1,7 @@
-use crate::database::ext::{DatabaseConnectionExt, OptionalResultExt, PaginationResultExt, ShareablePaginationResultExt, ShareableResultExt};
+use crate::database::ext::{
+    DatabaseConnectionExt, OptionalResultExt, PaginationResultExt, ShareablePaginationResultExt,
+    ShareableResultExt,
+};
 use crate::database::{DBPool, Model};
 use crate::prelude::AppMessage::EntityNotFound;
 use crate::prelude::AppResult;
