@@ -6,15 +6,14 @@ pub mod results;
 #[cfg(feature = "redis")]
 pub mod redis;
 
-pub mod helpers;
-
-#[cfg(feature = "redis")]
+#[cfg(feature = "cache")]
 pub mod cache;
 #[cfg(feature = "database")]
 pub mod database;
 pub mod env_logger;
 pub mod ext;
 mod ext_impl;
+pub mod helpers;
 #[cfg(feature = "rabbitmq")]
 pub mod rabbitmq;
 pub mod setup;

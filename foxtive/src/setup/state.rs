@@ -2,8 +2,6 @@ use std::fmt::{Debug, Formatter};
 #[allow(unused_imports)]
 use std::sync::Arc;
 
-#[cfg(feature = "redis")]
-use crate::cache::Cache;
 #[cfg(feature = "jwt")]
 use crate::helpers::jwt::Jwt;
 #[cfg(feature = "crypto")]
@@ -52,8 +50,8 @@ pub struct FoxtiveState {
     #[cfg(feature = "jwt")]
     pub auth_token_lifetime: i64,
 
-    #[cfg(feature = "redis")]
-    pub cache: Arc<Cache>,
+    #[cfg(any(feature = "cache-redis", feature = "cache-filesystem"))]
+    pub cache: Arc<crate::cache::Cache>,
 
     pub helpers: FoxtiveHelpers,
 }

@@ -5,7 +5,7 @@ use crate::FOXTIVE;
 use anyhow::Error;
 use futures_util::StreamExt;
 use log::{error, info};
-use redis::{AsyncCommands, FromRedisValue};
+use redis::{AsyncCommands, FromRedisValue, ToRedisArgs};
 use serde::Serialize;
 use std::future::Future;
 use std::num::{NonZeroU64, NonZeroUsize};
@@ -29,16 +29,20 @@ impl Redis {
     }
 
     /// Push a value to a Redis list
-    pub async fn queue<T: Serialize>(&self, queue: &str, data: &T) -> AppResult<i32> {
-        let content = serde_json::to_string(data)?;
+    pub async fn queue<T>(&self, queue: &str, data: &T) -> AppResult<i32>
+    where
+        T: ToRedisArgs + Send + Sync,
+    {
         let mut conn = self.redis().await?;
-        conn.lpush(queue, content).await.into_app_result()
+        conn.lpush(queue, data).await.into_app_result()
     }
 
-    pub async fn set<T: Serialize>(&self, key: &str, value: &T) -> AppResult<String> {
-        let content = serde_json::to_string(value)?;
+    pub async fn set<T>(&self, key: &str, value: &T) -> AppResult<String>
+    where
+        T: ToRedisArgs + Send + Sync,
+    {
         let mut conn = self.redis().await?;
-        conn.set(key, content).await.into_app_result()
+        conn.set(key, value).await.into_app_result()
     }
 
     pub async fn get<T: FromRedisValue>(&self, key: &str) -> AppResult<T> {
@@ -172,15 +176,16 @@ impl Redis {
     /// - `func`: The async function to process each retrieved item
     ///
     /// # Example
-    /// ```
+    /// ```no_run
     /// use foxtive::redis::Redis;
     ///
-    /// let fut = async {
+    /// #[tokio::main]
+    /// async fn main() {
     ///     Redis::poll_queue("my_queue".to_string(), None, None, |item| async move {
     ///         println!("Processing item: {}", item);
     ///         Ok(())
     ///     }).await;
-    /// };
+    /// }
     /// ```
     pub async fn poll_queue<F, Fut>(
         queue: String,

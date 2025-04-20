@@ -27,6 +27,72 @@ impl Str {
     pub fn uuid() -> String {
         Uuid::new_v4().to_string().replace("-", "")
     }
+
+    /// Truncates a string to a specified length, adding ellipsis if truncated
+    pub fn truncate(s: &str, max_length: usize) -> String {
+        if s.len() <= max_length {
+            s.to_string()
+        } else {
+            format!("{}...", &s[..max_length])
+        }
+    }
+
+    /// Removes all whitespace characters from a string
+    pub fn remove_whitespace(s: &str) -> String {
+        s.chars().filter(|c| !c.is_whitespace()).collect()
+    }
+
+    /// Reverses a string
+    pub fn reverse(s: &str) -> String {
+        s.chars().rev().collect()
+    }
+
+    /// Counts occurrences of a substring in a string
+    pub fn count_occurrences(s: &str, substr: &str) -> usize {
+        if substr.is_empty() {
+            return 0;
+        }
+        s.matches(substr).count()
+    }
+
+    /// Checks if a string contains only digits
+    pub fn is_numeric(s: &str) -> bool {
+        !s.is_empty() && s.chars().all(|c| c.is_ascii_digit())
+    }
+
+    /// Checks if a string contains only alphabetic characters
+    pub fn is_alphabetic(s: &str) -> bool {
+        !s.is_empty() && s.chars().all(|c| c.is_alphabetic())
+    }
+
+    /// Converts snake_case to camelCase
+    pub fn to_camel_case(s: &str) -> String {
+        let mut result = String::new();
+        let mut capitalize_next = false;
+        
+        for (i, c) in s.chars().enumerate() {
+            if c == '_' {
+                capitalize_next = true;
+            } else if capitalize_next {
+                result.push(c.to_ascii_uppercase());
+                capitalize_next = false;
+            } else if i == 0 {
+                result.push(c.to_ascii_lowercase());
+            } else {
+                result.push(c);
+            }
+        }
+        result
+    }
+
+    /// Pads the string to the left with a specified character until it reaches the given length
+    pub fn pad_left(s: &str, width: usize, pad_char: char) -> String {
+        if s.len() >= width {
+            s.to_string()
+        } else {
+            format!("{}{}", pad_char.to_string().repeat(width - s.len()), s)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -90,5 +156,64 @@ mod tests {
         // Generate a few UUIDs and check that they are unique
         let uuid_set: std::collections::HashSet<_> = (0..1000).map(|_| Str::uuid()).collect();
         assert_eq!(uuid_set.len(), 1000); // Check for uniqueness
+    }
+
+    #[test]
+    fn test_truncate() {
+        assert_eq!(Str::truncate("Hello, World!", 5), "Hello...");
+        assert_eq!(Str::truncate("Hello", 10), "Hello");
+        assert_eq!(Str::truncate("", 5), "");
+    }
+
+    #[test]
+    fn test_remove_whitespace() {
+        assert_eq!(Str::remove_whitespace("Hello World"), "HelloWorld");
+        assert_eq!(Str::remove_whitespace("   spaces   "), "spaces");
+        assert_eq!(Str::remove_whitespace("\t\ntest\r"), "test");
+    }
+
+    #[test]
+    fn test_reverse() {
+        assert_eq!(Str::reverse("hello"), "olleh");
+        assert_eq!(Str::reverse(""), "");
+        assert_eq!(Str::reverse("Rust"), "tsuR");
+    }
+
+    #[test]
+    fn test_count_occurrences() {
+        assert_eq!(Str::count_occurrences("hello hello hello", "hello"), 3);
+        assert_eq!(Str::count_occurrences("aaa", "aa"), 1);
+        assert_eq!(Str::count_occurrences("test", ""), 0);
+    }
+
+    #[test]
+    fn test_is_numeric() {
+        assert!(Str::is_numeric("123"));
+        assert!(!Str::is_numeric("12.3"));
+        assert!(!Str::is_numeric("abc"));
+        assert!(!Str::is_numeric(""));
+    }
+
+    #[test]
+    fn test_is_alphabetic() {
+        assert!(Str::is_alphabetic("abc"));
+        assert!(Str::is_alphabetic("ABC"));
+        assert!(!Str::is_alphabetic("abc123"));
+        assert!(!Str::is_alphabetic(""));
+    }
+
+    #[test]
+    fn test_to_camel_case() {
+        assert_eq!(Str::to_camel_case("hello_world"), "helloWorld");
+        assert_eq!(Str::to_camel_case("user_id"), "userId");
+        assert_eq!(Str::to_camel_case("already_camelCase"), "alreadyCamelCase");
+        assert_eq!(Str::to_camel_case(""), "");
+    }
+
+    #[test]
+    fn test_pad_left() {
+        assert_eq!(Str::pad_left("123", 5, '0'), "00123");
+        assert_eq!(Str::pad_left("abc", 3, '0'), "abc");
+        assert_eq!(Str::pad_left("", 2, '*'), "**");
     }
 }
