@@ -224,9 +224,7 @@ mod tests {
         let provided_hmac =
             "6df7d0cf7d3a52a08acbd7c12a2ab86b15820de24a78bd51e264e257de3316b0".to_string();
 
-        let is_valid = hmac
-            .verify(&value, &provided_hmac)
-            .unwrap();
+        let is_valid = hmac.verify(&value, &provided_hmac).unwrap();
 
         assert!(
             is_valid,
@@ -240,9 +238,7 @@ mod tests {
         let value = "my message".to_string();
         let provided_hmac = "invalidhmac".to_string();
 
-        let is_valid = hmac
-            .verify(&value, &provided_hmac)
-            .unwrap();
+        let is_valid = hmac.verify(&value, &provided_hmac).unwrap();
 
         assert!(
             !is_valid,
