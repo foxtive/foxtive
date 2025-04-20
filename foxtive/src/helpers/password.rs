@@ -1,10 +1,10 @@
 use crate::prelude::AppResult;
 
 /// A struct for handling password hashing and verification using Argon2.
-/// 
-/// The `Password` struct provides a secure way to hash passwords and verify them using the Argon2 
+///
+/// The `Password` struct provides a secure way to hash passwords and verify them using the Argon2
 /// password hashing algorithm. It maintains a salt value that is used in the hashing process.
-/// 
+///
 /// # Examples
 ///
 /// ```
@@ -12,10 +12,10 @@ use crate::prelude::AppResult;
 ///
 /// // Create a new Password instance with a salt
 /// let password = Password::new("unique_salt".to_string());
-/// 
+///
 /// // Hash a password
 /// let hash = password.hash("my_secret_password").unwrap();
-/// 
+///
 /// // Verify a password against a hash
 /// assert!(password.verify(&hash, "my_secret_password").unwrap());
 /// assert!(!password.verify(&hash, "wrong_password").unwrap());
@@ -109,10 +109,10 @@ impl Password {
     ///
     /// let password = Password::new("unique_salt".to_string());
     /// let hash = password.hash("my_secret_password").unwrap();
-    /// 
+    ///
     /// // Verify the correct password
     /// assert!(password.verify(&hash, "my_secret_password").unwrap());
-    /// 
+    ///
     /// // Verify incorrect password
     /// assert!(!password.verify(&hash, "wrong_password").unwrap());
     /// ```

@@ -69,7 +69,7 @@ impl Str {
     pub fn to_camel_case(s: &str) -> String {
         let mut result = String::new();
         let mut capitalize_next = false;
-        
+
         for (i, c) in s.chars().enumerate() {
             if c == '_' {
                 capitalize_next = true;

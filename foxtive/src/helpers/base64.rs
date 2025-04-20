@@ -26,8 +26,8 @@
 //! - Decoding invalid Base64 strings
 //! - Decoding Base64 strings that result in invalid UTF-8
 
-use base64::{engine, Engine};
 use crate::prelude::AppResult;
+use base64::{engine, Engine};
 
 /// A utility struct providing Base64 encoding and decoding functionality.
 #[derive(Debug)]

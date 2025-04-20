@@ -1,9 +1,9 @@
 use crate::prelude::AppResult;
 use async_trait::async_trait;
+use log::info;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::future::Future;
-use log::info;
 
 #[async_trait::async_trait]
 pub trait CacheDriverContract: Send + Sync {
@@ -51,7 +51,7 @@ impl<T: ?Sized + CacheDriverContract + Sync> CacheDriverExt for T {
             Some(bytes) => {
                 info!("Collected: {bytes:?}");
                 Some(serde_json::from_str(&bytes)?)
-            },
+            }
         })
     }
 
