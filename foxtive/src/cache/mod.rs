@@ -40,9 +40,6 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::future::Future;
 use std::sync::Arc;
 
-#[cfg(not(any(feature = "cache-redis", feature = "cache-filesystem")))]
-compile_error!("At least one cache driver must be enabled when the 'cache' feature is enabled");
-
 /// A generic caching interface that provides methods for storing and retrieving serialized data.
 ///
 /// The `Cache` struct acts as a wrapper around different cache driver implementations,

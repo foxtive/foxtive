@@ -1,6 +1,6 @@
 [package]
 name = "foxtive"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 license = "MIT"
 description = "Foxtive Framework"
@@ -19,9 +19,8 @@ jwt = ["jsonwebtoken"]
 regex = ["fancy-regex"]
 templating = ["tera"]
 strum = ["dep:strum"]
-cache = []
-cache-redis = ["cache", "redis"]
-cache-filesystem = ["cache", "tokio/fs"]
+cache-redis = ["redis"]
+cache-filesystem = ["tokio/fs"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
