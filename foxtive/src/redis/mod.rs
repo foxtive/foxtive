@@ -176,15 +176,16 @@ impl Redis {
     /// - `func`: The async function to process each retrieved item
     ///
     /// # Example
-    /// ```
+    /// ```no_run
     /// use foxtive::redis::Redis;
     ///
-    /// let fut = async {
+    /// #[tokio::main]
+    /// async fn main() {
     ///     Redis::poll_queue("my_queue".to_string(), None, None, |item| async move {
     ///         println!("Processing item: {}", item);
     ///         Ok(())
     ///     }).await;
-    /// };
+    /// }
     /// ```
     pub async fn poll_queue<F, Fut>(
         queue: String,

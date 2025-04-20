@@ -20,8 +20,8 @@ regex = ["fancy-regex"]
 templating = ["tera"]
 strum = ["dep:strum"]
 cache = []
-cache-redis = ["redis"]
-cache-filesystem = ["tokio/fs"]
+cache-redis = ["cache", "redis"]
+cache-filesystem = ["cache", "tokio/fs"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
