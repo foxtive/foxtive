@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.7.2 (2024-04-20)
+* feat(hmac): constructor now accepts hashing function
+
 ### 0.7.1 (2024-04-20)
 * fix(caching): drop the 'cache' feature
 
