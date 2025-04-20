@@ -7,7 +7,7 @@
 //! # Examples
 //!
 //! ```
-//! use foxtive::helpers::base64::Base64;;
+//! use foxtive::helpers::base64::Base64;
 //!
 //! // Encoding
 //! let encoded = Base64::encode("hello world").unwrap();
@@ -26,8 +26,8 @@
 //! - Decoding invalid Base64 strings
 //! - Decoding Base64 strings that result in invalid UTF-8
 
-use base64::{engine, Engine};
 use crate::prelude::AppResult;
+use base64::{engine, Engine};
 
 /// A utility struct providing Base64 encoding and decoding functionality.
 #[derive(Debug)]
@@ -47,7 +47,7 @@ impl Base64 {
     /// # Examples
     ///
     /// ```
-    /// use foxtive::helpers::base64::Base64;;
+    /// use foxtive::helpers::base64::Base64;
     ///
     /// let encoded = Base64::encode("hello world").unwrap();
     /// assert_eq!(encoded, "aGVsbG8gd29ybGQ=");
@@ -75,7 +75,7 @@ impl Base64 {
     /// # Examples
     ///
     /// ```
-    /// use foxtive::helpers::base64::Base64;;
+    /// use foxtive::helpers::base64::Base64;
     ///
     /// let decoded = Base64::decode("aGVsbG8gd29ybGQ=").unwrap();
     /// assert_eq!(decoded, "hello world");

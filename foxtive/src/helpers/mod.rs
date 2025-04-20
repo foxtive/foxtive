@@ -1,5 +1,5 @@
 //! # Utility Library
-//! 
+//!
 //! This library provides a collection of utility modules for common programming tasks.
 //! Many features are optional and can be enabled via feature flags.
 //!
@@ -49,14 +49,14 @@
 //! Using the JSON utilities:
 //! ```rust
 //! use foxtive::helpers::json;
-//! 
+//!
 //! // Example JSON operations
 //! ```
 //!
 //! Using the file system utilities:
 //! ```rust
 //! use foxtive::helpers::fs;
-//! 
+//!
 //! // Example file system operations
 //! ```
 //!

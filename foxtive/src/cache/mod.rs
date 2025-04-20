@@ -116,7 +116,9 @@ impl Cache {
     where
         T: Serialize + Sync,
     {
-        self.driver.put_raw(key, serde_json::to_string(value)?).await
+        self.driver
+            .put_raw(key, serde_json::to_string(value)?)
+            .await
     }
 
     /// Retrieves a value from the cache and deserializes it into the specified type.
@@ -211,7 +213,7 @@ impl Cache {
     /// async fn main() {
     ///     let driver = Arc::new(FilesystemCacheDriver::new("./"));
     ///     let cache = Cache::new(driver);
-    /// 
+    ///
     ///     let user = cache.get_or_put("user:1", || async {
     ///         // Expensive operation to fetch user from database
     ///         Ok(1)

@@ -66,10 +66,10 @@ impl Str {
     }
 
     /// Converts snake_case to camelCase
-    pub fn to_camel_case(s: &str) -> String {
+    pub fn camel_case(s: &str) -> String {
         let mut result = String::new();
         let mut capitalize_next = false;
-        
+
         for (i, c) in s.chars().enumerate() {
             if c == '_' {
                 capitalize_next = true;
@@ -204,10 +204,10 @@ mod tests {
 
     #[test]
     fn test_to_camel_case() {
-        assert_eq!(Str::to_camel_case("hello_world"), "helloWorld");
-        assert_eq!(Str::to_camel_case("user_id"), "userId");
-        assert_eq!(Str::to_camel_case("already_camelCase"), "alreadyCamelCase");
-        assert_eq!(Str::to_camel_case(""), "");
+        assert_eq!(Str::camel_case("hello_world"), "helloWorld");
+        assert_eq!(Str::camel_case("user_id"), "userId");
+        assert_eq!(Str::camel_case("already_camelCase"), "alreadyCamelCase");
+        assert_eq!(Str::camel_case(""), "");
     }
 
     #[test]
