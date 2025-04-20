@@ -29,7 +29,7 @@ use tera::Tera;
 
 pub(crate) mod state;
 
-#[cfg(feature = "cache")]
+#[cfg(any(feature = "cache-redis", feature = "cache-filesystem"))]
 pub enum CacheDriverSetup {
     #[cfg(feature = "cache-redis")]
     Redis(fn(Arc<Redis>) -> Arc<dyn CacheDriverContract>),
@@ -42,7 +42,7 @@ pub struct FoxtiveSetup {
     pub private_key: String,
     pub public_key: String,
     pub auth_iss_public_key: String,
-    #[cfg(feature = "cache")]
+    #[cfg(any(feature = "cache-redis", feature = "cache-filesystem"))]
     pub cache_driver_setup: CacheDriverSetup,
 }
 

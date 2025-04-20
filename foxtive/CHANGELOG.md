@@ -1,7 +1,10 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
-### 0.7.0 (2024-04-02)
+### 0.7.1 (2024-04-20)
+* fix(caching): drop the 'cache' feature
+
+### 0.7.0 (2024-04-20)
 * fix(redis): now accepts a value that accepts ToRedisArgs to avoid auto-serializing values
 * docs(password): basic usage docs
 * feat(string): add more utility funcs
