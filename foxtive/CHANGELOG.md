@@ -2,7 +2,13 @@
 Foxtive changelog file 
 
 ### 0.7.0 (2024-04-02)
-* fix(redis): now accepts value that accepts ToRedisArgs to avoid auto serializing values
+* fix(redis): now accepts a value that accepts ToRedisArgs to avoid auto-serializing values
+* docs(password): basic usage docs
+* feat(string): add more utility funcs
+* docs(hmac): basic usage docs
+* refactor(hmac): support usage of multiple hash functions
+* docs(base64): basic usage docs
+* refactor(cache): introducing driver mechanism
 
 ### 0.6.5 (2024-04-02)
 * feat(app-result): 'recover_from_async' to recover error from Error or AppResult<T>
