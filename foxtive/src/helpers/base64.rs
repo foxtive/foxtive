@@ -7,7 +7,7 @@
 //! # Examples
 //!
 //! ```
-//! use foxtive::helpers::base64::Base64;;
+//! use foxtive::helpers::base64::Base64;
 //!
 //! // Encoding
 //! let encoded = Base64::encode("hello world").unwrap();
@@ -47,7 +47,7 @@ impl Base64 {
     /// # Examples
     ///
     /// ```
-    /// use foxtive::helpers::base64::Base64;;
+    /// use foxtive::helpers::base64::Base64;
     ///
     /// let encoded = Base64::encode("hello world").unwrap();
     /// assert_eq!(encoded, "aGVsbG8gd29ybGQ=");
@@ -75,7 +75,7 @@ impl Base64 {
     /// # Examples
     ///
     /// ```
-    /// use foxtive::helpers::base64::Base64;;
+    /// use foxtive::helpers::base64::Base64;
     ///
     /// let decoded = Base64::decode("aGVsbG8gd29ybGQ=").unwrap();
     /// assert_eq!(decoded, "hello world");

@@ -1,6 +1,6 @@
 use crate::prelude::AppResult;
 use async_trait::async_trait;
-use log::info;
+use log::{debug, error};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::future::Future;
@@ -48,25 +48,31 @@ impl<T: ?Sized + CacheDriverContract + Sync> CacheDriverExt for T {
         let raw = self.get_raw(key).await?;
         Ok(match raw {
             None => None,
-            Some(bytes) => {
-                info!("Collected: {bytes:?}");
-                Some(serde_json::from_str(&bytes)?)
-            }
+            Some(bytes) => Some(serde_json::from_str(&bytes)?),
         })
     }
 
     async fn get_or_put<Val, Fun, Fut>(&self, key: &str, setter: Fun) -> AppResult<Val>
     where
-        Val: Serialize + DeserializeOwned + Clone + Sync + Send,
+        Val: Serialize + DeserializeOwned + Sync + Send, // Removed Clone requirement
         Fun: FnOnce() -> Fut + Send,
         Fut: Future<Output = AppResult<Val>> + Send,
     {
         if let Some(val) = self.get::<Val>(key).await? {
+            debug!("'{}' collected from cache :)", key);
             return Ok(val);
         }
 
-        let value = setter().await?;
-        self.put(key, &value).await?;
-        Ok(value)
+        debug!("'{}' is missing in cache, executing setter()...", key);
+
+        let val = setter().await?;
+
+        // Store the value before returning to ensure cache consistency
+        if let Err(e) = self.put(key, &val).await {
+            error!("Failed to cache value for '{}': {:?}", key, e);
+            return Err(e);
+        }
+
+        Ok(val)
     }
 }

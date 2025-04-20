@@ -1,13 +1,13 @@
 use crate::cache::contract::CacheDriverContract;
 use crate::results::AppResult;
 use async_trait::async_trait;
-use std::collections::HashMap;
-use std::io::ErrorKind;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
+use std::collections::HashMap;
 use tokio::sync::RwLock;
+use std::io::ErrorKind;
 
 #[derive(Clone)]
 pub struct FilesystemCacheDriver {
@@ -17,9 +17,9 @@ pub struct FilesystemCacheDriver {
 }
 
 impl FilesystemCacheDriver {
-    pub fn new<P: Into<PathBuf>>(base_path: P) -> Self {
+    pub fn new(base_path: impl AsRef<Path>) -> Self {
         Self {
-            base_path: Arc::new(base_path.into()),
+            base_path: Arc::new(PathBuf::from(base_path.as_ref())),
             path_cache: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -33,10 +33,7 @@ impl FilesystemCacheDriver {
         // Compute and cache new path
         let safe_key = key.replace([':', '/', '\\', '<', '>', '"', '|', '?', '*'], "_");
         let path = self.base_path.join(format!("{}.cache", safe_key));
-        self.path_cache
-            .write()
-            .await
-            .insert(key.to_string(), path.clone());
+        self.path_cache.write().await.insert(key.to_string(), path.clone());
         path
     }
 }
@@ -75,10 +72,10 @@ impl CacheDriverContract for FilesystemCacheDriver {
 
     async fn forget(&self, key: &str) -> AppResult<i32> {
         let path = self.key_to_path(key).await;
-
+        
         // Remove from path cache
         self.path_cache.write().await.remove(key);
-
+        
         match fs::remove_file(&path).await {
             Ok(_) => Ok(1),
             Err(e) if e.kind() == ErrorKind::NotFound => Ok(0),
