@@ -1,9 +1,9 @@
 #[cfg(feature = "cache-filesystem")]
 mod filesystem_driver;
-#[cfg(feature = "cache-redis")]
-mod redis_driver;
 #[cfg(feature = "cache-in-memory")]
 mod in_memory_driver;
+#[cfg(feature = "cache-redis")]
+mod redis_driver;
 
 #[cfg(feature = "cache-filesystem")]
 pub use filesystem_driver::FilesystemCacheDriver;

@@ -22,13 +22,15 @@ impl CacheDriverContract for InMemoryDriver {
     }
 
     async fn get_raw(&self, key: &str) -> AppResult<Option<String>> {
-        Ok(self.storage
-            .get(key)
-            .map(|value| value.value().clone()))
+        Ok(self.storage.get(key).map(|value| value.value().clone()))
     }
 
     async fn forget(&self, key: &str) -> AppResult<i32> {
-        Ok(if self.storage.remove(key).is_some() { 1 } else { 0 })
+        Ok(if self.storage.remove(key).is_some() {
+            1
+        } else {
+            0
+        })
     }
 }
 
