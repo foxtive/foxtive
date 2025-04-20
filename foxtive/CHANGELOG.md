@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.8.0 (2024-04-20)
+* feat(in-memory-cache): now support in memory driver using DashMap as an underlying storage
+
 ### 0.7.2 (2024-04-20)
 * feat(hmac): constructor now accepts hashing function
 

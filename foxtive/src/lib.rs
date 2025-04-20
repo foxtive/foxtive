@@ -6,7 +6,7 @@ pub mod results;
 #[cfg(feature = "redis")]
 pub mod redis;
 
-#[cfg(any(feature = "cache-redis", feature = "cache-filesystem"))]
+#[cfg(feature = "cache")]
 pub mod cache;
 #[cfg(feature = "database")]
 pub mod database;

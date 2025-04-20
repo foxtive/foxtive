@@ -1,7 +1,7 @@
 use crate::cache::contract::CacheDriverContract;
 use crate::results::AppResult;
 use async_trait::async_trait;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
@@ -17,9 +17,9 @@ pub struct FilesystemCacheDriver {
 }
 
 impl FilesystemCacheDriver {
-    pub fn new<P: Into<PathBuf>>(base_path: P) -> Self {
+    pub fn new(base_path: impl AsRef<Path>) -> Self {
         Self {
-            base_path: Arc::new(base_path.into()),
+            base_path: Arc::new(PathBuf::from(base_path.as_ref())),
             path_cache: Arc::new(RwLock::new(HashMap::new())),
         }
     }

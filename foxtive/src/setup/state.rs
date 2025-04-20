@@ -50,7 +50,7 @@ pub struct FoxtiveState {
     #[cfg(feature = "jwt")]
     pub auth_token_lifetime: i64,
 
-    #[cfg(any(feature = "cache-redis", feature = "cache-filesystem"))]
+    #[cfg(feature = "cache")]
     pub cache: Arc<crate::cache::Cache>,
 
     pub helpers: FoxtiveHelpers,

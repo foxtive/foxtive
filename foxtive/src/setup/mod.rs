@@ -1,4 +1,5 @@
-#[cfg(any(feature = "cache-redis", feature = "cache-filesystem"))]
+#[cfg(feature = "cache")]
+#[allow(unused_imports)]
 use crate::cache::{contract::CacheDriverContract, Cache};
 #[cfg(feature = "database")]
 use crate::database::DBPool;
@@ -29,12 +30,14 @@ use tera::Tera;
 
 pub(crate) mod state;
 
-#[cfg(any(feature = "cache-redis", feature = "cache-filesystem"))]
+#[cfg(feature = "cache")]
 pub enum CacheDriverSetup {
     #[cfg(feature = "cache-redis")]
     Redis(fn(Arc<Redis>) -> Arc<dyn CacheDriverContract>),
     #[cfg(feature = "cache-filesystem")]
     Filesystem(fn() -> Arc<dyn CacheDriverContract>),
+    #[cfg(feature = "cache-in-memory")]
+    InMemory(fn() -> Arc<dyn CacheDriverContract>),
 }
 
 pub struct FoxtiveSetup {
@@ -42,7 +45,8 @@ pub struct FoxtiveSetup {
     pub private_key: String,
     pub public_key: String,
     pub auth_iss_public_key: String,
-    #[cfg(any(feature = "cache-redis", feature = "cache-filesystem"))]
+
+    #[cfg(feature = "cache")]
     pub cache_driver_setup: CacheDriverSetup,
 }
 
@@ -82,16 +86,14 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
         Tera::new(tpl_dir.as_str()).unwrap()
     };
 
-    #[cfg(any(feature = "cache-redis", feature = "cache-filesystem"))]
-    let cache_driver = {
-        let cache_driver_setup = setup.cache_driver_setup;
-
-        match cache_driver_setup {
-            #[cfg(feature = "cache-redis")]
-            CacheDriverSetup::Redis(setup) => setup(redis.clone()),
-            #[cfg(feature = "cache-filesystem")]
-            CacheDriverSetup::Filesystem(setup) => setup(),
-        }
+    #[cfg(feature = "cache")]
+    let cache_driver = match setup.cache_driver_setup {
+        #[cfg(feature = "cache-redis")]
+        CacheDriverSetup::Redis(setup) => setup(redis.clone()),
+        #[cfg(feature = "cache-filesystem")]
+        CacheDriverSetup::Filesystem(setup) => setup(),
+        #[cfg(feature = "cache-in-memory")]
+        CacheDriverSetup::InMemory(setup) => setup(),
     };
 
     FoxtiveState {
@@ -132,7 +134,7 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
             .parse()
             .unwrap(),
 
-        #[cfg(any(feature = "cache-redis", feature = "cache-filesystem"))]
+        #[cfg(feature = "cache")]
         cache: Arc::from(Cache::new(cache_driver)),
     }
 }

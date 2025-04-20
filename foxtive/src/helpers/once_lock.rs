@@ -1,4 +1,4 @@
-#[cfg(feature = "redis")]
+#[cfg(feature = "cache")]
 use crate::cache::Cache;
 #[cfg(feature = "database")]
 use crate::database::ext::DatabaseConnectionExt;
@@ -46,7 +46,7 @@ pub trait OnceLockHelper {
         Arc::clone(&self.app().rabbitmq)
     }
 
-    #[cfg(feature = "redis")]
+    #[cfg(feature = "cache")]
     fn cache(&self) -> Arc<Cache> {
         FOXTIVE.get().unwrap().cache.clone()
     }
