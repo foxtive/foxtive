@@ -35,6 +35,8 @@ pub enum HashFunc {
 pub struct Hmac {
     /// Secret key used for HMAC generation and verification
     secret: String,
+    /// Hash function used for HMAC generation and verification
+    func: HashFunc,
 }
 
 impl Hmac {
@@ -47,12 +49,13 @@ impl Hmac {
     /// # Example
     ///
     /// ```
-    /// use foxtive::helpers::hmac::Hmac;
+    /// use foxtive::helpers::hmac::{Hmac, HashFunc};
     ///
-    /// let hmac = Hmac::new("my_secret_key");
+    /// let hmac = Hmac::new("my_secret_key", HashFunc::Sha256);
     /// ```
-    pub fn new(secret: &str) -> Self {
+    pub fn new(secret: &str, func: HashFunc) -> Self {
         Hmac {
+            func,
             secret: secret.to_string(),
         }
     }
@@ -74,12 +77,12 @@ impl Hmac {
     /// ```
     /// use foxtive::helpers::hmac::{Hmac, HashFunc};
     ///
-    /// let hmac = Hmac::new("my_secret_key");
+    /// let hmac = Hmac::new("my_secret_key", HashFunc::Sha256);
     /// let value = "message".to_string();
-    /// let hash = hmac.hash(&value, HashFunc::Sha256).unwrap();
+    /// let hash = hmac.hash(&value).unwrap();
     /// ```
-    pub fn hash(&self, value: &String, fun: HashFunc) -> AppResult<String> {
-        match fun {
+    pub fn hash(&self, value: &String) -> AppResult<String> {
+        match self.func {
             HashFunc::Sha224 => {
                 let mut mac = HHmac::<Sha224>::new_from_slice(self.secret.as_bytes())?;
                 mac.update(value.as_bytes());
@@ -129,12 +132,12 @@ impl Hmac {
     /// ```
     /// use foxtive::helpers::hmac::Hmac;
     ///
-    /// let random_hmac = Hmac::generate_random().unwrap();
+    /// let random_hmac = Hmac::random().unwrap();
     /// ```
-    pub fn generate_random() -> AppResult<String> {
+    pub fn random() -> AppResult<String> {
         let timestamp = Utc::now().timestamp_micros().to_string();
-        // Using default hash function (Sha256) for random generation
-        Hmac::new(&timestamp).hash(&timestamp, HashFunc::default())
+        // Using the default hash function (Sha256) for random generation
+        Hmac::new(&timestamp, HashFunc::default()).hash(&timestamp)
     }
 
     /// Verifies an HMAC against a provided value using the specified hash function.
@@ -155,14 +158,14 @@ impl Hmac {
     /// ```
     /// use foxtive::helpers::hmac::{Hmac, HashFunc};
     ///
-    /// let hmac = Hmac::new("my_secret_key");
+    /// let hmac = Hmac::new("my_secret_key", HashFunc::Sha256);
     /// let value = "message".to_string();
-    /// let hash = hmac.hash(&value, HashFunc::Sha256).unwrap();
+    /// let hash = hmac.hash(&value).unwrap();
     ///
-    /// assert!(hmac.verify(&value, &hash, HashFunc::Sha256).unwrap());
+    /// assert!(hmac.verify(&value, &hash).unwrap());
     /// ```
-    pub fn verify(&self, value: &String, hash: &String, fun: HashFunc) -> AppResult<bool> {
-        let computed = self.hash(value, fun)?;
+    pub fn verify(&self, value: &String, hash: &String) -> AppResult<bool> {
+        let computed = self.hash(value)?;
         Ok(hash == &computed)
     }
 
@@ -187,11 +190,11 @@ mod tests {
 
     #[test]
     fn test_hash() {
-        let hmac = Hmac::new("mysecret");
+        let hmac = Hmac::new("mysecret", HashFunc::Sha256);
         let value = "my message".to_string();
         let expected_hmac = "6df7d0cf7d3a52a08acbd7c12a2ab86b15820de24a78bd51e264e257de3316b0";
 
-        let generated_hmac = hmac.hash(&value, HashFunc::Sha256).unwrap();
+        let generated_hmac = hmac.hash(&value).unwrap();
 
         assert_eq!(
             generated_hmac, expected_hmac,
@@ -200,9 +203,9 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_random() {
-        let random_hmac1 = Hmac::generate_random().unwrap();
-        let random_hmac2 = Hmac::generate_random().unwrap();
+    fn test_random() {
+        let random_hmac1 = Hmac::random().unwrap();
+        let random_hmac2 = Hmac::random().unwrap();
 
         assert_ne!(
             random_hmac1, random_hmac2,
@@ -216,13 +219,13 @@ mod tests {
 
     #[test]
     fn test_hmac_valid() {
-        let hmac = Hmac::new("mysecret");
+        let hmac = Hmac::new("mysecret", HashFunc::Sha256);
         let value = "my message".to_string();
         let provided_hmac =
             "6df7d0cf7d3a52a08acbd7c12a2ab86b15820de24a78bd51e264e257de3316b0".to_string();
 
         let is_valid = hmac
-            .verify(&value, &provided_hmac, HashFunc::Sha256)
+            .verify(&value, &provided_hmac)
             .unwrap();
 
         assert!(
@@ -233,12 +236,12 @@ mod tests {
 
     #[test]
     fn test_hmac_invalid() {
-        let hmac = Hmac::new("mysecret");
+        let hmac = Hmac::new("mysecret", HashFunc::Sha256);
         let value = "my message".to_string();
         let provided_hmac = "invalidhmac".to_string();
 
         let is_valid = hmac
-            .verify(&value, &provided_hmac, HashFunc::Sha256)
+            .verify(&value, &provided_hmac)
             .unwrap();
 
         assert!(
@@ -249,13 +252,13 @@ mod tests {
 
     #[test]
     fn test_hash_with_different_values() {
-        let hmac = Hmac::new("mysecret");
+        let hmac = Hmac::new("mysecret", HashFunc::Sha256);
 
         let value1 = "message1".to_string();
         let value2 = "message2".to_string();
 
-        let hmac1 = hmac.hash(&value1, HashFunc::Sha256).unwrap();
-        let hmac2 = hmac.hash(&value2, HashFunc::Sha256).unwrap();
+        let hmac1 = hmac.hash(&value1).unwrap();
+        let hmac2 = hmac.hash(&value2).unwrap();
 
         assert_ne!(
             hmac1, hmac2,
@@ -265,11 +268,12 @@ mod tests {
 
     #[test]
     fn test_hash_with_different_functions() {
-        let hmac = Hmac::new("mysecret");
+        let hmac256 = Hmac::new("mysecret", HashFunc::Sha256);
+        let hmac512 = Hmac::new("mysecret", HashFunc::Sha512);
         let value = "my message".to_string();
 
-        let sha256_hmac = hmac.hash(&value, HashFunc::Sha256).unwrap();
-        let sha512_hmac = hmac.hash(&value, HashFunc::Sha512).unwrap();
+        let sha256_hmac = hmac256.hash(&value).unwrap();
+        let sha512_hmac = hmac512.hash(&value).unwrap();
 
         assert_ne!(
             sha256_hmac, sha512_hmac,
@@ -279,21 +283,22 @@ mod tests {
 
     #[test]
     fn test_verify_with_different_functions() {
-        let hmac = Hmac::new("mysecret");
+        let hmac = Hmac::new("mysecret", HashFunc::Sha512);
         let value = "my message".to_string();
 
         // Generate HMAC with SHA-512
-        let sha512_hmac = hmac.hash(&value, HashFunc::Sha512).unwrap();
+        let sha512_hmac = hmac.hash(&value).unwrap();
 
         // Verify should succeed with SHA-512
         assert!(
-            hmac.verify(&value, &sha512_hmac, HashFunc::Sha512).unwrap(),
+            hmac.verify(&value, &sha512_hmac).unwrap(),
             "Verification should succeed with matching hash function"
         );
 
         // Verify should fail with SHA-256
+        let hmac = Hmac::new("mysecret", HashFunc::Sha256);
         assert!(
-            !hmac.verify(&value, &sha512_hmac, HashFunc::Sha256).unwrap(),
+            !hmac.verify(&value, &sha512_hmac).unwrap(),
             "Verification should fail with different hash function"
         );
     }
