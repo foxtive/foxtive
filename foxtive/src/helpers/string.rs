@@ -236,10 +236,16 @@ mod ext_tests {
     #[test]
     fn test_uc_words_ext() {
         assert_eq!("hello world".uc_words(), "Hello World");
-        assert_eq!("rust programming language".uc_words(), "Rust Programming Language");
+        assert_eq!(
+            "rust programming language".uc_words(),
+            "Rust Programming Language"
+        );
         assert_eq!("".uc_words(), "");
         assert_eq!("a b c".uc_words(), "A B C");
-        assert_eq!(String::from("multiple    spaces").uc_words(), "Multiple Spaces");
+        assert_eq!(
+            String::from("multiple    spaces").uc_words(),
+            "Multiple Spaces"
+        );
     }
 
     #[cfg(feature = "regex")]
