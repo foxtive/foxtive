@@ -27,12 +27,8 @@ impl ReqwestResponseError {
         &self.body
     }
 
-    pub fn into_code(self) -> StatusCode {
-        self.status
-    }
-
-    pub fn into_body(self) -> String {
-        self.body
+    pub fn into_parts(self) -> (StatusCode, String) {
+        (self.status, self.body)
     }
 
     pub fn deserialize<T: DeserializeOwned>(&self) -> AppResult<T> {
