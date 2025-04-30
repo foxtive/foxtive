@@ -27,6 +27,14 @@ impl ReqwestResponseError {
         &self.body
     }
 
+    pub fn into_code(self) -> AppResult<StatusCode> {
+        Ok(self.status)
+    }
+
+    pub fn into_body(self) -> AppResult<String> {
+        Ok(self.body)
+    }
+
     pub fn deserialize<T: DeserializeOwned>(&self) -> AppResult<T> {
         Ok(serde_json::from_str::<T>(&self.body)?)
     }
