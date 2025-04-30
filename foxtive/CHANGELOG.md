@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.8.1 (2024-04-30)
+* feat(reqwest): error helper now has 'into_code()' & 'into_body()' to move the values out
+
 ### 0.8.0 (2024-04-20)
 * feat(in-memory-cache): now support in memory driver using DashMap as an underlying storage
 
