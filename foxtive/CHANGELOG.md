@@ -3,6 +3,7 @@ Foxtive changelog file
 
 ### 0.8.3 (2024-04-30)
 * feat(string): extension trait to provide helper methods
+* fix(reqwest): removed 'into_code()' & 'into_body()' and add 'into_parts()'
 
 ### 0.8.2 (2024-04-30)
 * feat(reqwest): remove unnecessary result
