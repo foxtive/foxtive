@@ -217,3 +217,102 @@ mod tests {
         assert_eq!(Str::pad_left("", 2, '*'), "**");
     }
 }
+
+#[cfg(test)]
+mod ext_tests {
+    // use super::{StringExt, Str};
+
+    use crate::ext::StringExt;
+
+    #[test]
+    fn test_uc_first_ext() {
+        assert_eq!("hello".uc_first(), "Hello");
+        assert_eq!("hELLO".uc_first(), "HELLO");
+        assert_eq!("".uc_first(), "");
+        assert_eq!("1world".uc_first(), "1world");
+        assert_eq!(String::from("hello").uc_first(), "Hello");
+    }
+
+    #[test]
+    fn test_uc_words_ext() {
+        assert_eq!("hello world".uc_words(), "Hello World");
+        assert_eq!("rust programming language".uc_words(), "Rust Programming Language");
+        assert_eq!("".uc_words(), "");
+        assert_eq!("a b c".uc_words(), "A B C");
+        assert_eq!(String::from("multiple    spaces").uc_words(), "Multiple Spaces");
+    }
+
+    #[cfg(feature = "regex")]
+    #[test]
+    fn test_is_username_valid_ext() {
+        assert!("a".is_username_valid().unwrap());
+        assert!(String::from("abc1234").is_username_valid().unwrap());
+        assert!(!"".is_username_valid().unwrap());
+    }
+
+    #[test]
+    fn test_truncate_ext() {
+        assert_eq!("Hello, World!".truncate(5), "Hello...");
+        assert_eq!("Hello".truncate(10), "Hello");
+        assert_eq!("".truncate(5), "");
+        assert_eq!(String::from("Hello, World!").truncate(5), "Hello...");
+    }
+
+    #[test]
+    fn test_remove_whitespace_ext() {
+        assert_eq!("Hello World".remove_whitespace(), "HelloWorld");
+        assert_eq!("   spaces   ".remove_whitespace(), "spaces");
+        assert_eq!("\t\ntest\r".remove_whitespace(), "test");
+        assert_eq!(String::from(" a b c ").remove_whitespace(), "abc");
+    }
+
+    #[test]
+    fn test_reverse_ext() {
+        assert_eq!("hello".reverse(), "olleh");
+        assert_eq!("".reverse(), "");
+        assert_eq!(String::from("Rust").reverse(), "tsuR");
+    }
+
+    #[test]
+    fn test_count_occurrences_ext() {
+        assert_eq!("hello hello hello".count_occurrences("hello"), 3);
+        assert_eq!("aaa".count_occurrences("aa"), 1);
+        assert_eq!("test".count_occurrences(""), 0);
+        assert_eq!(String::from("aabbcc").count_occurrences("b"), 2);
+    }
+
+    #[test]
+    fn test_is_numeric_ext() {
+        assert!("123".is_numeric());
+        assert!(!"12.3".is_numeric());
+        assert!(!"abc".is_numeric());
+        assert!(!"".is_numeric());
+        assert!(String::from("456").is_numeric());
+    }
+
+    #[test]
+    fn test_is_alphabetic_ext() {
+        assert!("abc".is_alphabetic());
+        assert!("ABC".is_alphabetic());
+        assert!(!"abc123".is_alphabetic());
+        assert!(!"".is_alphabetic());
+        assert!(String::from("xyzXYZ").is_alphabetic());
+    }
+
+    #[test]
+    fn test_camel_case_ext() {
+        assert_eq!("hello_world".camel_case(), "helloWorld");
+        assert_eq!("user_id".camel_case(), "userId");
+        assert_eq!("already_camelCase".camel_case(), "alreadyCamelCase");
+        assert_eq!("".camel_case(), "");
+        assert_eq!(String::from("foo_bar_baz").camel_case(), "fooBarBaz");
+    }
+
+    #[test]
+    fn test_pad_left_ext() {
+        assert_eq!("123".pad_left(5, '0'), "00123");
+        assert_eq!("abc".pad_left(3, '0'), "abc");
+        assert_eq!("".pad_left(2, '*'), "**");
+        assert_eq!(String::from("42").pad_left(4, '-'), "--42");
+    }
+}
