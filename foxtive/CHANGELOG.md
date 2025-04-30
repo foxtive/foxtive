@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.8.2 (2024-04-30)
+* feat(reqwest): remove unnecessary result
+
 ### 0.8.1 (2024-04-30)
 * feat(reqwest): error helper now has 'into_code()' & 'into_body()' to move the values out
 
