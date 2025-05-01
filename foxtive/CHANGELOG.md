@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.8.4 (2024-05-01)
+* fix(serde_de_datetime): parse as string instead of &str
+
 ### 0.8.3 (2024-04-30)
 * feat(string): extension trait to provide helper methods
 * fix(reqwest): removed 'into_code()' & 'into_body()' and add 'into_parts()'

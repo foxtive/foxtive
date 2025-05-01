@@ -26,8 +26,8 @@ pub fn serde_de_datetime<'de, D>(deserializer: D) -> Result<NaiveDateTime, D::Er
 where
     D: Deserializer<'de>,
 {
-    let s: &str = Deserialize::deserialize(deserializer)?;
-    NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").map_err(serde::de::Error::custom)
+    let s: String = Deserialize::deserialize(deserializer)?;
+    NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S").map_err(serde::de::Error::custom)
 }
 
 pub fn serde_se_datetime<S>(date: &NaiveDateTime, serializer: S) -> Result<S::Ok, S::Error>
