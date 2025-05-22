@@ -3,6 +3,7 @@ Foxtive changelog file
 
 ### 0.9.0 (2024-05-22)
 * feat(cache): introduced 'forget_by_pattern' method to forget keys using pattern
+* fix(templating): render now returns result instead of panicking
 
 ### 0.8.4 (2024-05-01)
 * fix(serde_de_datetime): parse as string instead of &str
