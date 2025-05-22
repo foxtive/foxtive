@@ -55,6 +55,24 @@ impl Redis {
         conn.del(key).await.into_app_result()
     }
 
+    /// Delete Redis keys matching a pattern.
+    ///
+    /// # Arguments
+    /// * `pattern` - The glob-style pattern to match keys (e.g. "my_prefix:*")
+    ///
+    /// # Returns
+    /// * `AppResult<u32>` - The number of keys deleted
+    pub async fn delete_by_pattern(&self, pattern: &str) -> AppResult<u32> {
+        let mut conn = self.redis().await?;
+        let keys: Vec<String> = conn.keys(pattern).await?;
+
+        if keys.is_empty() {
+            return Ok(0);
+        }
+
+        conn.del(keys).await.into_app_result()
+    }
+
     pub async fn publish<T: Serialize>(&self, channel: &str, data: &T) -> AppResult<i32> {
         let content = serde_json::to_string(data)?;
         let mut conn = self.redis().await?;

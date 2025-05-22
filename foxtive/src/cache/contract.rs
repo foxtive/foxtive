@@ -12,6 +12,8 @@ pub trait CacheDriverContract: Send + Sync {
     async fn get_raw(&self, key: &str) -> AppResult<Option<String>>;
 
     async fn forget(&self, key: &str) -> AppResult<i32>;
+
+    async fn forget_by_pattern(&self, key: &str) -> AppResult<i32>;
 }
 
 #[async_trait]
