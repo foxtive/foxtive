@@ -22,13 +22,15 @@ impl CacheDriverContract for InMemoryDriver {
     }
 
     async fn get_raw(&self, key: &str) -> AppResult<Option<String>> {
-        Ok(self.storage
-            .get(key)
-            .map(|value| value.value().clone()))
+        Ok(self.storage.get(key).map(|value| value.value().clone()))
     }
 
     async fn forget(&self, key: &str) -> AppResult<i32> {
-        Ok(if self.storage.remove(key).is_some() { 1 } else { 0 })
+        Ok(if self.storage.remove(key).is_some() {
+            1
+        } else {
+            0
+        })
     }
 
     async fn forget_by_pattern(&self, pattern: &str) -> AppResult<i32> {
@@ -94,7 +96,7 @@ mod tests {
             ("SESSION:xyz", "session2"),
             ("test.key", "value"),
             ("test-key", "value"),
-            ("", "empty"),  // Empty key
+            ("", "empty"), // Empty key
             ("special*char", "special"),
         ];
 
@@ -129,8 +131,14 @@ mod tests {
 
         // Test case 5: Empty pattern (should match everything)
         let driver_empty = InMemoryDriver::new();
-        driver_empty.put_raw("key1", "value1".to_string()).await.unwrap();
-        driver_empty.put_raw("key2", "value2".to_string()).await.unwrap();
+        driver_empty
+            .put_raw("key1", "value1".to_string())
+            .await
+            .unwrap();
+        driver_empty
+            .put_raw("key2", "value2".to_string())
+            .await
+            .unwrap();
         let removed = driver_empty.forget_by_pattern(".*").await.unwrap();
         assert_eq!(removed, 2);
 
@@ -163,26 +171,33 @@ mod tests {
         // Spawn concurrent tasks with non-overlapping patterns that cover all numbers 0-99
         let handle1 = tokio::spawn(async move {
             // Pattern for 0-49: matches both single and double digits
-            driver.forget_by_pattern("^test:([0-4]\\d|[0-9])$").await.unwrap()
+            driver
+                .forget_by_pattern("^test:([0-4]\\d|[0-9])$")
+                .await
+                .unwrap()
         });
 
         let driver_clone_2 = driver_clone.clone();
         let handle2 = tokio::spawn(async move {
             // Pattern for 50-99: matches both single and double digits
-            driver_clone_2.forget_by_pattern("^test:[5-9]\\d$").await.unwrap()
+            driver_clone_2
+                .forget_by_pattern("^test:[5-9]\\d$")
+                .await
+                .unwrap()
         });
 
         // Wait for both tasks to complete
         let (result1, result2) = tokio::join!(handle1, handle2);
-        
+
         let total_removed = result1.unwrap() + result2.unwrap();
-        assert_eq!(total_removed, 100, "Failed to remove all items. Only removed {}", total_removed);
+        assert_eq!(
+            total_removed, 100,
+            "Failed to remove all items. Only removed {}",
+            total_removed
+        );
 
         // Verify all keys are gone
-        let remaining = driver_clone
-            .storage
-            .iter()
-            .count();
+        let remaining = driver_clone.storage.iter().count();
         assert_eq!(remaining, 0, "Some keys remained in storage: {}", remaining);
     }
 }

@@ -240,16 +240,11 @@ mod tests {
     #[test]
     fn test_jwt_generate() {
         let (public_key, private_key) = Jwt::dummy_keys();
-        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 1");
         let jwt = Jwt::new(public_key, private_key, 60);
 
-        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 2");
         let claims = get_sample_claim();
 
-        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 3");
         let result = jwt.generate(claims);
-
-        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 4");
 
         assert!(result.is_ok());
 
@@ -262,17 +257,11 @@ mod tests {
     #[test]
     fn test_jwt_decode() {
         let (public_key, private_key) = Jwt::dummy_keys();
-        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 1");
         let jwt = Jwt::new(public_key.clone(), private_key, 60);
-        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 2");
 
         let claims = get_sample_claim();
-        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 3");
 
         let generated_token = jwt.generate(claims.clone()).unwrap();
-        println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> 4");
-
-        println!("GENERATED: {}", generated_token.access_token);
 
         let mut validation = Validation::new(Algorithm::RS256);
         validation.set_audience(&["test_audience"]);

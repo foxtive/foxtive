@@ -109,4 +109,3 @@ impl StringExt for String {
         self.as_str().pad_left(width, pad_char)
     }
 }
-

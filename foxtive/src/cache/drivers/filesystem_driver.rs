@@ -1,13 +1,13 @@
 use crate::cache::contract::CacheDriverContract;
 use crate::results::AppResult;
 use async_trait::async_trait;
+use std::collections::HashMap;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
-use std::collections::HashMap;
 use tokio::sync::RwLock;
-use std::io::ErrorKind;
 
 #[derive(Clone)]
 pub struct FilesystemCacheDriver {
@@ -36,9 +36,12 @@ impl FilesystemCacheDriver {
         } else {
             key.replace([':', '/', '\\', '<', '>', '"', '|', '?', '*'], "_")
         };
-        
+
         let path = self.base_path.join(format!("{}.cache", safe_key));
-        self.path_cache.write().await.insert(key.to_string(), path.clone());
+        self.path_cache
+            .write()
+            .await
+            .insert(key.to_string(), path.clone());
         path
     }
 }
@@ -77,10 +80,10 @@ impl CacheDriverContract for FilesystemCacheDriver {
 
     async fn forget(&self, key: &str) -> AppResult<i32> {
         let path = self.key_to_path(key).await;
-        
+
         // Remove from path cache
         self.path_cache.write().await.remove(key);
-        
+
         match fs::remove_file(&path).await {
             Ok(_) => Ok(1),
             Err(e) if e.kind() == ErrorKind::NotFound => Ok(0),
@@ -96,11 +99,9 @@ impl CacheDriverContract for FilesystemCacheDriver {
         let path_cache = self.path_cache.read().await;
         let keys_to_remove: Vec<String> = path_cache
             .keys()
-            .filter_map(|key| {
-                match regex.is_match(key) {
-                    Ok(true) => Some(key.clone()),
-                    _ => None,
-                }
+            .filter_map(|key| match regex.is_match(key) {
+                Ok(true) => Some(key.clone()),
+                _ => None,
             })
             .collect();
         drop(path_cache); // Release the read lock
@@ -108,14 +109,14 @@ impl CacheDriverContract for FilesystemCacheDriver {
         // Remove matching files and their cache entries
         for key in keys_to_remove {
             let path = self.key_to_path(&key).await;
-        
+
             // Remove from path cache
             self.path_cache.write().await.remove(&key);
-        
+
             // Remove the file
             match fs::remove_file(&path).await {
                 Ok(_) => removed_count += 1,
-                Err(e) if e.kind() == ErrorKind::NotFound => {},
+                Err(e) if e.kind() == ErrorKind::NotFound => {}
                 Err(e) => return Err(e.into()),
             }
         }
@@ -214,7 +215,10 @@ mod tests {
         let empty_key = "";
         // First verify the empty key was stored properly
         assert!(driver.put_raw(empty_key, "empty".to_string()).await.is_ok());
-        assert_eq!(driver.get_raw(empty_key).await.unwrap(), Some("empty".to_string()));
+        assert_eq!(
+            driver.get_raw(empty_key).await.unwrap(),
+            Some("empty".to_string())
+        );
 
         // Now test the pattern match
         let removed = driver.forget_by_pattern("^$").await.unwrap();
@@ -244,18 +248,24 @@ mod tests {
         let driver_clone_1 = driver_clone.clone();
         let handle1 = tokio::spawn(async move {
             // Pattern for 0-49
-            driver_clone_1.forget_by_pattern("^test:([0-4]\\d|[0-9])$").await.unwrap()
+            driver_clone_1
+                .forget_by_pattern("^test:([0-4]\\d|[0-9])$")
+                .await
+                .unwrap()
         });
 
         let driver_clone_2 = driver_clone.clone();
         let handle2 = tokio::spawn(async move {
             // Pattern for 50-99
-            driver_clone_2.forget_by_pattern("^test:[5-9]\\d$").await.unwrap()
+            driver_clone_2
+                .forget_by_pattern("^test:[5-9]\\d$")
+                .await
+                .unwrap()
         });
 
         // Wait for both tasks to complete
         let (result1, result2) = tokio::join!(handle1, handle2);
-        
+
         let total_removed = result1.unwrap() + result2.unwrap();
         assert_eq!(total_removed, 100, "Failed to remove all items");
 
@@ -283,8 +293,14 @@ mod tests {
         let (driver, _temp_dir) = setup_test_cache().await;
 
         // Add some test data
-        driver.put_raw("test:1", "value1".to_string()).await.unwrap();
-        driver.put_raw("test:2", "value2".to_string()).await.unwrap();
+        driver
+            .put_raw("test:1", "value1".to_string())
+            .await
+            .unwrap();
+        driver
+            .put_raw("test:2", "value2".to_string())
+            .await
+            .unwrap();
 
         // Test pattern that doesn't match any keys
         let removed = driver.forget_by_pattern("^nonexistent:.*").await.unwrap();

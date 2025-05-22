@@ -44,7 +44,6 @@ mod tests {
     use std::env;
     use std::sync::Arc;
     use std::time::Duration;
-    use tokio::time::sleep;
 
     async fn setup_test_driver() -> Option<RedisCacheDriver> {
         // Try to get Redis URL from environment, fall back to default if not set
@@ -150,8 +149,6 @@ mod tests {
             driver.put_raw(key, value.to_string()).await.unwrap();
         }
 
-        sleep(Duration::from_secs(2)).await;
-
         // Test case 1: Exact prefix match
         let removed = driver.forget_by_pattern("user:*").await.unwrap();
         assert_eq!(removed, 2);
@@ -205,14 +202,17 @@ mod tests {
         for i in 0..100 {
             let key = format!("test:{}", i);
             let value = format!("value{}", i);
-            
+
             match driver.put_raw(&key, value.clone()).await {
                 Ok(_) => {
                     // Verify each write immediately
                     match driver.get_raw(&key).await {
                         Ok(Some(v)) if v == value => continue,
                         Ok(Some(v)) => {
-                            eprintln!("Value mismatch for key {}: expected '{}', got '{}'", key, value, v);
+                            eprintln!(
+                                "Value mismatch for key {}: expected '{}', got '{}'",
+                                key, value, v
+                            );
                             return;
                         }
                         Ok(None) => {
@@ -241,12 +241,17 @@ mod tests {
             match driver.get_raw(&key).await {
                 Ok(Some(v)) if v == expected => continue,
                 Ok(Some(v)) => {
-                    eprintln!("Pre-concurrent check: Value mismatch for key {}: expected '{}', got '{}'", 
-                        key, expected, v);
+                    eprintln!(
+                        "Pre-concurrent check: Value mismatch for key {}: expected '{}', got '{}'",
+                        key, expected, v
+                    );
                     return;
                 }
                 Ok(None) => {
-                    eprintln!("Pre-concurrent check: Key {} unexpectedly returned None", key);
+                    eprintln!(
+                        "Pre-concurrent check: Key {} unexpectedly returned None",
+                        key
+                    );
                     return;
                 }
                 Err(e) => {
@@ -359,11 +364,7 @@ mod tests {
         // Store a value
         driver.put_raw(key, value).await.unwrap();
 
-        // This test requires Redis server-side configuration for key expiration
-        // You might want to skip this test or implement explicit expiration support
-        sleep(Duration::from_secs(1)).await;
-
-        let _result = driver.get_raw(key).await.unwrap();
-        // assert!(result.is_some(), "Value should still exist after 1 second");
+        let result = driver.get_raw(key).await.unwrap();
+        assert!(result.is_some(), "Value should still exist after 1 second");
     }
 }
