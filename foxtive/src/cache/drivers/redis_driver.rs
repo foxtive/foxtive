@@ -16,6 +16,19 @@ impl RedisCacheDriver {
 
 #[async_trait::async_trait]
 impl CacheDriverContract for RedisCacheDriver {
+    async fn keys(&self) -> AppResult<Vec<String>> {
+        // Use Redis KEYS command to get all keys
+        self.redis.keys().await
+    }
+
+    async fn keys_by_pattern(&self, pattern: &str) -> AppResult<Vec<String>> {
+        // Use Redis KEYS command with the provided pattern directly
+        // Redis patterns use glob-style patterns, which is different from regex
+        // but the contract expects regex patterns, so we need to convert
+        let redis_pattern = regex_to_redis_pattern(pattern);
+        self.redis.keys_by_pattern(&redis_pattern).await
+    }
+
     async fn put_raw(&self, key: &str, value: String) -> AppResult<String> {
         self.redis.set(key, &value).await
     }
@@ -34,6 +47,31 @@ impl CacheDriverContract for RedisCacheDriver {
             .await
             .map(|count| count as i32)
     }
+}
+
+// Helper function to convert regex patterns to Redis glob patterns
+fn regex_to_redis_pattern(pattern: &str) -> String {
+    // Handle some common regex patterns and convert them to Redis patterns
+    let mut redis_pattern = pattern.to_string();
+    
+    // Replace regex start/end markers
+    redis_pattern = redis_pattern.replace("^", "");
+    redis_pattern = redis_pattern.replace("$", "");
+    
+    // Replace regex .* with Redis *
+    redis_pattern = redis_pattern.replace(".*", "*");
+    
+    // Replace regex dot with Redis ?
+    redis_pattern = redis_pattern.replace(".", "?");
+    
+    // Handle case-insensitive flag by removing it (Redis KEYS is case-sensitive)
+    redis_pattern = redis_pattern.replace("(?i)", "");
+    
+    // Escape special Redis pattern characters that might be in the regex
+    redis_pattern = redis_pattern.replace("[", "\\[");
+    redis_pattern = redis_pattern.replace("]", "\\]");
+    
+    redis_pattern
 }
 
 #[cfg(test)]
@@ -366,5 +404,226 @@ mod tests {
 
         let result = driver.get_raw(key).await.unwrap();
         assert!(result.is_some(), "Value should still exist after 1 second");
+    }
+
+    #[tokio::test]
+    async fn test_keys_empty_db() {
+        let driver = match setup_test_driver().await {
+            Some(driver) => driver,
+            None => {
+                eprintln!("Skipping Redis tests - no connection available");
+                return;
+            }
+        };
+
+        // Ensure DB is empty
+        driver.redis.flush_db().await.unwrap();
+
+        let keys = driver.keys().await.unwrap();
+        assert!(keys.is_empty(), "Empty database should return no keys");
+    }
+
+    #[tokio::test]
+    async fn test_keys_with_data() {
+        let driver = match setup_test_driver().await {
+            Some(driver) => driver,
+            None => {
+                eprintln!("Skipping Redis tests - no connection available");
+                return;
+            }
+        };
+
+        driver.redis.flush_db().await.unwrap();
+
+        // Set up test data
+        let test_data = [
+            ("key1", "value1"),
+            ("key2", "value2"),
+            ("prefix:key3", "value3"),
+            ("", "empty_value"),  // Test empty key
+        ];
+
+        for (key, value) in test_data {
+            driver.put_raw(key, value.to_string()).await.unwrap();
+        }
+
+        let mut keys = driver.keys().await.unwrap();
+        keys.sort();
+
+        let mut expected: Vec<String> = test_data.iter().map(|(k, _)| k.to_string()).collect();
+        expected.sort();
+
+        assert_eq!(keys, expected, "Retrieved keys should match inserted keys");
+    }
+
+    #[tokio::test]
+    async fn test_keys_after_deletion() {
+        let driver = match setup_test_driver().await {
+            Some(driver) => driver,
+            None => {
+                eprintln!("Skipping Redis tests - no connection available");
+                return;
+            }
+        };
+
+        driver.redis.flush_db().await.unwrap();
+
+        // Insert test data
+        let test_data = [
+            ("test1", "value1"),
+            ("test2", "value2"),
+            ("test3", "value3"),
+        ];
+
+        for (key, value) in test_data {
+            driver.put_raw(key, value.to_string()).await.unwrap();
+        }
+
+        // Delete one key
+        driver.forget("test2").await.unwrap();
+
+        let mut keys = driver.keys().await.unwrap();
+        keys.sort();
+
+        let expected = vec!["test1".to_string(), "test3".to_string()];
+        assert_eq!(keys, expected, "Keys should not include deleted key");
+    }
+
+    #[tokio::test]
+    async fn test_keys_by_pattern_basic() {
+        let driver = match setup_test_driver().await {
+            Some(driver) => driver,
+            None => {
+                eprintln!("Skipping Redis tests - no connection available");
+                return;
+            }
+        };
+
+        driver.redis.flush_db().await.unwrap();
+
+        // Set up test data with different patterns
+        let test_data = [
+            ("user:1", "value1"),
+            ("user:2", "value2"),
+            ("profile:1", "value3"),
+            ("other", "value4"),
+        ];
+
+        for (key, value) in test_data {
+            driver.put_raw(key, value.to_string()).await.unwrap();
+        }
+
+        // Test prefix match (regex pattern will be converted to Redis pattern)
+        let mut keys = driver.keys_by_pattern("^user:.*").await.unwrap();
+        keys.sort();
+        assert_eq!(
+            keys,
+            vec!["user:1".to_string(), "user:2".to_string()],
+            "Should match user: prefix"
+        );
+
+        // Test exact match
+        let keys = driver.keys_by_pattern("^other$").await.unwrap();
+        assert_eq!(
+            keys,
+            vec!["other".to_string()],
+            "Should match exact pattern"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_keys_by_pattern_wildcards() {
+        let driver = match setup_test_driver().await {
+            Some(driver) => driver,
+            None => {
+                eprintln!("Skipping Redis tests - no connection available");
+                return;
+            }
+        };
+
+        driver.redis.flush_db().await.unwrap();
+
+        // Set up test data for wildcard matching
+        let test_data = [
+            ("test1", "value1"),
+            ("test2", "value2"),
+            ("test11", "value3"),
+            ("atest1", "value4"),
+        ];
+
+        for (key, value) in test_data {
+            driver.put_raw(key, value.to_string()).await.unwrap();
+        }
+
+        // Test single character wildcard (. in regex becomes ? in Redis)
+        let mut keys = driver.keys_by_pattern("test.").await.unwrap();
+        keys.sort();
+        assert_eq!(
+            keys,
+            vec!["test1".to_string(), "test2".to_string()],
+            "Should match single character wildcard"
+        );
+
+        // Test multi-character wildcard (.* in regex becomes * in Redis)
+        let mut keys = driver.keys_by_pattern("test.*").await.unwrap();
+        keys.sort();
+        assert_eq!(
+            keys,
+            vec!["test1".to_string(), "test11".to_string(), "test2".to_string()],
+            "Should match multi-character wildcard"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_keys_by_pattern_special_chars() {
+        let driver = match setup_test_driver().await {
+            Some(driver) => driver,
+            None => {
+                eprintln!("Skipping Redis tests - no connection available");
+                return;
+            }
+        };
+
+        driver.redis.flush_db().await.unwrap();
+
+        // Set up test data with special characters
+        let test_data = [
+            ("test[1]", "value1"),
+            ("test[2]", "value2"),
+            ("test{3}", "value3"),
+        ];
+
+        for (key, value) in test_data {
+            driver.put_raw(key, value.to_string()).await.unwrap();
+        }
+
+        // Test pattern with escaped special characters
+        let mut keys = driver.keys_by_pattern("test\\[.*\\]").await.unwrap();
+        keys.sort();
+        assert_eq!(
+            keys,
+            vec!["test[1]".to_string(), "test[2]".to_string()],
+            "Should match escaped special characters"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_keys_by_pattern_empty() {
+        let driver = match setup_test_driver().await {
+            Some(driver) => driver,
+            None => {
+                eprintln!("Skipping Redis tests - no connection available");
+                return;
+            }
+        };
+
+        driver.redis.flush_db().await.unwrap();
+
+        // Add some test data
+        driver.put_raw("test1", "value1".to_string()).await.unwrap();
+        driver.put_raw("test2", "value2".to_string()).await.unwrap();
+
+        let keys = driver.keys_by_pattern("").await.unwrap();
+        assert!(keys.is_empty(), "Empty pattern should return no matches");
     }
 }

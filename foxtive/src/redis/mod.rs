@@ -263,4 +263,34 @@ impl Redis {
 
         Ok(())
     }
+
+    /// Returns all keys in the Redis database.
+    ///
+    /// This method uses Redis' KEYS command with a "*" pattern to retrieve all keys.
+    /// Note: The KEYS command should be used with caution in production environments
+    /// as it may impact performance for large datasets.
+    ///
+    /// # Returns
+    /// - `AppResult<Vec<String>>`: A vector containing all keys in the database
+    pub async fn keys(&self) -> AppResult<Vec<String>> {
+        self.keys_by_pattern("*").await
+    }
+
+    /// Returns keys matching the specified pattern in the Redis database.
+    ///
+    /// This method uses Redis' KEYS command with the provided pattern.
+    /// Supports Redis glob-style patterns:
+    /// - `h?llo` matches `hello`, `hallo` and `hxllo`
+    /// - `h*llo` matches `hllo` and `heeeello`
+    /// - `h[ae]llo` matches `hello` and `hallo`, but not `hillo`
+    ///
+    /// # Arguments
+    /// * `pattern` - Redis glob-style pattern to match against keys
+    ///
+    /// # Returns
+    /// - `AppResult<Vec<String>>`: A vector containing all matching keys
+    pub async fn keys_by_pattern(&self, pattern: &str) -> AppResult<Vec<String>> {
+        let mut conn = self.redis().await?;
+        conn.keys(pattern).await.into_app_result()
+    }
 }

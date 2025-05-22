@@ -16,6 +16,20 @@ impl InMemoryDriver {
 
 #[async_trait::async_trait]
 impl CacheDriverContract for InMemoryDriver {
+    async fn keys(&self) -> AppResult<Vec<String>> {
+        Ok(self.storage.iter().map(|entry| entry.key().clone()).collect())
+    }
+
+    async fn keys_by_pattern(&self, pattern: &str) -> AppResult<Vec<String>> {
+        let regex = fancy_regex::Regex::new(pattern)?;
+        let all_keys = self.keys().await?;
+    
+        Ok(all_keys
+            .into_iter()
+            .filter(|key| matches!(regex.is_match(key), Ok(true)))
+            .collect())
+    }
+
     async fn put_raw(&self, key: &str, value: String) -> AppResult<String> {
         self.storage.insert(key.to_string(), value.clone());
         Ok(value)
@@ -64,6 +78,172 @@ impl CacheDriverContract for InMemoryDriver {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn test_keys_empty_storage() {
+        let driver = InMemoryDriver::new();
+        let keys = driver.keys().await.unwrap();
+        assert!(keys.is_empty(), "Empty storage should return empty keys vector");
+    }
+
+    #[tokio::test]
+    async fn test_keys_with_data() {
+        let driver = InMemoryDriver::new();
+        
+        // Set up test data
+        let test_data = [
+            ("key1", "value1"),
+            ("key2", "value2"),
+            ("key3", "value3"),
+            ("", "empty_value"), // Test empty key
+        ];
+
+        for (key, value) in test_data {
+            driver.put_raw(key, value.to_string()).await.unwrap();
+        }
+
+        let mut keys = driver.keys().await.unwrap();
+        keys.sort(); // Sort for consistent comparison
+        
+        let mut expected: Vec<String> = test_data.iter().map(|(k, _)| k.to_string()).collect();
+        expected.sort();
+
+        assert_eq!(keys, expected, "Retrieved keys should match inserted keys");
+    }
+
+    #[tokio::test]
+    async fn test_keys_after_deletion() {
+        let driver = InMemoryDriver::new();
+        
+        // Insert test data
+        let test_data = [
+            ("test1", "value1"),
+            ("test2", "value2"),
+            ("test3", "value3"),
+        ];
+
+        for (key, value) in test_data {
+            driver.put_raw(key, value.to_string()).await.unwrap();
+        }
+
+        // Delete one key
+        driver.forget("test2").await.unwrap();
+
+        let mut keys = driver.keys().await.unwrap();
+        keys.sort();
+
+        let expected = vec!["test1".to_string(), "test3".to_string()];
+        assert_eq!(keys, expected, "Keys should not include deleted key");
+    }
+
+    #[tokio::test]
+    async fn test_keys_by_pattern_basic() {
+        let driver = InMemoryDriver::new();
+        
+        // Insert test data with different patterns
+        let test_data = [
+            ("prefix:1", "value1"),
+            ("prefix:2", "value2"),
+            ("other:1", "value3"),
+            ("different", "value4"),
+        ];
+
+        for (key, value) in test_data {
+            driver.put_raw(key, value.to_string()).await.unwrap();
+        }
+
+        // Test exact prefix match
+        let mut keys = driver.keys_by_pattern("^prefix:.*").await.unwrap();
+        keys.sort();
+        assert_eq!(
+            keys,
+            vec!["prefix:1".to_string(), "prefix:2".to_string()],
+            "Should match prefix: pattern"
+        );
+
+        // Test single key match
+        let keys = driver.keys_by_pattern("^different$").await.unwrap();
+        assert_eq!(
+            keys,
+            vec!["different".to_string()],
+            "Should match exact pattern"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_keys_by_pattern_complex() {
+        let driver = InMemoryDriver::new();
+        
+        // Insert test data with various patterns
+        let test_data = [
+            ("ABC123", "value1"),
+            ("abc456", "value2"),
+            ("user_123", "value3"),
+            ("USER_456", "value4"),
+            ("test-key", "value5"),
+            ("test.key", "value6"),
+        ];
+
+        for (key, value) in test_data {
+            driver.put_raw(key, value.to_string()).await.unwrap();
+        }
+
+        // Test case-insensitive match
+        let mut keys = driver.keys_by_pattern("(?i)^abc\\d+").await.unwrap();
+        keys.sort();
+        assert_eq!(
+            keys,
+            vec!["ABC123".to_string(), "abc456".to_string()],
+            "Should match case-insensitive"
+        );
+
+        // Test pattern with special characters
+        let mut keys = driver.keys_by_pattern("test[.-]key").await.unwrap();
+        keys.sort();
+        assert_eq!(
+            keys,
+            vec!["test-key".to_string(), "test.key".to_string()],
+            "Should match special characters"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_keys_by_pattern_no_matches() {
+        let driver = InMemoryDriver::new();
+        
+        // Insert some test data
+        driver.put_raw("test1", "value1".to_string()).await.unwrap();
+        driver.put_raw("test2", "value2".to_string()).await.unwrap();
+
+        let keys = driver.keys_by_pattern("^nonexistent:.*").await.unwrap();
+        assert!(keys.is_empty(), "Should return empty vec for no matches");
+    }
+
+    #[tokio::test]
+    async fn test_keys_by_pattern_invalid_regex() {
+        let driver = InMemoryDriver::new();
+
+        let result = driver.keys_by_pattern("[").await;
+        assert!(result.is_err(), "Should return error for invalid regex");
+    }
+
+    #[tokio::test]
+    async fn test_keys_by_pattern_empty_pattern() {
+        let driver = InMemoryDriver::new();
+        
+        // Insert test data
+        driver.put_raw("test1", "value1".to_string()).await.unwrap();
+        driver.put_raw("test2", "value2".to_string()).await.unwrap();
+
+        let mut keys = driver.keys_by_pattern("").await.unwrap();
+        keys.sort();
+
+        // Empty pattern in regex matches everything
+        let mut expected = vec!["test1".to_string(), "test2".to_string()];
+        expected.sort();
+        
+        assert_eq!(keys, expected, "Empty pattern should match all keys");
+    }
 
     #[tokio::test]
     async fn test_in_memory_driver() {

@@ -7,13 +7,17 @@ use std::future::Future;
 
 #[async_trait::async_trait]
 pub trait CacheDriverContract: Send + Sync {
+    async fn keys(&self) -> AppResult<Vec<String>>;
+
+    async fn keys_by_pattern(&self, pattern: &str) -> AppResult<Vec<String>>;
+
     async fn put_raw(&self, key: &str, value: String) -> AppResult<String>;
 
     async fn get_raw(&self, key: &str) -> AppResult<Option<String>>;
 
     async fn forget(&self, key: &str) -> AppResult<i32>;
 
-    async fn forget_by_pattern(&self, key: &str) -> AppResult<i32>;
+    async fn forget_by_pattern(&self, pattern: &str) -> AppResult<i32>;
 }
 
 #[async_trait]
