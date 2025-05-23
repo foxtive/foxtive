@@ -1,16 +1,18 @@
-use std::env;
-
+use crate::results::AppResult;
+use anyhow::Error;
 use deadpool_redis::{Manager, Pool};
 use redis::Client;
+use crate::redis::config::RedisConfig;
 
-pub fn establish_redis_connection(env_prefix: &String) -> Client {
-    let redis_url: String = env::var(format!("{}_REDIS_DSN", env_prefix)).unwrap();
-    Client::open(redis_url).unwrap()
+pub fn create_redis_connection(dsn: &str) -> AppResult<Client> {
+    Client::open(dsn).map_err(Error::msg)
 }
 
-pub fn establish_redis_connection_pool(env_prefix: &String) -> Pool {
-    let dsn: String = env::var(format!("{}_REDIS_DSN", env_prefix)).unwrap();
+pub fn create_redis_conn_pool(config: RedisConfig) -> AppResult<Pool> {
+    let manager = Manager::new(config.dsn)?;
 
-    let manager = Manager::new(dsn).unwrap();
-    Pool::builder(manager).max_size(16).build().unwrap()
+    Pool::builder(manager)
+        .config(config.pool_config)
+        .build()
+        .map_err(Error::msg)
 }

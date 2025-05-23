@@ -1,11 +1,13 @@
-use std::env;
-
+use crate::prelude::AppResult;
+use crate::rabbitmq::config::RabbitmqConfig;
+use anyhow::Error;
 use deadpool_lapin::{Manager, Pool};
-use lapin::ConnectionProperties;
 
-pub async fn establish_rabbit_connection_pool(env_prefix: &String) -> Pool {
-    let dsn: String = env::var(format!("{}_RMQ_DSN", env_prefix)).unwrap();
+pub async fn create_rmq_conn_pool(config: RabbitmqConfig) -> AppResult<Pool> {
+    let manager = Manager::new(config.dsn, config.conn_props);
 
-    let manager = Manager::new(dsn, ConnectionProperties::default());
-    Pool::builder(manager).max_size(10).build().unwrap()
+    Pool::builder(manager)
+        .config(config.pool_config)
+        .build()
+        .map_err(Error::msg)
 }

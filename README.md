@@ -1,5 +1,50 @@
-# Foxtive
-Foxtive combines creativity with technical expertise to build impactful software that drives results.
+# Foxtive Framework
+
+A modern, feature-rich Rust framework for building scalable applications with built-in support for caching, authentication, database operations, message queues, and more.
+
+## Features
+
+- 🔐 **JWT Authentication** - Built-in JWT token management and verification
+- 💾 **Multiple Cache Drivers** - Support for Redis, Filesystem, and In-Memory caching
+- 🗄️ **Database Integration** - Diesel ORM integration for database operations
+- 🐰 **RabbitMQ Support** - Asynchronous message queue handling
+- 🔄 **Redis Integration** - Redis connection pooling and operations
+- 📝 **Template Engine** - Integrated Tera templating engine
+- 🔑 **Password Hashing** - Secure password hashing using Argon2
+- 🔧 **Environment Management** - Flexible environment configuration
+
+## Installation
+## Quick Start
+
+1. Create a new Rust project:
+
+2. Add necessary features to your `Cargo.toml`:
+
+3. Initialize the framework:
+
+
+```rust
+use foxtive::setup::{FoxtiveSetup, make_state};
+
+#[tokio::main] 
+async fn main() { // Load environment variables 
+    foxtive::setup::load_environment_variables("my-service");
+
+    // Create framework setup
+    let setup = FoxtiveSetup {
+        env_prefix: "APP".to_string(),
+        private_key: "your-private-key".to_string(),
+        public_key: "your-public-key".to_string(),
+        app_key: "your-app-key".to_string(),
+        app_code: "your-app-code".to_string(),
+        app_name: "My Foxtive App".to_string(),
+        // Add other configuration based on enabled features
+    };
+
+    // Initialize the framework
+    let state = make_state(setup).await;
+}
+```
 
 ## Running Tests
 

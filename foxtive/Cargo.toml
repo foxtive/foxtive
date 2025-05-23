@@ -1,6 +1,6 @@
 [package]
 name = "foxtive"
-version = "0.9.0"
+version = "0.10.0"
 edition = "2021"
 license = "MIT"
 description = "Foxtive Framework"
@@ -9,8 +9,8 @@ authors = ["ahmard"]
 
 [features]
 database = ["diesel"]
-rabbitmq = ["lapin", 'deadpool-lapin']
-redis = ["dep:redis", 'deadpool-redis']
+rabbitmq = ["lapin", "deadpool", "deadpool-lapin"]
+redis = ["dep:redis", "deadpool", "deadpool-redis"]
 base64 = ["dep:base64"]
 hmac = ["dep:hmac", "hex", "sha2"]
 reqwest = ["dep:reqwest"]
@@ -28,6 +28,8 @@ cache-in-memory = ["cache", "dep:dashmap"]
 
 [dependencies]
 anyhow = { version = "1.0.98", features = ["backtrace"] }
+
+deadpool = { version = "0.12.2", optional = true }
 
 # RabbitMQ
 lapin = { version = "2.5.1", optional = true }

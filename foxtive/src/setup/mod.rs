@@ -2,7 +2,7 @@
 #[allow(unused_imports)]
 use crate::cache::{contract::CacheDriverContract, Cache};
 #[cfg(feature = "database")]
-use crate::database::DBPool;
+use crate::database::create_db_pool;
 #[cfg(feature = "jwt")]
 use crate::helpers::jwt::Jwt;
 #[cfg(feature = "crypto")]
@@ -12,19 +12,15 @@ use crate::prelude::RabbitMQ;
 #[cfg(feature = "redis")]
 use crate::prelude::Redis;
 #[cfg(feature = "rabbitmq")]
-use crate::rabbitmq::conn::establish_rabbit_connection_pool;
+use crate::rabbitmq::conn::create_rmq_conn_pool;
 #[cfg(feature = "redis")]
-use crate::redis::conn::establish_redis_connection_pool;
+use crate::redis::conn::create_redis_conn_pool;
 use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
-#[cfg(feature = "database")]
-use diesel::r2d2::ConnectionManager;
-#[cfg(feature = "database")]
-use diesel::{r2d2, PgConnection};
 use log::info;
+use std::fs;
 use std::path::Path;
 #[allow(unused_imports)]
 use std::sync::Arc;
-use std::{env, fs};
 #[cfg(feature = "templating")]
 use tera::Tera;
 
@@ -44,47 +40,72 @@ pub struct FoxtiveSetup {
     pub env_prefix: String,
     pub private_key: String,
     pub public_key: String,
-    pub auth_iss_public_key: String,
+    pub app_key: String,
+    pub app_code: String,
+    pub app_name: String,
+
+    #[cfg(feature = "jwt")]
+    pub jwt_iss_public_key: String,
+    #[cfg(feature = "jwt")]
+    pub jwt_token_lifetime: i64,
+
+    #[cfg(feature = "templating")]
+    pub template_directory: String,
+
+    #[cfg(feature = "database")]
+    pub db_config: crate::database::DbConfig,
+
+    #[cfg(feature = "rabbitmq")]
+    pub rmq_config: crate::rabbitmq::config::RabbitmqConfig,
+
+    #[cfg(feature = "redis")]
+    pub redis_config: crate::redis::config::RedisConfig,
 
     #[cfg(feature = "cache")]
     pub cache_driver_setup: CacheDriverSetup,
 }
 
-pub async fn make_app_state(setup: FoxtiveSetup) -> FoxtiveState {
-    let app = create_app_state(setup).await;
+pub async fn make_state(setup: FoxtiveSetup) -> FoxtiveState {
+    let foxtive = create_state(setup).await;
+
     crate::FOXTIVE
-        .set(app.clone())
-        .expect("failed to set up foxtive state");
-    app
+        .set(foxtive.clone())
+        .expect("Failed to set global Foxtive state");
+
+    foxtive
 }
 
-async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
-    let helpers = make_helpers(&setup.env_prefix, &setup);
+async fn create_state(setup: FoxtiveSetup) -> FoxtiveState {
+    let helpers = make_helpers(&setup);
     let env_prefix = setup.env_prefix;
 
     #[cfg(feature = "database")]
-    let database_pool = establish_database_connection(&env_prefix);
+    let database_pool = create_db_pool(setup.db_config).expect("Failed to create database pool");
 
     #[cfg(feature = "redis")]
-    let redis_pool = establish_redis_connection_pool(&env_prefix);
+    let redis_pool = create_redis_conn_pool(setup.redis_config)
+        .expect("Failed to initialize Redis connection pool.");
+
     #[cfg(feature = "redis")]
     let redis = Arc::new(Redis::new(redis_pool.clone()));
 
     // RabbitMQ
     #[cfg(feature = "rabbitmq")]
-    let rabbitmq_pool = establish_rabbit_connection_pool(&env_prefix).await;
+    let rabbitmq_pool = create_rmq_conn_pool(setup.rmq_config)
+        .await
+        .expect("Failed to initialize RabbitMQ connection pool.");
 
     #[cfg(feature = "rabbitmq")]
     let rabbitmq = Arc::new(tokio::sync::Mutex::new(
-        RabbitMQ::new(rabbitmq_pool.clone()).await.unwrap(),
+        RabbitMQ::new(rabbitmq_pool.clone())
+            .await
+            .expect("Failed to create RabbitMQ helper instance."),
     ));
 
     // templating
     #[cfg(feature = "templating")]
-    let tera_templating = {
-        let tpl_dir = crate::helpers::fs::get_cwd() + "/resources/templates/**/*.tera.html";
-        Tera::new(tpl_dir.as_str()).unwrap()
-    };
+    let tera_templating =
+        Tera::new(&setup.template_directory).expect("Failed to initialize templating engine.");
 
     #[cfg(feature = "cache")]
     let cache_driver = match setup.cache_driver_setup {
@@ -101,16 +122,12 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
 
         app_env_prefix: env_prefix.clone(),
 
-        app_code: env::var(format!("{}_APP_ID", env_prefix)).unwrap(),
-        app_domain: env::var(format!("{}_APP_DOMAIN", env_prefix)).unwrap(),
-        app_name: env::var(format!("{}_APP_NAME", env_prefix)).unwrap(),
-        app_desc: env::var(format!("{}_APP_DESC", env_prefix)).unwrap(),
-        app_help_email: env::var(format!("{}_APP_HELP_EMAIL", env_prefix)).unwrap(),
-        app_frontend_url: env::var(format!("{}_FRONTEND_ADDRESS", env_prefix)).unwrap(),
+        app_code: setup.app_code,
+        app_name: setup.app_name,
 
-        app_private_key: setup.private_key,
+        app_key: setup.app_key,
         app_public_key: setup.public_key,
-        app_key: env::var(format!("{}_APP_KEY", env_prefix)).unwrap(),
+        app_private_key: setup.private_key,
 
         #[cfg(feature = "redis")]
         redis_pool,
@@ -126,72 +143,44 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
         tera: tera_templating,
 
         #[cfg(feature = "jwt")]
-        auth_iss_public_key: setup.auth_iss_public_key,
+        jwt_iss_public_key: setup.jwt_iss_public_key,
 
         #[cfg(feature = "jwt")]
-        auth_token_lifetime: env::var(format!("{}_AUTH_TOKEN_LIFETIME", env_prefix))
-            .unwrap()
-            .parse()
-            .unwrap(),
+        jwt_token_lifetime: setup.jwt_token_lifetime,
 
         #[cfg(feature = "cache")]
         cache: Arc::from(Cache::new(cache_driver)),
     }
 }
 
-pub fn get_server_host_config(env_prefix: &str) -> (String, u16, usize) {
-    let host: String = env::var(format!("{}_SERVER_HOST", env_prefix)).unwrap();
-    let port: u16 = env::var(format!("{}_SERVER_PORT", env_prefix))
-        .unwrap()
-        .parse()
-        .unwrap();
-    let workers: usize = env::var(format!("{}_SERVER_WORKERS", env_prefix))
-        .unwrap()
-        .parse()
-        .unwrap();
-    (host, port, workers)
-}
-
 #[allow(unused_variables)]
-fn make_helpers(env_prefix: &str, setup: &FoxtiveSetup) -> FoxtiveHelpers {
+fn make_helpers(setup: &FoxtiveSetup) -> FoxtiveHelpers {
     #[cfg(feature = "crypto")]
-    let app_key = env::var(format!("{}_APP_KEY", env_prefix)).unwrap();
+    let pwd_helper = Password::new(setup.app_key.clone());
 
     #[cfg(feature = "jwt")]
-    let token_lifetime: i64 = env::var(format!("{}_AUTH_TOKEN_LIFETIME", env_prefix))
-        .unwrap()
-        .parse()
-        .unwrap();
+    let jwt_helper = Jwt::new(
+        setup.jwt_iss_public_key.clone(),
+        setup.private_key.clone(),
+        setup.jwt_token_lifetime,
+    );
 
     FoxtiveHelpers {
         #[cfg(feature = "jwt")]
-        jwt: Arc::new(Jwt::new(
-            setup.auth_iss_public_key.clone(),
-            setup.private_key.clone(),
-            token_lifetime,
-        )),
+        jwt: Arc::new(jwt_helper),
         #[cfg(feature = "crypto")]
-        password: Arc::new(Password::new(app_key)),
+        password: Arc::new(pwd_helper),
     }
 }
 
-#[cfg(feature = "database")]
-pub fn establish_database_connection(env_prefix: &str) -> DBPool {
-    let db_url: String = env::var(format!("{}_DATABASE_DSN", env_prefix)).unwrap();
-    let manager = ConnectionManager::<PgConnection>::new(db_url);
-    r2d2::Pool::builder()
-        .build(manager)
-        .expect("Failed to create database pool.")
-}
-
 pub fn load_config_file(file: &str) -> String {
-    fs::read_to_string(format!("resources/config/{}", file)).unwrap()
+    fs::read_to_string(format!("resources/config/{}", file)).expect("Failed to read config file")
 }
 
 pub fn load_environment_variables(service: &str) {
     info!(
         "log level: {:?}",
-        env::var("RUST_LOG").unwrap_or(String::from("info"))
+        std::env::var("RUST_LOG").unwrap_or(String::from("info"))
     );
     info!("root directory: {:?}", service);
 
