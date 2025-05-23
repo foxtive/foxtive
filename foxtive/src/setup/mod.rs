@@ -1,6 +1,7 @@
 #[cfg(feature = "cache")]
 #[allow(unused_imports)]
 use crate::cache::{contract::CacheDriverContract, Cache};
+#[cfg(feature = "database")]
 use crate::database::create_db_pool;
 use crate::helpers::env;
 #[cfg(feature = "jwt")]
@@ -49,14 +50,10 @@ pub struct FoxtiveSetup {
     pub db_config: crate::database::DbConfig,
 
     #[cfg(feature = "rabbitmq")]
-    pub rmq_dsn: String,
-    #[cfg(feature = "rabbitmq")]
-    pub rmq_pool_max_size: usize,
+    pub rmq_config: crate::rabbitmq::RabbitmqConfig,
 
     #[cfg(feature = "redis")]
-    pub redis_dsn: String,
-    #[cfg(feature = "redis")]
-    pub redis_pool_max_size: usize,
+    pub redis_config: crate::redis::RedisConfig,
 
     #[cfg(feature = "cache")]
     pub cache_driver_setup: CacheDriverSetup,
@@ -78,7 +75,7 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
     let database_pool = create_db_pool(setup.db_config).expect("Failed to create database pool");
 
     #[cfg(feature = "redis")]
-    let redis_pool = create_redis_conn_pool(&setup.rmq_dsn, setup.rmq_pool_max_size)
+    let redis_pool = create_redis_conn_pool(setup.redis_config)
         .expect("Failed to initialize Redis connection pool.");
 
     #[cfg(feature = "redis")]
@@ -86,7 +83,7 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
 
     // RabbitMQ
     #[cfg(feature = "rabbitmq")]
-    let rabbitmq_pool = create_rmq_conn_pool(&setup.rmq_dsn, setup.rmq_pool_max_size)
+    let rabbitmq_pool = create_rmq_conn_pool(setup.rmq_config)
         .await
         .expect("Failed to initialize RabbitMQ connection pool.");
 

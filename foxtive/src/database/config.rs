@@ -30,7 +30,7 @@ impl DbConfig {
     /// # Panics
     ///
     /// Panics if `max_size` is 0.
-    pub fn max_size(mut self, max_size: u32) -> DbConfig {
+    pub fn max_size(mut self, max_size: u32) -> Self {
         assert!(max_size > 0, "max_size must be positive");
         self.max_size = max_size;
         self
@@ -42,7 +42,7 @@ impl DbConfig {
     /// connections at all times, while respecting the value of `max_size`.
     ///
     /// Defaults to `None` (equivalent to the value of `max_size`).
-    pub fn min_idle(mut self, min_idle: Option<u32>) -> DbConfig {
+    pub fn min_idle(mut self, min_idle: Option<u32>) -> Self {
         self.min_idle = min_idle;
         self
     }
@@ -51,7 +51,7 @@ impl DbConfig {
     /// `ConnectionManager::is_valid` before it is checked out of the pool.
     ///
     /// Defaults to true.
-    pub fn test_on_check_out(mut self, test_on_check_out: bool) -> DbConfig {
+    pub fn test_on_check_out(mut self, test_on_check_out: bool) -> Self {
         self.test_on_check_out = test_on_check_out;
         self
     }
@@ -69,7 +69,7 @@ impl DbConfig {
     /// # Panics
     ///
     /// Panics if `max_lifetime` is the zero `Duration`.
-    pub fn max_lifetime(mut self, max_lifetime: Option<Duration>) -> DbConfig {
+    pub fn max_lifetime(mut self, max_lifetime: Option<Duration>) -> Self {
         assert_ne!(
             max_lifetime,
             Some(Duration::from_secs(0)),
@@ -89,7 +89,7 @@ impl DbConfig {
     /// # Panics
     ///
     /// Panics if `idle_timeout` is the zero `Duration`.
-    pub fn idle_timeout(mut self, idle_timeout: Option<Duration>) -> DbConfig {
+    pub fn idle_timeout(mut self, idle_timeout: Option<Duration>) -> Self {
         assert_ne!(
             idle_timeout,
             Some(Duration::from_secs(0)),
@@ -109,7 +109,7 @@ impl DbConfig {
     /// # Panics
     ///
     /// Panics if `connection_timeout` is the zero duration
-    pub fn connection_timeout(mut self, connection_timeout: Duration) -> DbConfig {
+    pub fn connection_timeout(mut self, connection_timeout: Duration) -> Self {
         assert!(
             connection_timeout > Duration::from_secs(0),
             "connection_timeout must be positive"

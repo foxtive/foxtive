@@ -14,6 +14,9 @@ use tokio::runtime::Handle;
 use tokio::time;
 
 pub mod conn;
+mod config;
+
+pub use config::RedisConfig;
 
 pub struct Redis {
     pool: deadpool_redis::Pool,
@@ -239,13 +242,13 @@ impl Redis {
     /// Subscribes to a Redis channel and executes `func` on each message received
     ///
     /// **Note:** this method will establish new redis connection
-    pub async fn subscribe<F, Fut>(channel: String, mut func: F) -> AppResult<()>
+    pub async fn subscribe<F, Fut>(channel: String, dns: String, mut func: F) -> AppResult<()>
     where
         F: FnMut(AppResult<String>) -> Fut + Copy + Send + 'static,
         Fut: Future<Output = AppResult<()>> + Send + 'static,
     {
         info!("[subscriber] establishing connection...");
-        let client = create_redis_connection(&FOXTIVE.app().app_env_prefix)?;
+        let client = create_redis_connection(&dns)?;
 
         let mut pubsub = client.get_async_pubsub().await?;
         info!("[subscriber] subscribing to: {}", channel);

@@ -1,13 +1,13 @@
 use crate::prelude::AppResult;
+use crate::rabbitmq::RabbitmqConfig;
 use anyhow::Error;
 use deadpool_lapin::{Manager, Pool};
-use lapin::ConnectionProperties;
 
-pub async fn create_rmq_conn_pool(dsn: &str, pool_max_size: usize) -> AppResult<Pool> {
-    let manager = Manager::new(dsn, ConnectionProperties::default());
+pub async fn create_rmq_conn_pool(config: RabbitmqConfig) -> AppResult<Pool> {
+    let manager = Manager::new(config.dsn, config.conn_props);
 
     Pool::builder(manager)
-        .max_size(pool_max_size)
+        .config(config.pool_config)
         .build()
         .map_err(Error::msg)
 }
