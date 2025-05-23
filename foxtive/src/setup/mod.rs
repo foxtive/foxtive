@@ -12,7 +12,7 @@ use crate::prelude::RabbitMQ;
 #[cfg(feature = "redis")]
 use crate::prelude::Redis;
 #[cfg(feature = "rabbitmq")]
-use crate::rabbitmq::conn::establish_rabbit_connection_pool;
+use crate::rabbitmq::conn::create_rmq_conn_pool;
 #[cfg(feature = "redis")]
 use crate::redis::conn::establish_redis_connection_pool;
 use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
@@ -46,6 +46,14 @@ pub struct FoxtiveSetup {
     pub public_key: String,
     pub auth_iss_public_key: String,
 
+    #[cfg(feature = "templating")]
+    pub template_directory: String,
+
+    #[cfg(feature = "rabbitmq")]
+    pub rmq_dsn: String,
+    #[cfg(feature = "rabbitmq")]
+    pub rmq_pool_max_size: usize,
+
     #[cfg(feature = "cache")]
     pub cache_driver_setup: CacheDriverSetup,
 }
@@ -54,7 +62,7 @@ pub async fn make_app_state(setup: FoxtiveSetup) -> FoxtiveState {
     let app = create_app_state(setup).await;
     crate::FOXTIVE
         .set(app.clone())
-        .expect("failed to set up foxtive state");
+        .expect("Failed to set global Foxtive state");
     app
 }
 
@@ -72,19 +80,21 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
 
     // RabbitMQ
     #[cfg(feature = "rabbitmq")]
-    let rabbitmq_pool = establish_rabbit_connection_pool(&env_prefix).await;
+    let rabbitmq_pool = create_rmq_conn_pool(&setup.rmq_dsn, setup.rmq_pool_max_size)
+        .await
+        .expect("Failed to initialize RabbitMQ connection pool.");
 
     #[cfg(feature = "rabbitmq")]
     let rabbitmq = Arc::new(tokio::sync::Mutex::new(
-        RabbitMQ::new(rabbitmq_pool.clone()).await.unwrap(),
+        RabbitMQ::new(rabbitmq_pool.clone())
+            .await
+            .expect("Failed to create RabbitMQ helper instance."),
     ));
 
     // templating
     #[cfg(feature = "templating")]
-    let tera_templating = {
-        let tpl_dir = crate::helpers::fs::get_cwd() + "/resources/templates/**/*.tera.html";
-        Tera::new(tpl_dir.as_str()).unwrap()
-    };
+    let tera_templating =
+        { Tera::new(&setup.template_directory).expect("Failed to initialize templating engine.") };
 
     #[cfg(feature = "cache")]
     let cache_driver = match setup.cache_driver_setup {
@@ -101,16 +111,23 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
 
         app_env_prefix: env_prefix.clone(),
 
-        app_code: env::var(format!("{}_APP_ID", env_prefix)).unwrap(),
-        app_domain: env::var(format!("{}_APP_DOMAIN", env_prefix)).unwrap(),
-        app_name: env::var(format!("{}_APP_NAME", env_prefix)).unwrap(),
-        app_desc: env::var(format!("{}_APP_DESC", env_prefix)).unwrap(),
-        app_help_email: env::var(format!("{}_APP_HELP_EMAIL", env_prefix)).unwrap(),
-        app_frontend_url: env::var(format!("{}_FRONTEND_ADDRESS", env_prefix)).unwrap(),
+        app_code: env::var(format!("{}_APP_ID", env_prefix))
+            .expect("APP_ID environment variable not set"),
+        app_domain: env::var(format!("{}_APP_DOMAIN", env_prefix))
+            .expect("APP_DOMAIN environment variable not set"),
+        app_name: env::var(format!("{}_APP_NAME", env_prefix))
+            .expect("APP_NAME environment variable not set"),
+        app_desc: env::var(format!("{}_APP_DESC", env_prefix))
+            .expect("APP_DESC environment variable not set"),
+        app_help_email: env::var(format!("{}_APP_HELP_EMAIL", env_prefix))
+            .expect("APP_HELP_EMAIL environment variable not set"),
+        app_frontend_url: env::var(format!("{}_FRONTEND_ADDRESS", env_prefix))
+            .expect("FRONTEND_ADDRESS environment variable not set"),
 
         app_private_key: setup.private_key,
         app_public_key: setup.public_key,
-        app_key: env::var(format!("{}_APP_KEY", env_prefix)).unwrap(),
+        app_key: env::var(format!("{}_APP_KEY", env_prefix))
+            .expect("APP_KEY environment variable not set"),
 
         #[cfg(feature = "redis")]
         redis_pool,
@@ -140,28 +157,30 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
 }
 
 pub fn get_server_host_config(env_prefix: &str) -> (String, u16, usize) {
-    let host: String = env::var(format!("{}_SERVER_HOST", env_prefix)).unwrap();
+    let host: String = env::var(format!("{}_SERVER_HOST", env_prefix))
+        .expect("SERVER_HOST environment variable not set");
     let port: u16 = env::var(format!("{}_SERVER_PORT", env_prefix))
-        .unwrap()
+        .expect("SERVER_PORT environment variable not set")
         .parse()
-        .unwrap();
+        .expect("SERVER_PORT must be a valid u16 number");
     let workers: usize = env::var(format!("{}_SERVER_WORKERS", env_prefix))
-        .unwrap()
+        .expect("SERVER_WORKERS environment variable not set")
         .parse()
-        .unwrap();
+        .expect("SERVER_WORKERS must be a valid usize number");
     (host, port, workers)
 }
 
 #[allow(unused_variables)]
 fn make_helpers(env_prefix: &str, setup: &FoxtiveSetup) -> FoxtiveHelpers {
     #[cfg(feature = "crypto")]
-    let app_key = env::var(format!("{}_APP_KEY", env_prefix)).unwrap();
+    let app_key =
+        env::var(format!("{}_APP_KEY", env_prefix)).expect("APP_KEY environment variable not set");
 
     #[cfg(feature = "jwt")]
     let token_lifetime: i64 = env::var(format!("{}_AUTH_TOKEN_LIFETIME", env_prefix))
-        .unwrap()
+        .expect("AUTH_TOKEN_LIFETIME environment variable not set")
         .parse()
-        .unwrap();
+        .expect("AUTH_TOKEN_LIFETIME must be a valid i64 number");
 
     FoxtiveHelpers {
         #[cfg(feature = "jwt")]
@@ -185,7 +204,7 @@ pub fn establish_database_connection(env_prefix: &str) -> DBPool {
 }
 
 pub fn load_config_file(file: &str) -> String {
-    fs::read_to_string(format!("resources/config/{}", file)).unwrap()
+    fs::read_to_string(format!("resources/config/{}", file)).expect("Failed to read config file")
 }
 
 pub fn load_environment_variables(service: &str) {
