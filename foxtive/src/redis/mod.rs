@@ -1,5 +1,5 @@
 use crate::prelude::{AppResult, OnceLockHelper};
-use crate::redis::conn::establish_redis_connection;
+use crate::redis::conn::create_redis_connection;
 use crate::results::redis_result::RedisResultToAppResult;
 use crate::FOXTIVE;
 use anyhow::Error;
@@ -244,7 +244,9 @@ impl Redis {
         F: FnMut(AppResult<String>) -> Fut + Copy + Send + 'static,
         Fut: Future<Output = AppResult<()>> + Send + 'static,
     {
-        let client = establish_redis_connection(&FOXTIVE.app().app_env_prefix);
+        info!("[subscriber] establishing connection...");
+        let client = create_redis_connection(&FOXTIVE.app().app_env_prefix)?;
+
         let mut pubsub = client.get_async_pubsub().await?;
         info!("[subscriber] subscribing to: {}", channel);
 

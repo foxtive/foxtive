@@ -14,7 +14,7 @@ use crate::prelude::Redis;
 #[cfg(feature = "rabbitmq")]
 use crate::rabbitmq::conn::create_rmq_conn_pool;
 #[cfg(feature = "redis")]
-use crate::redis::conn::establish_redis_connection_pool;
+use crate::redis::conn::create_redis_conn_pool;
 use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
 #[cfg(feature = "database")]
 use diesel::r2d2::ConnectionManager;
@@ -54,6 +54,11 @@ pub struct FoxtiveSetup {
     #[cfg(feature = "rabbitmq")]
     pub rmq_pool_max_size: usize,
 
+    #[cfg(feature = "redis")]
+    pub redis_dsn: String,
+    #[cfg(feature = "redis")]
+    pub redis_pool_max_size: usize,
+
     #[cfg(feature = "cache")]
     pub cache_driver_setup: CacheDriverSetup,
 }
@@ -74,7 +79,9 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
     let database_pool = establish_database_connection(&env_prefix);
 
     #[cfg(feature = "redis")]
-    let redis_pool = establish_redis_connection_pool(&env_prefix);
+    let redis_pool = create_redis_conn_pool(&setup.rmq_dsn, setup.rmq_pool_max_size)
+        .expect("Failed to initialize Redis connection pool.");
+
     #[cfg(feature = "redis")]
     let redis = Arc::new(Redis::new(redis_pool.clone()));
 
