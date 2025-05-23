@@ -55,6 +55,24 @@ impl Redis {
         conn.del(key).await.into_app_result()
     }
 
+    /// Delete Redis keys matching a pattern.
+    ///
+    /// # Arguments
+    /// * `pattern` - The glob-style pattern to match keys (e.g. "my_prefix:*")
+    ///
+    /// # Returns
+    /// * `AppResult<u32>` - The number of keys deleted
+    pub async fn delete_by_pattern(&self, pattern: &str) -> AppResult<u32> {
+        let mut conn = self.redis().await?;
+        let keys: Vec<String> = conn.keys(pattern).await?;
+
+        if keys.is_empty() {
+            return Ok(0);
+        }
+
+        conn.del(keys).await.into_app_result()
+    }
+
     pub async fn publish<T: Serialize>(&self, channel: &str, data: &T) -> AppResult<i32> {
         let content = serde_json::to_string(data)?;
         let mut conn = self.redis().await?;
@@ -244,5 +262,35 @@ impl Redis {
         }
 
         Ok(())
+    }
+
+    /// Returns all keys in the Redis database.
+    ///
+    /// This method uses Redis' KEYS command with a "*" pattern to retrieve all keys.
+    /// Note: The KEYS command should be used with caution in production environments
+    /// as it may impact performance for large datasets.
+    ///
+    /// # Returns
+    /// - `AppResult<Vec<String>>`: A vector containing all keys in the database
+    pub async fn keys(&self) -> AppResult<Vec<String>> {
+        self.keys_by_pattern("*").await
+    }
+
+    /// Returns keys matching the specified pattern in the Redis database.
+    ///
+    /// This method uses Redis' KEYS command with the provided pattern.
+    /// Supports Redis glob-style patterns:
+    /// - `h?llo` matches `hello`, `hallo` and `hxllo`
+    /// - `h*llo` matches `hllo` and `heeeello`
+    /// - `h[ae]llo` matches `hello` and `hallo`, but not `hillo`
+    ///
+    /// # Arguments
+    /// * `pattern` - Redis glob-style pattern to match against keys
+    ///
+    /// # Returns
+    /// - `AppResult<Vec<String>>`: A vector containing all matching keys
+    pub async fn keys_by_pattern(&self, pattern: &str) -> AppResult<Vec<String>> {
+        let mut conn = self.redis().await?;
+        conn.keys(pattern).await.into_app_result()
     }
 }

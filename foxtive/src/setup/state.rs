@@ -89,15 +89,12 @@ impl FoxtiveState {
     }
 
     #[cfg(feature = "templating")]
-    pub fn render(&self, mut file: String, context: Context) -> String {
+    pub fn render(&self, mut file: String, context: Context) -> crate::results::AppResult<String> {
         if !file.ends_with(".tera.html") {
             file.push_str(".tera.html");
         }
 
-        match self.tera.render(&file, &context) {
-            Ok(string) => string,
-            Err(error) => panic!("{}", error),
-        }
+        self.tera.render(&file, &context).map_err(crate::Error::msg)
     }
 }
 
