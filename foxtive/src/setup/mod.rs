@@ -1,8 +1,8 @@
 #[cfg(feature = "cache")]
 #[allow(unused_imports)]
 use crate::cache::{contract::CacheDriverContract, Cache};
-#[cfg(feature = "database")]
-use crate::database::DBPool;
+use crate::database::create_db_pool;
+use crate::helpers::env;
 #[cfg(feature = "jwt")]
 use crate::helpers::jwt::Jwt;
 #[cfg(feature = "crypto")]
@@ -16,15 +16,11 @@ use crate::rabbitmq::conn::create_rmq_conn_pool;
 #[cfg(feature = "redis")]
 use crate::redis::conn::create_redis_conn_pool;
 use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
-#[cfg(feature = "database")]
-use diesel::r2d2::ConnectionManager;
-#[cfg(feature = "database")]
-use diesel::{r2d2, PgConnection};
 use log::info;
+use std::fs;
 use std::path::Path;
 #[allow(unused_imports)]
 use std::sync::Arc;
-use std::{env, fs};
 #[cfg(feature = "templating")]
 use tera::Tera;
 
@@ -48,6 +44,9 @@ pub struct FoxtiveSetup {
 
     #[cfg(feature = "templating")]
     pub template_directory: String,
+
+    #[cfg(feature = "database")]
+    pub db_config: crate::database::DbConfig,
 
     #[cfg(feature = "rabbitmq")]
     pub rmq_dsn: String,
@@ -76,7 +75,7 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
     let env_prefix = setup.env_prefix;
 
     #[cfg(feature = "database")]
-    let database_pool = establish_database_connection(&env_prefix);
+    let database_pool = create_db_pool(setup.db_config).expect("Failed to create database pool");
 
     #[cfg(feature = "redis")]
     let redis_pool = create_redis_conn_pool(&setup.rmq_dsn, setup.rmq_pool_max_size)
@@ -118,23 +117,19 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
 
         app_env_prefix: env_prefix.clone(),
 
-        app_code: env::var(format!("{}_APP_ID", env_prefix))
-            .expect("APP_ID environment variable not set"),
-        app_domain: env::var(format!("{}_APP_DOMAIN", env_prefix))
+        app_code: env::var(&env_prefix, "APP_ID").expect("APP_ID environment variable not set"),
+        app_domain: env::var(&env_prefix, "APP_DOMAIN")
             .expect("APP_DOMAIN environment variable not set"),
-        app_name: env::var(format!("{}_APP_NAME", env_prefix))
-            .expect("APP_NAME environment variable not set"),
-        app_desc: env::var(format!("{}_APP_DESC", env_prefix))
-            .expect("APP_DESC environment variable not set"),
-        app_help_email: env::var(format!("{}_APP_HELP_EMAIL", env_prefix))
+        app_name: env::var(&env_prefix, "APP_NAME").expect("APP_NAME environment variable not set"),
+        app_desc: env::var(&env_prefix, "APP_DESC").expect("APP_DESC environment variable not set"),
+        app_help_email: env::var(&env_prefix, "APP_HELP_EMAIL")
             .expect("APP_HELP_EMAIL environment variable not set"),
-        app_frontend_url: env::var(format!("{}_FRONTEND_ADDRESS", env_prefix))
+        app_frontend_url: env::var(&env_prefix, "FRONTEND_ADDRESS")
             .expect("FRONTEND_ADDRESS environment variable not set"),
 
         app_private_key: setup.private_key,
         app_public_key: setup.public_key,
-        app_key: env::var(format!("{}_APP_KEY", env_prefix))
-            .expect("APP_KEY environment variable not set"),
+        app_key: env::var(&env_prefix, "APP_KEY").expect("APP_KEY environment variable not set"),
 
         #[cfg(feature = "redis")]
         redis_pool,
@@ -153,7 +148,7 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
         auth_iss_public_key: setup.auth_iss_public_key,
 
         #[cfg(feature = "jwt")]
-        auth_token_lifetime: env::var(format!("{}_AUTH_TOKEN_LIFETIME", env_prefix))
+        auth_token_lifetime: env::var(&env_prefix, "AUTH_TOKEN_LIFETIME")
             .unwrap()
             .parse()
             .unwrap(),
@@ -164,13 +159,13 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
 }
 
 pub fn get_server_host_config(env_prefix: &str) -> (String, u16, usize) {
-    let host: String = env::var(format!("{}_SERVER_HOST", env_prefix))
-        .expect("SERVER_HOST environment variable not set");
-    let port: u16 = env::var(format!("{}_SERVER_PORT", env_prefix))
+    let host: String =
+        env::var(env_prefix, "SERVER_HOST").expect("SERVER_HOST environment variable not set");
+    let port: u16 = env::var(env_prefix, "SERVER_PORT")
         .expect("SERVER_PORT environment variable not set")
         .parse()
         .expect("SERVER_PORT must be a valid u16 number");
-    let workers: usize = env::var(format!("{}_SERVER_WORKERS", env_prefix))
+    let workers: usize = env::var(env_prefix, "SERVER_WORKERS")
         .expect("SERVER_WORKERS environment variable not set")
         .parse()
         .expect("SERVER_WORKERS must be a valid usize number");
@@ -180,11 +175,10 @@ pub fn get_server_host_config(env_prefix: &str) -> (String, u16, usize) {
 #[allow(unused_variables)]
 fn make_helpers(env_prefix: &str, setup: &FoxtiveSetup) -> FoxtiveHelpers {
     #[cfg(feature = "crypto")]
-    let app_key =
-        env::var(format!("{}_APP_KEY", env_prefix)).expect("APP_KEY environment variable not set");
+    let app_key = env::var(env_prefix, "APP_KEY").expect("APP_KEY environment variable not set");
 
     #[cfg(feature = "jwt")]
-    let token_lifetime: i64 = env::var(format!("{}_AUTH_TOKEN_LIFETIME", env_prefix))
+    let token_lifetime: i64 = env::var(env_prefix, "AUTH_TOKEN_LIFETIME")
         .expect("AUTH_TOKEN_LIFETIME environment variable not set")
         .parse()
         .expect("AUTH_TOKEN_LIFETIME must be a valid i64 number");
@@ -201,15 +195,6 @@ fn make_helpers(env_prefix: &str, setup: &FoxtiveSetup) -> FoxtiveHelpers {
     }
 }
 
-#[cfg(feature = "database")]
-pub fn establish_database_connection(env_prefix: &str) -> DBPool {
-    let db_url: String = env::var(format!("{}_DATABASE_DSN", env_prefix)).unwrap();
-    let manager = ConnectionManager::<PgConnection>::new(db_url);
-    r2d2::Pool::builder()
-        .build(manager)
-        .expect("Failed to create database pool.")
-}
-
 pub fn load_config_file(file: &str) -> String {
     fs::read_to_string(format!("resources/config/{}", file)).expect("Failed to read config file")
 }
@@ -217,7 +202,7 @@ pub fn load_config_file(file: &str) -> String {
 pub fn load_environment_variables(service: &str) {
     info!(
         "log level: {:?}",
-        env::var("RUST_LOG").unwrap_or(String::from("info"))
+        std::env::var("RUST_LOG").unwrap_or(String::from("info"))
     );
     info!("root directory: {:?}", service);
 

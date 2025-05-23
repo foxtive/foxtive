@@ -5,6 +5,7 @@ Foxtive changelog file
 * feat(templating): BREAKING (expose template dir config)
 * feat(rabbitmq): BREAKING (expose dsn & max pool size config)
 * feat(redis): BREAKING (expose dsn & max pool size config)
+* feat(database): BREAKING (expose dsn & max pool size config)
 
 ### 0.9.0 (2024-05-22)
 * feat(cache): added 'forget_by_pattern' method to forget keys using pattern
