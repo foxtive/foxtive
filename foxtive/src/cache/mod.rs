@@ -228,4 +228,86 @@ impl Cache {
     {
         self.driver.get_or_put(key, setter).await
     }
+
+    /// Retrieves all keys present in the cache.
+    ///
+    /// # Returns
+    ///
+    /// Returns `AppResult<Vec<String>>` containing all cache keys
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::sync::Arc;
+    /// use foxtive::cache::{Cache, drivers::FilesystemCacheDriver};
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let driver = Arc::new(FilesystemCacheDriver::new("./"));
+    ///     let cache = Cache::new(driver);
+    ///
+    ///     let all_keys = cache.keys().await.unwrap();
+    /// }
+    /// ```
+    pub async fn keys(&self) -> AppResult<Vec<String>> {
+        self.driver.keys().await
+    }
+
+    /// Retrieves all keys matching the specified pattern.
+    ///
+    /// # Arguments
+    ///
+    /// * `pattern` - Pattern string to match keys against
+    ///
+    /// # Returns
+    ///
+    /// Returns `AppResult<Vec<String>>` containing matching cache keys
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::sync::Arc;
+    /// use foxtive::cache::{Cache, drivers::FilesystemCacheDriver};
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let driver = Arc::new(FilesystemCacheDriver::new("./"));
+    ///     let cache = Cache::new(driver);
+    ///
+    ///     // Get all keys starting with "user:"
+    ///     let user_keys = cache.keys_by_pattern("user:*").await.unwrap();
+    /// }
+    /// ```
+    pub async fn keys_by_pattern(&self, pattern: &str) -> AppResult<Vec<String>> {
+        self.driver.keys_by_pattern(pattern).await
+    }
+
+    /// Removes all keys matching the specified pattern from the cache.
+    ///
+    /// # Arguments
+    ///
+    /// * `pattern` - Pattern string to match keys for removal
+    ///
+    /// # Returns
+    ///
+    /// Returns `AppResult<i32>` indicating the number of keys that were removed
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::sync::Arc;
+    /// use foxtive::cache::{Cache, drivers::FilesystemCacheDriver};
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let driver = Arc::new(FilesystemCacheDriver::new("./"));
+    ///     let cache = Cache::new(driver);
+    ///
+    ///     // Remove all keys starting with "user:"
+    ///     let removed_count = cache.forget_by_pattern("user:*").await.unwrap();
+    /// }
+    /// ```
+    pub async fn forget_by_pattern(&self, pattern: &str) -> AppResult<i32> {
+        self.driver.forget_by_pattern(pattern).await
+    }
 }
