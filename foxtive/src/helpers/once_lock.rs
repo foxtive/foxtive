@@ -22,10 +22,6 @@ pub trait OnceLockHelper {
         &FOXTIVE.get().unwrap().helpers
     }
 
-    fn front_url(&self, url: &str) -> String {
-        self.app().frontend(url)
-    }
-
     #[cfg(feature = "redis")]
     fn redis_pool(&self) -> deadpool_redis::Pool {
         self.app().redis_pool.clone()

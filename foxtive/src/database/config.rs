@@ -11,7 +11,7 @@ pub struct DbConfig {
 }
 
 impl DbConfig {
-    pub fn new(dsn: &str) -> Self {
+    pub fn create(dsn: &str) -> Self {
         Self {
             dsn: dsn.to_string(),
             max_size: 10,

@@ -1109,6 +1109,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "dashmap",
+ "deadpool",
  "deadpool-lapin",
  "deadpool-redis",
  "diesel",

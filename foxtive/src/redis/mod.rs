@@ -14,9 +14,7 @@ use tokio::runtime::Handle;
 use tokio::time;
 
 pub mod conn;
-mod config;
-
-pub use config::RedisConfig;
+pub mod config;
 
 pub struct Redis {
     pool: deadpool_redis::Pool,

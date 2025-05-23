@@ -1,8 +1,8 @@
-use crate::redis::RedisConfig;
 use crate::results::AppResult;
 use anyhow::Error;
 use deadpool_redis::{Manager, Pool};
 use redis::Client;
+use crate::redis::config::RedisConfig;
 
 pub fn create_redis_connection(dsn: &str) -> AppResult<Client> {
     Client::open(dsn).map_err(Error::msg)

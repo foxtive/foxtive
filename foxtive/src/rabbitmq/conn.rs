@@ -1,5 +1,5 @@
 use crate::prelude::AppResult;
-use crate::rabbitmq::RabbitmqConfig;
+use crate::rabbitmq::config::RabbitmqConfig;
 use anyhow::Error;
 use deadpool_lapin::{Manager, Pool};
 

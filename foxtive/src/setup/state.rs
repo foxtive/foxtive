@@ -16,11 +16,7 @@ use tera::{Context, Tera};
 #[derive(Clone)]
 pub struct FoxtiveState {
     pub app_code: String,
-    pub app_domain: String,
     pub app_name: String,
-    pub app_desc: String,
-    pub app_help_email: String,
-    pub app_frontend_url: String,
     pub app_key: String,
     pub app_private_key: String,
     pub app_public_key: String,
@@ -44,11 +40,11 @@ pub struct FoxtiveState {
 
     /// authentication issuer public key
     #[cfg(feature = "jwt")]
-    pub auth_iss_public_key: String,
+    pub jwt_iss_public_key: String,
 
     /// authentication token lifetime (in minutes)
     #[cfg(feature = "jwt")]
-    pub auth_token_lifetime: i64,
+    pub jwt_token_lifetime: i64,
 
     #[cfg(feature = "cache")]
     pub cache: Arc<crate::cache::Cache>,
@@ -82,10 +78,6 @@ impl FoxtiveState {
 
     pub fn title(&self, text: &str) -> String {
         format!("{} - {}", text, self.app_name)
-    }
-
-    pub fn frontend(&self, url: &str) -> String {
-        format!("{}/{}", self.app_frontend_url, url)
     }
 
     #[cfg(feature = "templating")]

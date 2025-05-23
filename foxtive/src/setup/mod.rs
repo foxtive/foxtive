@@ -3,7 +3,6 @@
 use crate::cache::{contract::CacheDriverContract, Cache};
 #[cfg(feature = "database")]
 use crate::database::create_db_pool;
-use crate::helpers::env;
 #[cfg(feature = "jwt")]
 use crate::helpers::jwt::Jwt;
 #[cfg(feature = "crypto")]
@@ -41,7 +40,14 @@ pub struct FoxtiveSetup {
     pub env_prefix: String,
     pub private_key: String,
     pub public_key: String,
-    pub auth_iss_public_key: String,
+    pub app_key: String,
+    pub app_code: String,
+    pub app_name: String,
+
+    #[cfg(feature = "jwt")]
+    pub jwt_iss_public_key: String,
+    #[cfg(feature = "jwt")]
+    pub jwt_token_lifetime: i64,
 
     #[cfg(feature = "templating")]
     pub template_directory: String,
@@ -50,25 +56,27 @@ pub struct FoxtiveSetup {
     pub db_config: crate::database::DbConfig,
 
     #[cfg(feature = "rabbitmq")]
-    pub rmq_config: crate::rabbitmq::RabbitmqConfig,
+    pub rmq_config: crate::rabbitmq::config::RabbitmqConfig,
 
     #[cfg(feature = "redis")]
-    pub redis_config: crate::redis::RedisConfig,
+    pub redis_config: crate::redis::config::RedisConfig,
 
     #[cfg(feature = "cache")]
     pub cache_driver_setup: CacheDriverSetup,
 }
 
-pub async fn make_app_state(setup: FoxtiveSetup) -> FoxtiveState {
-    let app = create_app_state(setup).await;
+pub async fn make_state(setup: FoxtiveSetup) -> FoxtiveState {
+    let foxtive = create_state(setup).await;
+
     crate::FOXTIVE
-        .set(app.clone())
+        .set(foxtive.clone())
         .expect("Failed to set global Foxtive state");
-    app
+
+    foxtive
 }
 
-async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
-    let helpers = make_helpers(&setup.env_prefix, &setup);
+async fn create_state(setup: FoxtiveSetup) -> FoxtiveState {
+    let helpers = make_helpers(&setup);
     let env_prefix = setup.env_prefix;
 
     #[cfg(feature = "database")]
@@ -97,7 +105,7 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
     // templating
     #[cfg(feature = "templating")]
     let tera_templating =
-        { Tera::new(&setup.template_directory).expect("Failed to initialize templating engine.") };
+        Tera::new(&setup.template_directory).expect("Failed to initialize templating engine.");
 
     #[cfg(feature = "cache")]
     let cache_driver = match setup.cache_driver_setup {
@@ -114,19 +122,12 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
 
         app_env_prefix: env_prefix.clone(),
 
-        app_code: env::var(&env_prefix, "APP_ID").expect("APP_ID environment variable not set"),
-        app_domain: env::var(&env_prefix, "APP_DOMAIN")
-            .expect("APP_DOMAIN environment variable not set"),
-        app_name: env::var(&env_prefix, "APP_NAME").expect("APP_NAME environment variable not set"),
-        app_desc: env::var(&env_prefix, "APP_DESC").expect("APP_DESC environment variable not set"),
-        app_help_email: env::var(&env_prefix, "APP_HELP_EMAIL")
-            .expect("APP_HELP_EMAIL environment variable not set"),
-        app_frontend_url: env::var(&env_prefix, "FRONTEND_ADDRESS")
-            .expect("FRONTEND_ADDRESS environment variable not set"),
+        app_code: setup.app_code,
+        app_name: setup.app_name,
 
-        app_private_key: setup.private_key,
+        app_key: setup.app_key,
         app_public_key: setup.public_key,
-        app_key: env::var(&env_prefix, "APP_KEY").expect("APP_KEY environment variable not set"),
+        app_private_key: setup.private_key,
 
         #[cfg(feature = "redis")]
         redis_pool,
@@ -142,53 +143,33 @@ async fn create_app_state(setup: FoxtiveSetup) -> FoxtiveState {
         tera: tera_templating,
 
         #[cfg(feature = "jwt")]
-        auth_iss_public_key: setup.auth_iss_public_key,
+        jwt_iss_public_key: setup.jwt_iss_public_key,
 
         #[cfg(feature = "jwt")]
-        auth_token_lifetime: env::var(&env_prefix, "AUTH_TOKEN_LIFETIME")
-            .unwrap()
-            .parse()
-            .unwrap(),
+        jwt_token_lifetime: setup.jwt_token_lifetime,
 
         #[cfg(feature = "cache")]
         cache: Arc::from(Cache::new(cache_driver)),
     }
 }
 
-pub fn get_server_host_config(env_prefix: &str) -> (String, u16, usize) {
-    let host: String =
-        env::var(env_prefix, "SERVER_HOST").expect("SERVER_HOST environment variable not set");
-    let port: u16 = env::var(env_prefix, "SERVER_PORT")
-        .expect("SERVER_PORT environment variable not set")
-        .parse()
-        .expect("SERVER_PORT must be a valid u16 number");
-    let workers: usize = env::var(env_prefix, "SERVER_WORKERS")
-        .expect("SERVER_WORKERS environment variable not set")
-        .parse()
-        .expect("SERVER_WORKERS must be a valid usize number");
-    (host, port, workers)
-}
-
 #[allow(unused_variables)]
-fn make_helpers(env_prefix: &str, setup: &FoxtiveSetup) -> FoxtiveHelpers {
+fn make_helpers(setup: &FoxtiveSetup) -> FoxtiveHelpers {
     #[cfg(feature = "crypto")]
-    let app_key = env::var(env_prefix, "APP_KEY").expect("APP_KEY environment variable not set");
+    let pwd_helper = Password::new(setup.app_key.clone());
 
     #[cfg(feature = "jwt")]
-    let token_lifetime: i64 = env::var(env_prefix, "AUTH_TOKEN_LIFETIME")
-        .expect("AUTH_TOKEN_LIFETIME environment variable not set")
-        .parse()
-        .expect("AUTH_TOKEN_LIFETIME must be a valid i64 number");
+    let jwt_helper = Jwt::new(
+        setup.jwt_iss_public_key.clone(),
+        setup.private_key.clone(),
+        setup.jwt_token_lifetime,
+    );
 
     FoxtiveHelpers {
         #[cfg(feature = "jwt")]
-        jwt: Arc::new(Jwt::new(
-            setup.auth_iss_public_key.clone(),
-            setup.private_key.clone(),
-            token_lifetime,
-        )),
+        jwt: Arc::new(jwt_helper),
         #[cfg(feature = "crypto")]
-        password: Arc::new(Password::new(app_key)),
+        password: Arc::new(pwd_helper),
     }
 }
 

@@ -1,5 +1,7 @@
-use deadpool_lapin::PoolConfig;
 use lapin::ConnectionProperties;
+
+pub use deadpool::managed::QueueMode;
+pub use deadpool_lapin::{PoolConfig, Timeouts};
 
 pub struct RabbitmqConfig {
     pub(crate) dsn: String,

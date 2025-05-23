@@ -22,9 +22,7 @@ use crate::FOXTIVE;
 
 pub mod conn;
 mod message;
-mod config;
-
-pub use config::RabbitmqConfig;
+pub mod config;
 
 pub type RabbitMQSetupFn = Arc<dyn Fn(RabbitMQ) -> BoxFuture<'static, AppResult<()>> + Send + Sync>;
 
