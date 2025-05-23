@@ -20,9 +20,9 @@ use crate::prelude::{AppResult, OnceLockHelper};
 pub use crate::rabbitmq::message::Message;
 use crate::FOXTIVE;
 
+pub mod config;
 pub mod conn;
 mod message;
-pub mod config;
 
 pub type RabbitMQSetupFn = Arc<dyn Fn(RabbitMQ) -> BoxFuture<'static, AppResult<()>> + Send + Sync>;
 

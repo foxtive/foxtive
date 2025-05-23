@@ -13,8 +13,8 @@ use std::time::Duration;
 use tokio::runtime::Handle;
 use tokio::time;
 
-pub mod conn;
 pub mod config;
+pub mod conn;
 
 pub struct Redis {
     pool: deadpool_redis::Pool,
