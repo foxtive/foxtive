@@ -53,24 +53,24 @@ impl CacheDriverContract for RedisCacheDriver {
 fn regex_to_redis_pattern(pattern: &str) -> String {
     // Handle some common regex patterns and convert them to Redis patterns
     let mut redis_pattern = pattern.to_string();
-    
+
     // Replace regex start/end markers
     redis_pattern = redis_pattern.replace("^", "");
     redis_pattern = redis_pattern.replace("$", "");
-    
+
     // Replace regex .* with Redis *
     redis_pattern = redis_pattern.replace(".*", "*");
-    
+
     // Replace regex dot with Redis ?
     redis_pattern = redis_pattern.replace(".", "?");
-    
+
     // Handle case-insensitive flag by removing it (Redis KEYS is case-sensitive)
     redis_pattern = redis_pattern.replace("(?i)", "");
-    
+
     // Escape special Redis pattern characters that might be in the regex
     redis_pattern = redis_pattern.replace("[", "\\[");
     redis_pattern = redis_pattern.replace("]", "\\]");
-    
+
     redis_pattern
 }
 
@@ -440,7 +440,7 @@ mod tests {
             ("key1", "value1"),
             ("key2", "value2"),
             ("prefix:key3", "value3"),
-            ("", "empty_value"),  // Test empty key
+            ("", "empty_value"), // Test empty key
         ];
 
         for (key, value) in test_data {
@@ -569,7 +569,11 @@ mod tests {
         keys.sort();
         assert_eq!(
             keys,
-            vec!["test1".to_string(), "test11".to_string(), "test2".to_string()],
+            vec![
+                "test1".to_string(),
+                "test11".to_string(),
+                "test2".to_string()
+            ],
             "Should match multi-character wildcard"
         );
     }
