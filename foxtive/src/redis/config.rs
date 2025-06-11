@@ -1,5 +1,5 @@
 pub use deadpool::managed::QueueMode;
-pub use deadpool_lapin::{PoolConfig, Timeouts};
+pub use deadpool_redis::{PoolConfig, Timeouts};
 
 pub struct RedisConfig {
     pub(crate) dsn: String,
