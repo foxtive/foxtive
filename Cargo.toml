@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "foxtive",
+    "foxtive", 
+    "foxtive-cron",
     "foxtive-macros",
 ]
