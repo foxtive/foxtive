@@ -20,10 +20,6 @@ tokio = { version = "1.45.1", features = ["rt-multi-thread", "time"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "time", "rt-multi-thread"] }
-anyhow = "1"
-async-trait = "0.1"
-chrono = { version = "0.4", features = ["serde"] }
-log = "0.4"
 
 
 [[example]]
