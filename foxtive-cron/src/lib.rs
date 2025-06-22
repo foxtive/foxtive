@@ -4,11 +4,11 @@ use chrono::{DateTime, Utc};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::sync::Arc;
-use tokio::time::{sleep_until, Instant};
+use tokio::time::{Instant, sleep_until};
 
+pub mod contracts;
 mod fn_job;
 mod job;
-pub mod contracts;
 
 pub use fn_job::FnJob;
 

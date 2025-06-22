@@ -1,5 +1,5 @@
-use crate::contracts::JobContract;
 use crate::CronResult;
+use crate::contracts::JobContract;
 use chrono::{DateTime, Utc};
 use cron::Schedule;
 use std::str::FromStr;
@@ -14,10 +14,7 @@ pub struct JobItem {
 impl JobItem {
     pub fn new(job: Arc<dyn JobContract>) -> CronResult<Self> {
         let schedule = Schedule::from_str(&job.schedule())?;
-        Ok(JobItem {
-            schedule,
-            job,
-        })
+        Ok(JobItem { schedule, job })
     }
 
     pub fn name(&self) -> String {

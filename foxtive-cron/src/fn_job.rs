@@ -1,11 +1,12 @@
-use crate::contracts::JobContract;
 use crate::CronResult;
+use crate::contracts::JobContract;
 use async_trait::async_trait;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-type RunnableFunc = Arc<dyn Fn() -> Pin<Box<dyn Future<Output = CronResult<()>> + Send>> + Send + Sync>;
+type RunnableFunc =
+    Arc<dyn Fn() -> Pin<Box<dyn Future<Output = CronResult<()>> + Send>> + Send + Sync>;
 
 /// A lightweight, closure-based implementation of a `JobContract`.
 ///
@@ -122,9 +123,7 @@ impl FnJob {
             schedule_expr: schedule_expr.into(),
             func: Arc::new(move || {
                 let f = func.clone();
-                Box::pin(async move {
-                    tokio::task::spawn_blocking(f).await?
-                })
+                Box::pin(async move { tokio::task::spawn_blocking(f).await? })
             }),
         }
     }

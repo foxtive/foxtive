@@ -1,9 +1,9 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use foxtive_cron::contracts::JobContract;
 use foxtive_cron::Cron;
 use foxtive_cron::CronResult;
+use foxtive_cron::contracts::JobContract;
 use tokio::time::sleep;
 
 #[tokio::test]
