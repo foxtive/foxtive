@@ -326,7 +326,9 @@ mod tests {
                         Ok(Some(v)) => {
                             let expected = format!("value{i}");
                             if v != expected {
-                                eprintln!("Read task: Value mismatch for key test:{i}: expected '{expected}', got '{v}'");
+                                eprintln!(
+                                    "Read task: Value mismatch for key test:{i}: expected '{expected}', got '{v}'"
+                                );
                             }
                         }
                         Ok(None) => eprintln!("Read task: Unexpected None for key test:{i}"),

@@ -2,7 +2,7 @@ use crate::database::config::DbConfig;
 use crate::results::AppResult;
 use anyhow::Error;
 use diesel::r2d2::ConnectionManager;
-use diesel::{r2d2, PgConnection};
+use diesel::{PgConnection, r2d2};
 
 pub fn create_db_pool(config: DbConfig) -> AppResult<crate::database::DBPool> {
     let manager = ConnectionManager::<PgConnection>::new(&config.dsn);

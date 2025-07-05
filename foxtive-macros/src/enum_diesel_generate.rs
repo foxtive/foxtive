@@ -1,10 +1,9 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    braced,
+    Ident, LitStr, Token, Variant, braced,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
-    Ident, LitStr, Token, Variant,
 };
 
 /// Struct to parse macro input for `generate_diesel_enum`

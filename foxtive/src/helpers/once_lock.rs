@@ -1,15 +1,15 @@
+use crate::FOXTIVE;
 #[cfg(feature = "cache")]
 use crate::cache::Cache;
 #[cfg(feature = "database")]
 use crate::database::ext::DatabaseConnectionExt;
 #[cfg(feature = "database")]
 use crate::prelude::AppResult;
-use crate::FOXTIVE;
 use crate::{FoxtiveHelpers, FoxtiveState};
 #[cfg(feature = "database")]
 use diesel::r2d2::ConnectionManager;
 #[cfg(feature = "database")]
-use diesel::{r2d2, PgConnection};
+use diesel::{PgConnection, r2d2};
 #[allow(unused_imports)]
 use std::sync::{Arc, OnceLock};
 

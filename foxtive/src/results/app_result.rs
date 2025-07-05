@@ -1,11 +1,11 @@
-use crate::helpers::json::{json_empty, JsonEmpty};
+use crate::helpers::json::{JsonEmpty, json_empty};
 #[cfg(feature = "database")]
 use crate::prelude::AppMessage;
 use crate::results::AppResult;
 #[cfg(feature = "database")]
-use diesel::result::Error;
-#[cfg(feature = "database")]
 use diesel::QueryResult;
+#[cfg(feature = "database")]
+use diesel::result::Error;
 use serde::Serialize;
 
 pub trait IntoAppResult<T> {

@@ -1,7 +1,7 @@
+use crate::FOXTIVE;
 use crate::prelude::{AppResult, OnceLockHelper};
 use crate::redis::conn::create_redis_connection;
 use crate::results::redis_result::RedisResultToAppResult;
-use crate::FOXTIVE;
 use anyhow::Error;
 use futures_util::StreamExt;
 use log::{error, info};

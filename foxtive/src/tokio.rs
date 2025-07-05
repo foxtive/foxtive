@@ -2,7 +2,7 @@ use crate::results::AppResult;
 use log::error;
 use std::future::Future;
 use std::time::Duration;
-use tokio::task::{spawn_blocking, JoinHandle};
+use tokio::task::{JoinHandle, spawn_blocking};
 use tokio::{spawn, time};
 
 pub struct Tokio;

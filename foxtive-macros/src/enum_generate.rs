@@ -1,10 +1,9 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    braced,
+    Ident, Token, Variant, braced,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
-    Ident, Token, Variant,
 };
 
 /// Struct to parse macro input

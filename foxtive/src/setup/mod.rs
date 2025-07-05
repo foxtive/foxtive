@@ -1,6 +1,6 @@
 #[cfg(feature = "cache")]
 #[allow(unused_imports)]
-use crate::cache::{contract::CacheDriverContract, Cache};
+use crate::cache::{Cache, contract::CacheDriverContract};
 #[cfg(feature = "database")]
 use crate::database::create_db_pool;
 #[cfg(feature = "jwt")]

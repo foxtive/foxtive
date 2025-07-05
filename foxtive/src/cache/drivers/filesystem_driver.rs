@@ -312,11 +312,13 @@ mod tests {
 
         // Verify all cache entries are gone
         for i in 0..100 {
-            assert!(driver_clone
-                .get_raw(&format!("test:{i}"))
-                .await
-                .unwrap()
-                .is_none());
+            assert!(
+                driver_clone
+                    .get_raw(&format!("test:{i}"))
+                    .await
+                    .unwrap()
+                    .is_none()
+            );
         }
     }
 

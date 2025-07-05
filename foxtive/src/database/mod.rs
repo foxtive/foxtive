@@ -1,5 +1,5 @@
 use diesel::r2d2::ConnectionManager;
-use diesel::{r2d2, PgConnection};
+use diesel::{PgConnection, r2d2};
 use serde::Serialize;
 
 mod config;

@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Ident};
+use syn::{Ident, parse_macro_input};
 
 pub fn impl_enum_common_traits(input: TokenStream) -> TokenStream {
     let variant_name = parse_macro_input!(input as Ident);

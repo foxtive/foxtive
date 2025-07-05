@@ -1,5 +1,5 @@
-use futures_util::future::BoxFuture;
 use futures_util::StreamExt;
+use futures_util::future::BoxFuture;
 use lapin::types::FieldTable;
 use lapin::{BasicProperties, ConnectionState};
 use log::{error, info, warn};
@@ -13,12 +13,12 @@ use tokio::time::sleep;
 pub use {
     lapin::message::{Delivery, DeliveryResult},
     lapin::types::ReplyCode,
-    lapin::{options::*, Channel, ChannelState, ExchangeKind},
+    lapin::{Channel, ChannelState, ExchangeKind, options::*},
 };
 
+use crate::FOXTIVE;
 use crate::prelude::{AppResult, OnceLockHelper};
 pub use crate::rabbitmq::message::Message;
-use crate::FOXTIVE;
 
 pub mod config;
 pub mod conn;

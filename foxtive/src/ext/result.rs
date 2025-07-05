@@ -1,5 +1,5 @@
-use crate::prelude::{AppMessage, AppResult};
 use crate::Error;
+use crate::prelude::{AppMessage, AppResult};
 use std::future::Future;
 
 pub trait RecoverAppResultExt<T> {

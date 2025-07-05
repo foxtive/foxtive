@@ -36,7 +36,7 @@ pub mod drivers;
 
 use crate::cache::contract::{CacheDriverContract, CacheDriverExt};
 use crate::prelude::AppResult;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::future::Future;
 use std::sync::Arc;
 
