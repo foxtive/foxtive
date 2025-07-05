@@ -79,8 +79,7 @@ async fn test_job_reschedules_itself() {
     let count = *counter.lock().unwrap();
     assert!(
         count >= 2,
-        "Job should have run at least twice, but ran {} times",
-        count
+        "Job should have run at least twice, but ran {count} times"
     );
 }
 

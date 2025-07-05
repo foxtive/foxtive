@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.12.0 (2024-06-05)
+* bump(edition): to 2024
+
 ### 0.11.0 (2024-06-05)
 * bump(crates): to latest versions
 * feat(env): add new AppMessage::MissingEnvironmentVariable(String, VarError)

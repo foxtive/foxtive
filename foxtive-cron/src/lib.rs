@@ -200,11 +200,11 @@ impl Cron {
 
             // Run a job in a separate task
             tokio::spawn(async move {
-                log::info!("[{}] Running job", name);
+                log::info!("[{name}] Running job");
                 if let Err(err) = job_clone.run().await {
-                    log::error!("[{}] Job failed: {:?}", name, err);
+                    log::error!("[{name}] Job failed: {err:?}");
                 } else {
-                    log::info!("[{}] Job completed", name);
+                    log::info!("[{name}] Job completed");
                 }
             });
 
