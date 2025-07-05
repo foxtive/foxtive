@@ -517,9 +517,7 @@ impl RabbitMQ {
             info!("Attempting to reconnect to RabbitMQ, attempt {attempt}...");
             match self.conn_pool.get().await {
                 Ok(_) => {
-                    info!(
-                        "Reconnected to RabbitMQ successfully on attempt {attempt}"
-                    );
+                    info!("Reconnected to RabbitMQ successfully on attempt {attempt}");
                     return Ok(());
                 }
                 Err(err) => {
