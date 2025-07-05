@@ -350,7 +350,7 @@ mod tests {
         // Add initial data
         for i in 0..100 {
             driver
-                .put_raw(&format!("test:{}", i), format!("value{}", i))
+                .put_raw(&format!("test:{i}"), format!("value{i}"))
                 .await
                 .unwrap();
         }
@@ -379,12 +379,11 @@ mod tests {
         let total_removed = result1.unwrap() + result2.unwrap();
         assert_eq!(
             total_removed, 100,
-            "Failed to remove all items. Only removed {}",
-            total_removed
+            "Failed to remove all items. Only removed {total_removed}"
         );
 
         // Verify all keys are gone
         let remaining = driver_clone.storage.iter().count();
-        assert_eq!(remaining, 0, "Some keys remained in storage: {}", remaining);
+        assert_eq!(remaining, 0, "Some keys remained in storage: {remaining}");
     }
 }

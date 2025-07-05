@@ -7,7 +7,7 @@ pub fn from_cent(int: i64) -> f64 {
 }
 
 pub fn human_readable(num: f64) -> String {
-    let num_str = format!("{:.2}", num); // Ensure two decimal places
+    let num_str = format!("{num:.2}"); // Ensure two decimal places
     let parts: Vec<&str> = num_str.split('.').collect(); // Split into integer and fractional parts
 
     let mut integer_part = parts[0].to_string();

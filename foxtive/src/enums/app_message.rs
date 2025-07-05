@@ -3,6 +3,7 @@ use crate::helpers::reqwest::ReqwestResponseError;
 use crate::results::AppResult;
 use http::StatusCode;
 use log::{error, info};
+use std::env::VarError;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 
@@ -12,6 +13,7 @@ pub enum AppMessage {
     Forbidden,
     InternalServerError,
     ErrorMessage(String, StatusCode),
+    MissingEnvironmentVariable(String, VarError),
     InternalServerErrorMessage(&'static str),
     Redirect(&'static str),
     SuccessMessage(&'static str),
@@ -52,7 +54,7 @@ impl AppMessage {
             #[cfg(feature = "reqwest")]
             AppMessage::ReqwestResponseError(err) => *err.code(),
             AppMessage::Redirect(_) => StatusCode::FOUND,
-            _ => StatusCode::INTERNAL_SERVER_ERROR, // all database-related errors are 500
+            _ => StatusCode::INTERNAL_SERVER_ERROR, // any other error is considered as 500
         }
     }
 
@@ -61,7 +63,6 @@ impl AppMessage {
         match self {
             AppMessage::Unauthorized => "Unauthorized".to_string(),
             AppMessage::Forbidden => "Forbidden".to_string(),
-            AppMessage::InternalServerError => "Internal Server Error".to_string(),
             AppMessage::ErrorMessage(msg, _) => msg.to_owned(),
             AppMessage::InternalServerErrorMessage(msg) => msg.to_string(),
             AppMessage::Redirect(msg) => msg.to_string(),
@@ -73,7 +74,11 @@ impl AppMessage {
             AppMessage::UnAuthorizedMessageString(msg) => msg.to_string(),
             AppMessage::ForbiddenMessage(msg) => msg.to_string(),
             AppMessage::ForbiddenMessageString(msg) => msg.to_string(),
-            AppMessage::EntityNotFound(entity) => format!("Such {} does not exist", entity),
+            AppMessage::InternalServerError => "Internal Server Error".to_string(),
+            AppMessage::MissingEnvironmentVariable(name, e) => {
+                format!("Missing environment variable '{name}': {e}")
+            }
+            AppMessage::EntityNotFound(entity) => format!("Such {entity} does not exist"),
             #[cfg(feature = "reqwest")]
             AppMessage::ReqwestResponseError(_) => "Internal Server Error".to_string(),
         }

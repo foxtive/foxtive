@@ -141,17 +141,17 @@ impl<T: ?Sized + CacheDriverContract + Sync> CacheDriverExt for T {
         Fut: Future<Output = AppResult<Val>> + Send,
     {
         if let Some(val) = self.get::<Val>(key).await? {
-            debug!("'{}' collected from cache :)", key);
+            debug!("'{key}' collected from cache :)");
             return Ok(val);
         }
 
-        debug!("'{}' is missing in cache, executing setter()...", key);
+        debug!("'{key}' is missing in cache, executing setter()...");
 
         let val = setter().await?;
 
         // Store the value before returning to ensure cache consistency
         if let Err(e) = self.put(key, &val).await {
-            error!("Failed to cache value for '{}': {:?}", key, e);
+            error!("Failed to cache value for '{key}': {e:?}");
             return Err(e);
         }
 

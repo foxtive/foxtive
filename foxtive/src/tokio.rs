@@ -49,7 +49,7 @@ impl Tokio {
             match func().await {
                 Ok(_) => {}
                 Err(err) => {
-                    error!("[execution-error][{}] {:?}", name, err);
+                    error!("[execution-error][{name}] {err:?}");
                 }
             }
         });
@@ -84,7 +84,7 @@ impl Tokio {
                 match func().await {
                     Ok(_) => {}
                     Err(err) => {
-                        error!("[execution-error][{}] {:?}", name, err);
+                        error!("[execution-error][{name}] {err:?}");
                     }
                 }
             }

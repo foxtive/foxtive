@@ -89,7 +89,7 @@ mod tests {
             .or_else(|_| env::var("REDIS_DSN"))
             .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
 
-        eprintln!("Connecting to Redis at {}", redis_url);
+        eprintln!("Connecting to Redis at {redis_url}");
 
         // Create Redis configuration
         let cfg = Config::from_url(redis_url);
@@ -130,7 +130,7 @@ mod tests {
         match driver.redis.flush_db().await {
             Ok(_) => eprintln!("Successfully connected to Redis and flushed DB"),
             Err(e) => {
-                eprintln!("Failed to flush Redis DB: {}", e);
+                eprintln!("Failed to flush Redis DB: {e}",);
                 return;
             }
         }
@@ -165,7 +165,7 @@ mod tests {
         match driver.redis.flush_db().await {
             Ok(_) => eprintln!("Successfully connected to Redis and flushed DB"),
             Err(e) => {
-                eprintln!("Failed to flush Redis DB: {}", e);
+                eprintln!("Failed to flush Redis DB: {e}");
                 return;
             }
         }
@@ -226,7 +226,7 @@ mod tests {
         match driver.redis.flush_db().await {
             Ok(_) => eprintln!("Successfully connected to Redis and flushed DB"),
             Err(e) => {
-                eprintln!("Failed to flush Redis DB: {}", e);
+                eprintln!("Failed to flush Redis DB: {e}");
                 return;
             }
         }
@@ -238,8 +238,8 @@ mod tests {
 
         // Add initial data with verification
         for i in 0..100 {
-            let key = format!("test:{}", i);
-            let value = format!("value{}", i);
+            let key = format!("test:{i}");
+            let value = format!("value{i}");
 
             match driver.put_raw(&key, value.clone()).await {
                 Ok(_) => {
@@ -248,23 +248,22 @@ mod tests {
                         Ok(Some(v)) if v == value => continue,
                         Ok(Some(v)) => {
                             eprintln!(
-                                "Value mismatch for key {}: expected '{}', got '{}'",
-                                key, value, v
+                                "Value mismatch for key {key}: expected '{value}', got '{v}'"
                             );
                             return;
                         }
                         Ok(None) => {
-                            eprintln!("Key {} was written but returned None on read", key);
+                            eprintln!("Key {key} was written but returned None on read");
                             return;
                         }
                         Err(e) => {
-                            eprintln!("Error reading back key {}: {}", key, e);
+                            eprintln!("Error reading back key {key}: {e}");
                             return;
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!("Failed to write key {}: {}", key, e);
+                    eprintln!("Failed to write key {key}: {e}");
                     return;
                 }
             }
@@ -274,26 +273,22 @@ mod tests {
 
         // Sequential verification of all data before concurrent operations
         for i in 0..100 {
-            let key = format!("test:{}", i);
-            let expected = format!("value{}", i);
+            let key = format!("test:{i}");
+            let expected = format!("value{i}");
             match driver.get_raw(&key).await {
                 Ok(Some(v)) if v == expected => continue,
                 Ok(Some(v)) => {
                     eprintln!(
-                        "Pre-concurrent check: Value mismatch for key {}: expected '{}', got '{}'",
-                        key, expected, v
+                        "Pre-concurrent check: Value mismatch for key {key}: expected '{expected}', got '{v}'"
                     );
                     return;
                 }
                 Ok(None) => {
-                    eprintln!(
-                        "Pre-concurrent check: Key {} unexpectedly returned None",
-                        key
-                    );
+                    eprintln!("Pre-concurrent check: Key {key} unexpectedly returned None");
                     return;
                 }
                 Err(e) => {
-                    eprintln!("Pre-concurrent check: Error reading key {}: {}", key, e);
+                    eprintln!("Pre-concurrent check: Error reading key {key}: {e}");
                     return;
                 }
             }
@@ -312,10 +307,10 @@ mod tests {
                 barrier_write.wait().await;
                 for i in 100..200 {
                     if let Err(e) = driver
-                        .put_raw(&format!("test:{}", i), format!("value{}", i))
+                        .put_raw(&format!("test:{i}"), format!("value{i}"))
                         .await
                     {
-                        eprintln!("Write task error: {}", e);
+                        eprintln!("Write task error: {e}");
                         return;
                     }
                 }
@@ -327,16 +322,15 @@ mod tests {
             async move {
                 barrier_read.wait().await;
                 for i in 0..100 {
-                    match driver.get_raw(&format!("test:{}", i)).await {
+                    match driver.get_raw(&format!("test:{i}")).await {
                         Ok(Some(v)) => {
-                            let expected = format!("value{}", i);
+                            let expected = format!("value{i}");
                             if v != expected {
-                                eprintln!("Read task: Value mismatch for key test:{}: expected '{}', got '{}'", 
-                                    i, expected, v);
+                                eprintln!("Read task: Value mismatch for key test:{i}: expected '{expected}', got '{v}'");
                             }
                         }
-                        Ok(None) => eprintln!("Read task: Unexpected None for key test:{}", i),
-                        Err(e) => eprintln!("Read task error for key test:{}: {}", i, e),
+                        Ok(None) => eprintln!("Read task: Unexpected None for key test:{i}"),
+                        Err(e) => eprintln!("Read task error for key test:{i}: {e}"),
                     }
                 }
             }
@@ -364,7 +358,7 @@ mod tests {
         match driver.redis.flush_db().await {
             Ok(_) => eprintln!("Successfully connected to Redis and flushed DB"),
             Err(e) => {
-                eprintln!("Failed to flush Redis DB: {}", e);
+                eprintln!("Failed to flush Redis DB: {e}");
                 return;
             }
         }
@@ -391,7 +385,7 @@ mod tests {
         match driver.redis.flush_db().await {
             Ok(_) => eprintln!("Successfully connected to Redis and flushed DB"),
             Err(e) => {
-                eprintln!("Failed to flush Redis DB: {}", e);
+                eprintln!("Failed to flush Redis DB: {e}");
                 return;
             }
         }

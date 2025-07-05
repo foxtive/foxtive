@@ -215,7 +215,7 @@ impl Redis {
         F: FnMut(String) -> Fut + Send + Copy + 'static,
         Fut: Future<Output = AppResult<()>> + Send + 'static,
     {
-        info!("[queue] polling: {}", queue);
+        info!("[queue] polling: {queue}");
         let mut interval = time::interval(Duration::from_micros(
             interval.map(|v| v.get()).unwrap_or(500_000),
         ));
@@ -226,7 +226,7 @@ impl Redis {
                     let queue_clone = queue.clone();
                     Handle::current().spawn(async move {
                         if let Err(err) = func(item).await {
-                            error!("[queue][{}] executor error: {:?}", queue_clone, err);
+                            error!("[queue][{queue_clone}] executor error: {err:?}");
                         }
                     });
                 }
@@ -249,7 +249,7 @@ impl Redis {
         let client = create_redis_connection(&dns)?;
 
         let mut pubsub = client.get_async_pubsub().await?;
-        info!("[subscriber] subscribing to: {}", channel);
+        info!("[subscriber] subscribing to: {channel}");
 
         pubsub.subscribe(&[channel.clone()]).await?;
         let mut stream = pubsub.into_on_message();
@@ -259,7 +259,7 @@ impl Redis {
             Handle::current().spawn(async move {
                 let received = msg.get_payload::<String>().into_app_result();
                 if let Err(err) = func(received).await {
-                    error!("[subscriber][{}] executor error: {:?}", channel_clone, err);
+                    error!("[subscriber][{channel_clone}] executor error: {err:?}");
                 }
             });
         }

@@ -65,7 +65,7 @@ impl Regex {
 
         // Adjust the regex pattern for case-insensitivity if necessary
         let regex_pattern = match case_sensitivity {
-            CaseSensitivity::CaseInsensitive => format!("(?i){}", regex_pattern),
+            CaseSensitivity::CaseInsensitive => format!("(?i){regex_pattern}"),
             _ => regex_pattern.to_string(),
         };
 

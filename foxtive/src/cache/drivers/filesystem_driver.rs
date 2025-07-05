@@ -37,7 +37,7 @@ impl FilesystemCacheDriver {
             key.replace([':', '/', '\\', '<', '>', '"', '|', '?', '*'], "_")
         };
 
-        let path = self.base_path.join(format!("{}.cache", safe_key));
+        let path = self.base_path.join(format!("{safe_key}.cache"));
         self.path_cache
             .write()
             .await
@@ -280,7 +280,7 @@ mod tests {
         // Add initial data
         for i in 0..100 {
             driver
-                .put_raw(&format!("test:{}", i), format!("value{}", i))
+                .put_raw(&format!("test:{i}"), format!("value{i}"))
                 .await
                 .unwrap();
         }
@@ -313,7 +313,7 @@ mod tests {
         // Verify all cache entries are gone
         for i in 0..100 {
             assert!(driver_clone
-                .get_raw(&format!("test:{}", i))
+                .get_raw(&format!("test:{i}"))
                 .await
                 .unwrap()
                 .is_none());
