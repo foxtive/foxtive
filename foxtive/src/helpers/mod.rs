@@ -101,9 +101,9 @@ pub mod string;
 pub mod time;
 mod tokio;
 
+pub mod env;
 #[cfg(feature = "regex")]
 mod regex;
-pub mod env;
 
 pub use tokio::blk;
 

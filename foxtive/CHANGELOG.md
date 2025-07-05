@@ -1,6 +1,10 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.11.0 (2024-06-05)
+* bump(crates): to latest versions
+* feat(env): add new AppMessage::MissingEnvironmentVariable(String, VarError)
+
 ### 0.10.0 (2024-05-23)
 * feat(templating): BREAKING (expose template dir config)
 * feat(rabbitmq): BREAKING (expose dsn & max pool size config)

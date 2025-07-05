@@ -1,6 +1,6 @@
 [package]
 name = "foxtive"
-version = "0.10.1"
+version = "0.11.0"
 edition = "2021"
 license = "MIT"
 description = "Foxtive Framework"
@@ -49,7 +49,7 @@ thiserror = "2.0.12"
 uuid = { version = "1.17.0", features = ["v4", "serde"] }
 log = { version = "0.4.27" }
 serde = { version = "1.0.219", features = ["derive"] }
-tokio = { version = "1.45.1", features = ["rt-multi-thread", "time"] }
+tokio = { version = "1.46.1", features = ["rt-multi-thread", "time"] }
 chrono = { version = "0.4.41", features = ["std"] }
 dotenv = { version = "0.15.0" }
 env_logger = { version = "0.11.8" }
@@ -61,13 +61,13 @@ sha2 = { version = "0.10.8", optional = true }
 hmac = { version = "0.12.1", optional = true }
 fancy-regex = { version = "0.14.0", optional = true }
 tera = { version = "1.20.0", optional = true }
-reqwest = { version = "0.12.20", features = ["json"], optional = true }
-diesel = { version = "2.2.10", features = ["postgres", "r2d2"], optional = true }
+reqwest = { version = "0.12.22", features = ["json"], optional = true }
+diesel = { version = "2.2.11", features = ["postgres", "r2d2"], optional = true }
 jsonwebtoken = { version = "9.3.1", optional = true }
 strum = { version = "0.27.1", default-features = false, features = ["std"], optional = true }
 rust-argon2 = { version = "2.1.0", optional = true }
 async-trait = "0.1.88"
 
 [dev-dependencies]
-tokio = { version = "1.45.1", features = ["rt-multi-thread", "time", "macros"] }
+tokio = { version = "1.46.1", features = ["rt-multi-thread", "time", "macros"] }
 tempfile = { version = "3.20.0" }

@@ -37,7 +37,7 @@ impl FilesystemCacheDriver {
             key.replace([':', '/', '\\', '<', '>', '"', '|', '?', '*'], "_")
         };
 
-        let path = self.base_path.join(format!("{}.cache", safe_key));
+        let path = self.base_path.join(format!("{safe_key}.cache"));
         self.path_cache
             .write()
             .await
@@ -82,7 +82,7 @@ impl CacheDriverContract for FilesystemCacheDriver {
     async fn keys_by_pattern(&self, pattern: &str) -> AppResult<Vec<String>> {
         let regex = fancy_regex::Regex::new(pattern)?;
         let all_keys = self.keys().await?;
-        
+
         Ok(all_keys
             .into_iter()
             .filter(|key| matches!(regex.is_match(key), Ok(true)))
@@ -280,7 +280,7 @@ mod tests {
         // Add initial data
         for i in 0..100 {
             driver
-                .put_raw(&format!("test:{}", i), format!("value{}", i))
+                .put_raw(&format!("test:{i}"), format!("value{i}"))
                 .await
                 .unwrap();
         }
@@ -313,7 +313,7 @@ mod tests {
         // Verify all cache entries are gone
         for i in 0..100 {
             assert!(driver_clone
-                .get_raw(&format!("test:{}", i))
+                .get_raw(&format!("test:{i}"))
                 .await
                 .unwrap()
                 .is_none());
@@ -352,41 +352,37 @@ mod tests {
         assert!(driver.get_raw("test:2").await.unwrap().is_some());
     }
 
-#[tokio::test]
-async fn test_keys_with_data() {
-    let (driver, _temp_dir) = setup_test_cache().await;
+    #[tokio::test]
+    async fn test_keys_with_data() {
+        let (driver, _temp_dir) = setup_test_cache().await;
 
-    // Set up test data
-    let test_data = [
-        ("user_123", "data1"),  // Using underscore instead of colon
-        ("user_456", "data2"),  // Using underscore instead of colon
-        ("cache_temp_1", "temp1"),  // Using underscore instead of colon
-        ("", "empty"),  // Test empty key
-    ];
+        // Set up test data
+        let test_data = [
+            ("user_123", "data1"),     // Using underscore instead of colon
+            ("user_456", "data2"),     // Using underscore instead of colon
+            ("cache_temp_1", "temp1"), // Using underscore instead of colon
+            ("", "empty"),             // Test empty key
+        ];
 
-    for (key, value) in test_data {
-        driver.put_raw(key, value.to_string()).await.unwrap();
+        for (key, value) in test_data {
+            driver.put_raw(key, value.to_string()).await.unwrap();
+        }
+
+        let mut keys = driver.keys().await.unwrap();
+        keys.sort(); // Sort for consistent comparison
+
+        let mut expected: Vec<String> = test_data.iter().map(|(k, _)| k.to_string()).collect();
+        expected.sort();
+
+        assert_eq!(keys, expected, "Retrieved keys should match inserted keys");
     }
-
-    let mut keys = driver.keys().await.unwrap();
-    keys.sort(); // Sort for consistent comparison
-
-    let mut expected: Vec<String> = test_data.iter().map(|(k, _)| k.to_string()).collect();
-    expected.sort();
-
-    assert_eq!(keys, expected, "Retrieved keys should match inserted keys");
-}
 
     #[tokio::test]
     async fn test_keys_after_deletion() {
         let (driver, _temp_dir) = setup_test_cache().await;
 
         // Set up initial data
-        let test_data = [
-            ("key1", "value1"),
-            ("key2", "value2"),
-            ("key3", "value3"),
-        ];
+        let test_data = [("key1", "value1"), ("key2", "value2"), ("key3", "value3")];
 
         for (key, value) in test_data {
             driver.put_raw(key, value.to_string()).await.unwrap();
@@ -422,18 +418,18 @@ async fn test_keys_with_data() {
         let mut keys = driver.keys_by_pattern("^user:.*").await.unwrap();
         keys.sort();
         assert_eq!(
-        keys,
-        vec!["user:123".to_string(), "user:456".to_string()],
-        "Should match user: prefix"
+            keys,
+            vec!["user:123".to_string(), "user:456".to_string()],
+            "Should match user: prefix"
         );
 
         // Test cache prefix match
         let mut keys = driver.keys_by_pattern("^cache:temp:.*").await.unwrap();
         keys.sort();
         assert_eq!(
-        keys,
-        vec!["cache:temp:1".to_string(), "cache:temp:2".to_string()],
-        "Should match cache:temp: prefix"
+            keys,
+            vec!["cache:temp:1".to_string(), "cache:temp:2".to_string()],
+            "Should match cache:temp: prefix"
         );
     }
 
@@ -458,7 +454,7 @@ async fn test_keys_with_data() {
         let mut keys = driver.keys_by_pattern("(?i)^abc").await.unwrap();
         // Sort case-insensitively
         keys.sort_by_key(|k| k.to_lowercase());
-        
+
         let mut expected = vec!["abc123".to_string(), "ABC456".to_string()];
         expected.sort_by_key(|k| k.to_lowercase());
         assert_eq!(keys, expected, "Should match case-insensitive");
@@ -484,8 +480,14 @@ async fn test_keys_with_data() {
         let (driver, _temp_dir) = setup_test_cache().await;
 
         // Add some test data
-        driver.put_raw("test:1", "value1".to_string()).await.unwrap();
-        driver.put_raw("test:2", "value2".to_string()).await.unwrap();
+        driver
+            .put_raw("test:1", "value1".to_string())
+            .await
+            .unwrap();
+        driver
+            .put_raw("test:2", "value2".to_string())
+            .await
+            .unwrap();
 
         let keys = driver.keys_by_pattern("^nonexistent:.*").await.unwrap();
         assert!(keys.is_empty(), "Should return empty vec for no matches");

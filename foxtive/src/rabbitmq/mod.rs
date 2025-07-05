@@ -20,9 +20,9 @@ use crate::prelude::{AppResult, OnceLockHelper};
 pub use crate::rabbitmq::message::Message;
 use crate::FOXTIVE;
 
+pub mod config;
 pub mod conn;
 mod message;
-pub mod config;
 
 pub type RabbitMQSetupFn = Arc<dyn Fn(RabbitMQ) -> BoxFuture<'static, AppResult<()>> + Send + Sync>;
 
@@ -142,7 +142,7 @@ impl RabbitMQ {
         info!("Running setup function...");
         match func(self.clone()).await {
             Ok(_) => info!("Setup function completed successfully."),
-            Err(err) => error!("Setup function failed: {}", err),
+            Err(err) => error!("Setup function failed: {err}"),
         };
 
         self.setup_fn = Some(Arc::new(func));
@@ -230,19 +230,16 @@ impl RabbitMQ {
         F: Fn(Message) -> Fut + Send + Copy + 'static,
         Fut: Future<Output = AppResult<()>> + Send + 'static,
     {
-        info!("Subscribing to '{}'...", queue);
+        info!("Subscribing to '{queue}'...");
 
         loop {
             match self.start_consume(queue, tag, func).await {
                 Ok(_) => {
-                    info!("[{}] Consumer stopped normally", tag);
+                    info!("[{tag}] Consumer stopped normally");
                     break;
                 }
                 Err(err) => {
-                    error!(
-                        "[{}] Consumer encountered an error: {:?}, restarting...",
-                        tag, err
-                    );
+                    error!("[{tag}] Consumer encountered an error: {err:?}, restarting...");
                     sleep(Self::RETRY_DELAY).await;
                 }
             }
@@ -259,13 +256,10 @@ impl RabbitMQ {
         loop {
             match self.consume(queue, tag, func).await {
                 Ok(_) => {
-                    warn!("[{}] Consumer stopped unexpectedly, restarting...", tag);
+                    warn!("[{tag}] Consumer stopped unexpectedly, restarting...");
                 }
                 Err(err) => {
-                    error!(
-                        "[{}] Consumer encountered an error: {:?}, retrying...",
-                        tag, err
-                    );
+                    error!("[{tag}] Consumer encountered an error: {err:?}, retrying...");
                 }
             }
 
@@ -306,10 +300,7 @@ impl RabbitMQ {
                                     .nack(delivery_tag, instance.requeue_on_failure)
                                     .await;
                             }
-                            error!(
-                                "[consume-executor][{}] Returned error: {:?}",
-                                consumer_tag, err
-                            );
+                            error!("[consume-executor][{consumer_tag}] Returned error: {err:?}");
                         }
                     }
                 };
@@ -527,16 +518,12 @@ impl RabbitMQ {
             match self.conn_pool.get().await {
                 Ok(_) => {
                     info!(
-                        "Reconnected to RabbitMQ successfully on attempt {}",
-                        attempt
+                        "Reconnected to RabbitMQ successfully on attempt {attempt}"
                     );
                     return Ok(());
                 }
                 Err(err) => {
-                    warn!(
-                        "Failed to reconnect to RabbitMQ (attempt {}): {}",
-                        attempt, err
-                    );
+                    warn!("Failed to reconnect to RabbitMQ (attempt {attempt}): {err}");
                     sleep(delay).await;
                     delay = delay.saturating_mul(2); // Exponential backoff
                 }

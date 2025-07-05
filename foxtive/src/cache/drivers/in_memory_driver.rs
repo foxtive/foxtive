@@ -17,13 +17,17 @@ impl InMemoryDriver {
 #[async_trait::async_trait]
 impl CacheDriverContract for InMemoryDriver {
     async fn keys(&self) -> AppResult<Vec<String>> {
-        Ok(self.storage.iter().map(|entry| entry.key().clone()).collect())
+        Ok(self
+            .storage
+            .iter()
+            .map(|entry| entry.key().clone())
+            .collect())
     }
 
     async fn keys_by_pattern(&self, pattern: &str) -> AppResult<Vec<String>> {
         let regex = fancy_regex::Regex::new(pattern)?;
         let all_keys = self.keys().await?;
-    
+
         Ok(all_keys
             .into_iter()
             .filter(|key| matches!(regex.is_match(key), Ok(true)))
@@ -83,13 +87,16 @@ mod tests {
     async fn test_keys_empty_storage() {
         let driver = InMemoryDriver::new();
         let keys = driver.keys().await.unwrap();
-        assert!(keys.is_empty(), "Empty storage should return empty keys vector");
+        assert!(
+            keys.is_empty(),
+            "Empty storage should return empty keys vector"
+        );
     }
 
     #[tokio::test]
     async fn test_keys_with_data() {
         let driver = InMemoryDriver::new();
-        
+
         // Set up test data
         let test_data = [
             ("key1", "value1"),
@@ -104,7 +111,7 @@ mod tests {
 
         let mut keys = driver.keys().await.unwrap();
         keys.sort(); // Sort for consistent comparison
-        
+
         let mut expected: Vec<String> = test_data.iter().map(|(k, _)| k.to_string()).collect();
         expected.sort();
 
@@ -114,7 +121,7 @@ mod tests {
     #[tokio::test]
     async fn test_keys_after_deletion() {
         let driver = InMemoryDriver::new();
-        
+
         // Insert test data
         let test_data = [
             ("test1", "value1"),
@@ -139,7 +146,7 @@ mod tests {
     #[tokio::test]
     async fn test_keys_by_pattern_basic() {
         let driver = InMemoryDriver::new();
-        
+
         // Insert test data with different patterns
         let test_data = [
             ("prefix:1", "value1"),
@@ -173,7 +180,7 @@ mod tests {
     #[tokio::test]
     async fn test_keys_by_pattern_complex() {
         let driver = InMemoryDriver::new();
-        
+
         // Insert test data with various patterns
         let test_data = [
             ("ABC123", "value1"),
@@ -210,7 +217,7 @@ mod tests {
     #[tokio::test]
     async fn test_keys_by_pattern_no_matches() {
         let driver = InMemoryDriver::new();
-        
+
         // Insert some test data
         driver.put_raw("test1", "value1".to_string()).await.unwrap();
         driver.put_raw("test2", "value2".to_string()).await.unwrap();
@@ -230,7 +237,7 @@ mod tests {
     #[tokio::test]
     async fn test_keys_by_pattern_empty_pattern() {
         let driver = InMemoryDriver::new();
-        
+
         // Insert test data
         driver.put_raw("test1", "value1".to_string()).await.unwrap();
         driver.put_raw("test2", "value2".to_string()).await.unwrap();
@@ -241,7 +248,7 @@ mod tests {
         // Empty pattern in regex matches everything
         let mut expected = vec!["test1".to_string(), "test2".to_string()];
         expected.sort();
-        
+
         assert_eq!(keys, expected, "Empty pattern should match all keys");
     }
 
@@ -343,7 +350,7 @@ mod tests {
         // Add initial data
         for i in 0..100 {
             driver
-                .put_raw(&format!("test:{}", i), format!("value{}", i))
+                .put_raw(&format!("test:{i}"), format!("value{i}"))
                 .await
                 .unwrap();
         }
@@ -372,12 +379,11 @@ mod tests {
         let total_removed = result1.unwrap() + result2.unwrap();
         assert_eq!(
             total_removed, 100,
-            "Failed to remove all items. Only removed {}",
-            total_removed
+            "Failed to remove all items. Only removed {total_removed}"
         );
 
         // Verify all keys are gone
         let remaining = driver_clone.storage.iter().count();
-        assert_eq!(remaining, 0, "Some keys remained in storage: {}", remaining);
+        assert_eq!(remaining, 0, "Some keys remained in storage: {remaining}");
     }
 }

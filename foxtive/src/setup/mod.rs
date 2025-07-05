@@ -174,7 +174,7 @@ fn make_helpers(setup: &FoxtiveSetup) -> FoxtiveHelpers {
 }
 
 pub fn load_config_file(file: &str) -> String {
-    fs::read_to_string(format!("resources/config/{}", file)).expect("Failed to read config file")
+    fs::read_to_string(format!("resources/config/{file}")).expect("Failed to read config file")
 }
 
 pub fn load_environment_variables(service: &str) {
@@ -182,10 +182,10 @@ pub fn load_environment_variables(service: &str) {
         "log level: {:?}",
         std::env::var("RUST_LOG").unwrap_or(String::from("info"))
     );
-    info!("root directory: {:?}", service);
+    info!("root directory: {service:?}");
 
     // load project level .env
-    let path = format!("apps/{}/.env", service);
+    let path = format!("apps/{service}/.env");
     dotenv::from_filename(path).ok();
 
     // load project level .env.main
@@ -201,9 +201,9 @@ pub fn load_environment_variables(service: &str) {
     }
 
     // load project level .env.main
-    let filename = format!(".env.{}", service);
+    let filename = format!(".env.{service}");
     if Path::new(filename.as_str()).exists() {
-        info!("loading env file: {}", filename);
+        info!("loading env file: {filename}");
         dotenv::from_filename(filename).ok();
     }
 }
