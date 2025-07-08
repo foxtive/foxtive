@@ -3,6 +3,7 @@ Foxtive changelog file
 
 ### 0.13.0 (2024-06-05)
 * bump(crates): redis, lapin & fancy-regex to their latest respective versions
+* feat(file-ext): add file ext helper, this helper provides a convenient way to handle file ext easily
 
 ### 0.12.0 (2024-06-05)
 * bump(edition): to 2024

@@ -104,8 +104,11 @@ mod tokio;
 pub mod env;
 #[cfg(feature = "regex")]
 mod regex;
+mod file_ext;
 
 pub use tokio::blk;
 
 #[cfg(feature = "regex")]
 pub use regex::*;
+
+pub use file_ext::{FileExtHelper, COMPOUND_EXTENSIONS};
