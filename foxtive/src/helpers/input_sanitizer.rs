@@ -5,7 +5,8 @@ pub struct InputSanitizer;
 
 impl InputSanitizer {
     pub fn sanitize_filename(input: &str) -> String {
-        input.chars()
+        input
+            .chars()
             .filter(|c| c.is_alphanumeric() || *c == '.' || *c == '_' || *c == '-')
             .collect()
     }
