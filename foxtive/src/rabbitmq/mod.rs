@@ -463,7 +463,10 @@ impl RabbitMQ {
 
         if !self.can_reconnect {
             warn!("Cannot reconnect, channel recreation aborted");
-            return Err(lapin::Error::InvalidConnectionState(ConnectionState::Closed).into());
+            return Err(lapin::Error::from(lapin::ErrorKind::InvalidConnectionState(
+                ConnectionState::Closed,
+            ))
+            .into());
         }
 
         let connection = self.conn_pool.get().await?;
@@ -509,7 +512,7 @@ impl RabbitMQ {
     async fn recreate_connection(&self) -> AppResult<()> {
         if !self.can_reconnect {
             warn!("Cannot reconnect, re-establishing connection aborted");
-            return Err(lapin::Error::InvalidConnectionState(ConnectionState::Closed).into());
+            return Err(lapin::Error::from(lapin::ErrorKind::InvalidConnectionState(ConnectionState::Closed)).into());
         }
 
         let mut delay = self.max_reconnection_delay;
@@ -517,9 +520,7 @@ impl RabbitMQ {
             info!("Attempting to reconnect to RabbitMQ, attempt {attempt}...");
             match self.conn_pool.get().await {
                 Ok(_) => {
-                    info!(
-                        "Reconnected to RabbitMQ successfully on attempt {attempt}"
-                    );
+                    info!("Reconnected to RabbitMQ successfully on attempt {attempt}");
                     return Ok(());
                 }
                 Err(err) => {
@@ -531,6 +532,6 @@ impl RabbitMQ {
         }
 
         error!("Max reconnection attempts reached, giving up");
-        Err(lapin::Error::InvalidConnectionState(ConnectionState::Closed).into())
+        Err(lapin::Error::from(lapin::ErrorKind::InvalidConnectionState(ConnectionState::Closed)).into())
     }
 }

@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.13.0 (2024-06-05)
+* bump(crates): redis, lapin & fancy-regex to their latest respective versions
+
 ### 0.12.0 (2024-06-05)
 * bump(edition): to 2024
 
