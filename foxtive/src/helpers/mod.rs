@@ -102,9 +102,10 @@ pub mod time;
 mod tokio;
 
 pub mod env;
+mod file_ext;
+mod input_sanitizer;
 #[cfg(feature = "regex")]
 mod regex;
-mod file_ext;
 
 pub use tokio::blk;
 
@@ -112,3 +113,5 @@ pub use tokio::blk;
 pub use regex::*;
 
 pub use file_ext::{FileExtHelper, COMPOUND_EXTENSIONS};
+
+pub use input_sanitizer::*;
