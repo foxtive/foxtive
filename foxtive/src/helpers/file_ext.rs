@@ -48,11 +48,11 @@ impl FileExtHelper {
 
         // Check for known extensions (try longest matches first)
         let mut sorted_exts: Vec<_> = self.known_exts.iter().collect();
-        sorted_exts.sort_by(|a, b| b.len().cmp(&a.len())); // Sort by length descending
+        sorted_exts.sort_by_key(|b| std::cmp::Reverse(b.len())); // Sort by length descending
 
         for ext in sorted_exts {
-            if filename.to_lowercase().ends_with(&format!(".{}", ext)) {
-                return Some(format!(".{}", ext));
+            if filename.to_lowercase().ends_with(&format!(".{ext}")) {
+                return Some(format!(".{ext}"));
             }
         }
 
@@ -86,10 +86,10 @@ impl FileExtHelper {
 
         // Check for known extensions (try longest matches first)
         let mut sorted_exts: Vec<_> = self.known_exts.iter().collect();
-        sorted_exts.sort_by(|a, b| b.len().cmp(&a.len())); // Sort by length descending
+        sorted_exts.sort_by_key(|b| std::cmp::Reverse(b.len())); // Sort by length descending
 
         for ext in sorted_exts {
-            let full_ext = format!(".{}", ext);
+            let full_ext = format!(".{ext}");
             if filename.to_lowercase().ends_with(&full_ext) {
                 return filename[..filename.len() - full_ext.len()].to_string();
             }
