@@ -106,6 +106,7 @@ mod file_ext;
 mod input_sanitizer;
 #[cfg(feature = "regex")]
 mod regex;
+pub mod file_size;
 
 pub use tokio::blk;
 
@@ -113,5 +114,6 @@ pub use tokio::blk;
 pub use regex::*;
 
 pub use file_ext::{COMPOUND_EXTENSIONS, FileExtHelper};
+
 
 pub use input_sanitizer::*;
