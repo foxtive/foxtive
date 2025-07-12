@@ -214,7 +214,10 @@ impl FormattedSize {
                 }
             };
 
-            if bytes >= threshold && unit as u8 >= config.min_unit as u8 && unit as u8 <= config.max_unit as u8 {
+            if bytes >= threshold
+                && unit as u8 >= config.min_unit as u8
+                && unit as u8 <= config.max_unit as u8
+            {
                 return unit;
             }
         }
@@ -225,7 +228,9 @@ impl FormattedSize {
     /// Formats the size according to the given configuration
     pub fn format(&self, config: &SizeFormatConfig) -> String {
         let unit_str = if config.use_full_names {
-            if config.use_plural && (self.value != 1.0 || self.unit == SizeUnit::Byte && self.original_bytes != 1) {
+            if config.use_plural
+                && (self.value != 1.0 || self.unit == SizeUnit::Byte && self.original_bytes != 1)
+            {
                 self.unit.plural_name()
             } else {
                 self.unit.name()
@@ -397,6 +402,12 @@ mod tests {
     #[test]
     fn test_edge_cases() {
         assert_eq!(format_size(0), "0 B");
-        assert_eq!(format_size(u64::MAX), format!("{:.2} EB", u64::MAX as f64 / SizeUnit::Exabyte.bytes() as f64));
+        assert_eq!(
+            format_size(u64::MAX),
+            format!(
+                "{:.2} EB",
+                u64::MAX as f64 / SizeUnit::Exabyte.bytes() as f64
+            )
+        );
     }
 }
