@@ -52,7 +52,7 @@ impl FileExtHelper {
 
         for ext in sorted_exts {
             if filename.to_lowercase().ends_with(&format!(".{ext}")) {
-                return Some(format!(".{ext}"));
+                return Some(format!("{ext}"));
             }
         }
 
@@ -68,7 +68,7 @@ impl FileExtHelper {
                 return None;
             }
 
-            let ext = &filename[dot_pos..];
+            let ext = &filename[(dot_pos + 1)..];   // return without dot
             Some(ext.to_string())
         } else {
             None
@@ -138,64 +138,64 @@ mod tests {
         // Test tar.gz variants
         assert_eq!(
             handler.get_extension("archive.tar.gz"),
-            Some(".tar.gz".to_string())
+            Some("tar.gz".to_string())
         );
         assert_eq!(handler.remove_extension("archive.tar.gz"), "archive");
 
         // Test other tar variants
         assert_eq!(
             handler.get_extension("backup.tar.bz2"),
-            Some(".tar.bz2".to_string())
+            Some("tar.bz2".to_string())
         );
         assert_eq!(handler.remove_extension("backup.tar.bz2"), "backup");
 
         assert_eq!(
             handler.get_extension("data.tar.xz"),
-            Some(".tar.xz".to_string())
+            Some("tar.xz".to_string())
         );
         assert_eq!(handler.remove_extension("data.tar.xz"), "data");
 
         // Test short forms
         assert_eq!(
             handler.get_extension("archive.tgz"),
-            Some(".tgz".to_string())
+            Some("tgz".to_string())
         );
         assert_eq!(handler.remove_extension("archive.tgz"), "archive");
 
         assert_eq!(
             handler.get_extension("backup.tbz2"),
-            Some(".tbz2".to_string())
+            Some("tbz2".to_string())
         );
         assert_eq!(handler.remove_extension("backup.tbz2"), "backup");
 
         // Test zip variants
-        assert_eq!(handler.get_extension("file.zip"), Some(".zip".to_string()));
+        assert_eq!(handler.get_extension("file.zip"), Some("zip".to_string()));
         assert_eq!(handler.remove_extension("file.zip"), "file");
 
         assert_eq!(
             handler.get_extension("encrypted.zip.gpg"),
-            Some(".zip.gpg".to_string())
+            Some("zip.gpg".to_string())
         );
         assert_eq!(handler.remove_extension("encrypted.zip.gpg"), "encrypted");
 
         // Test 7z variants
-        assert_eq!(handler.get_extension("archive.7z"), Some(".7z".to_string()));
+        assert_eq!(handler.get_extension("archive.7z"), Some("7z".to_string()));
         assert_eq!(handler.remove_extension("archive.7z"), "archive");
 
         assert_eq!(
             handler.get_extension("multi.7z.001"),
-            Some(".7z.001".to_string())
+            Some("7z.001".to_string())
         );
         assert_eq!(handler.remove_extension("multi.7z.001"), "multi");
 
         // Test single compression formats
-        assert_eq!(handler.get_extension("file.gz"), Some(".gz".to_string()));
+        assert_eq!(handler.get_extension("file.gz"), Some("gz".to_string()));
         assert_eq!(handler.remove_extension("file.gz"), "file");
 
-        assert_eq!(handler.get_extension("data.bz2"), Some(".bz2".to_string()));
+        assert_eq!(handler.get_extension("data.bz2"), Some("bz2".to_string()));
         assert_eq!(handler.remove_extension("data.bz2"), "data");
 
-        assert_eq!(handler.get_extension("backup.xz"), Some(".xz".to_string()));
+        assert_eq!(handler.get_extension("backup.xz"), Some("xz".to_string()));
         assert_eq!(handler.remove_extension("backup.xz"), "backup");
     }
 
@@ -203,15 +203,15 @@ mod tests {
     fn test_single_level_extensions() {
         let handler = FileExtHelper::new();
 
-        assert_eq!(handler.get_extension("file.txt"), Some(".txt".to_string()));
+        assert_eq!(handler.get_extension("file.txt"), Some("txt".to_string()));
         assert_eq!(handler.remove_extension("file.txt"), "file");
 
-        assert_eq!(handler.get_extension("image.jpg"), Some(".jpg".to_string()));
+        assert_eq!(handler.get_extension("image.jpg"), Some("jpg".to_string()));
         assert_eq!(handler.remove_extension("image.jpg"), "image");
 
         assert_eq!(
             handler.get_extension("document.pdf"),
-            Some(".pdf".to_string())
+            Some("pdf".to_string())
         );
         assert_eq!(handler.remove_extension("document.pdf"), "document");
     }
@@ -232,16 +232,16 @@ mod tests {
         let handler = FileExtHelper::new();
 
         // Hidden files should not be treated as extensions
-        assert_eq!(handler.get_extension(".gitignore"), None);
+        assert_eq!(handler.get_extension("gitignore"), None);
         assert_eq!(handler.remove_extension(".gitignore"), ".gitignore");
 
-        assert_eq!(handler.get_extension(".bashrc"), None);
+        assert_eq!(handler.get_extension("bashrc"), None);
         assert_eq!(handler.remove_extension(".bashrc"), ".bashrc");
 
         // But hidden files with extensions should work
         assert_eq!(
-            handler.get_extension(".hidden.txt"),
-            Some(".txt".to_string())
+            handler.get_extension("hidden.txt"),
+            Some("txt".to_string())
         );
         assert_eq!(handler.remove_extension(".hidden.txt"), ".hidden");
     }
@@ -268,7 +268,7 @@ mod tests {
         // Multiple dots
         assert_eq!(
             handler.get_extension("file.name.txt"),
-            Some(".txt".to_string())
+            Some("txt".to_string())
         );
         assert_eq!(handler.remove_extension("file.name.txt"), "file.name");
     }
@@ -280,7 +280,7 @@ mod tests {
 
         assert_eq!(
             handler.get_extension("file.custom.comp"),
-            Some(".custom.comp".to_string())
+            Some("custom.comp".to_string())
         );
         assert_eq!(handler.remove_extension("file.custom.comp"), "file");
     }
@@ -291,20 +291,20 @@ mod tests {
 
         assert_eq!(
             handler.split_filename("archive.tar.gz"),
-            ("archive".to_string(), Some(".tar.gz".to_string()))
+            ("archive".to_string(), Some("tar.gz".to_string()))
         );
         assert_eq!(
             handler.split_filename("file.txt"),
-            ("file".to_string(), Some(".txt".to_string()))
+            ("file".to_string(), Some("txt".to_string()))
         );
         assert_eq!(handler.split_filename("noext"), ("noext".to_string(), None));
         assert_eq!(
             handler.split_filename("data.zip.gpg"),
-            ("data".to_string(), Some(".zip.gpg".to_string()))
+            ("data".to_string(), Some("zip.gpg".to_string()))
         );
         assert_eq!(
             handler.split_filename("multi.7z.001"),
-            ("multi".to_string(), Some(".7z.001".to_string()))
+            ("multi".to_string(), Some("7z.001".to_string()))
         );
     }
 }
