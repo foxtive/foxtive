@@ -68,7 +68,7 @@ impl FileExtHelper {
                 return None;
             }
 
-            let ext = &filename[(dot_pos + 1)..];   // return without dot
+            let ext = &filename[(dot_pos + 1)..]; // return without dot
             Some(ext.to_string())
         } else {
             None
@@ -239,10 +239,7 @@ mod tests {
         assert_eq!(handler.remove_extension(".bashrc"), ".bashrc");
 
         // But hidden files with extensions should work
-        assert_eq!(
-            handler.get_extension("hidden.txt"),
-            Some("txt".to_string())
-        );
+        assert_eq!(handler.get_extension("hidden.txt"), Some("txt".to_string()));
         assert_eq!(handler.remove_extension(".hidden.txt"), ".hidden");
     }
 
