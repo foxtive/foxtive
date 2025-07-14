@@ -52,7 +52,7 @@ impl FileExtHelper {
 
         for ext in sorted_exts {
             if filename.to_lowercase().ends_with(&format!(".{ext}")) {
-                return Some(format!("{ext}"));
+                return Some(ext.to_string());
             }
         }
 
