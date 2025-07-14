@@ -1,6 +1,10 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.13.2 (2024-06-14)
+* fix(file-ext): return ext without a dot (return "txt" instead of ".txt")
+* bump(crates): to latest minor versions
+
 ### 0.13.1 (2024-06-12)
 * feat(file-size): convenient methods for file size formatting
 * bump(crates): to latest minor versions

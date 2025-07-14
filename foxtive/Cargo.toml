@@ -1,6 +1,6 @@
 [package]
 name = "foxtive"
-version = "0.13.1"
+version = "0.13.2"
 edition = "2024"
 license = "MIT"
 description = "Foxtive Framework"
@@ -37,7 +37,7 @@ lapin = { version = "3.0.0", optional = true }
 deadpool-lapin = { version = "0.13.0", features = ["rt_tokio_1"], optional = true }
 
 # Redis
-redis = { version = "0.32.3", default-features = false, optional = true, features = [
+redis = { version = "0.32.4", default-features = false, optional = true, features = [
     "tokio-native-tls-comp", "connection-manager"
 ] }
 deadpool-redis = { version = "0.22.0", features = ["rt_tokio_1"], optional = true }
