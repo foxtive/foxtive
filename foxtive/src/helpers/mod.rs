@@ -92,7 +92,6 @@ pub mod json;
 #[cfg(feature = "jwt")]
 pub mod jwt;
 pub mod number;
-pub mod once_lock;
 #[cfg(feature = "crypto")]
 pub mod password;
 #[cfg(feature = "reqwest")]
@@ -113,6 +112,6 @@ pub use tokio::blk;
 #[cfg(feature = "regex")]
 pub use regex::*;
 
-pub use file_ext::{COMPOUND_EXTENSIONS, FileExtHelper};
+pub use file_ext::{FileExtHelper, COMPOUND_EXTENSIONS};
 
 pub use input_sanitizer::*;

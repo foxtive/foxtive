@@ -1,3 +1,4 @@
+use crate::prelude::{AppMessage, AppResult};
 use std::fmt;
 use std::str::FromStr;
 
@@ -52,6 +53,13 @@ impl Environment {
     }
 
     /// Gets the environment from environment variable or returns default
+    pub fn from_env(var_name: &str) -> AppResult<Environment> {
+        std::env::var(var_name)
+            .map_err(|e| AppMessage::MissingEnvironmentVariable(var_name.to_string(), e).ae())
+            .and_then(|val| val.parse())
+    }
+
+    /// Gets the environment from environment variable or returns default
     pub fn from_env_or_default(var_name: &str, default: Environment) -> Environment {
         std::env::var(var_name)
             .ok()
@@ -77,7 +85,7 @@ impl fmt::Display for Environment {
 }
 
 impl FromStr for Environment {
-    type Err = ParseEnvironmentError;
+    type Err = crate::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
@@ -85,29 +93,8 @@ impl FromStr for Environment {
             "development" | "dev" => Ok(Environment::Development),
             "staging" | "stage" => Ok(Environment::Staging),
             "production" | "prod" => Ok(Environment::Production),
-            _ => Err(ParseEnvironmentError::InvalidValue(s.to_string())),
+            _ => Err(AppMessage::InternalServerErrorMessage("Invalid environment value: '{val}'. Valid values are: local, development (dev), staging (stage), production (prod)").ae()),
         }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParseEnvironmentError {
-    InvalidValue(String),
-}
-
-impl fmt::Display for ParseEnvironmentError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ParseEnvironmentError::InvalidValue(val) => {
-                write!(f, "Invalid environment value: '{val}'. Valid values are: local, development (dev), staging (stage), production (prod)")
-            }
-        }
-    }
-}
-
-impl From<ParseEnvironmentError> for crate::Error {
-    fn from(value: ParseEnvironmentError) -> Self {
-        crate::Error::msg(value)
     }
 }
 
@@ -171,22 +158,21 @@ mod tests {
         assert!(!Environment::Staging.is_dev_like());
         assert!(!Environment::Production.is_dev_like());
     }
-
     #[test]
     fn test_from_str() {
-        assert_eq!("local".parse(), Ok(Environment::Local));
-        assert_eq!("development".parse(), Ok(Environment::Development));
-        assert_eq!("dev".parse(), Ok(Environment::Development));
-        assert_eq!("staging".parse(), Ok(Environment::Staging));
-        assert_eq!("stage".parse(), Ok(Environment::Staging));
-        assert_eq!("production".parse(), Ok(Environment::Production));
-        assert_eq!("prod".parse(), Ok(Environment::Production));
+        assert_eq!("local".parse::<Environment>().unwrap(), Environment::Local);
+        assert_eq!("development".parse::<Environment>().unwrap(), Environment::Development);
+        assert_eq!("dev".parse::<Environment>().unwrap(), Environment::Development);
+        assert_eq!("staging".parse::<Environment>().unwrap(), Environment::Staging);
+        assert_eq!("stage".parse::<Environment>().unwrap(), Environment::Staging);
+        assert_eq!("production".parse::<Environment>().unwrap(), Environment::Production);
+        assert_eq!("prod".parse::<Environment>().unwrap(), Environment::Production);
 
         // Case insensitive
-        assert_eq!("PRODUCTION".parse(), Ok(Environment::Production));
-        assert_eq!("Dev".parse(), Ok(Environment::Development));
+        assert_eq!("PRODUCTION".parse::<Environment>().unwrap(), Environment::Production);
+        assert_eq!("Dev".parse::<Environment>().unwrap(), Environment::Development);
 
-        // Invalid values
+        // Invalid value
         assert!("invalid".parse::<Environment>().is_err());
     }
 

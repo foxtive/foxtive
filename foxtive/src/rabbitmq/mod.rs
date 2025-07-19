@@ -17,7 +17,7 @@ pub use {
 };
 
 use crate::FOXTIVE;
-use crate::prelude::{AppResult, OnceLockHelper};
+use crate::prelude::{AppResult, AppStateExt};
 pub use crate::rabbitmq::message::Message;
 
 pub mod config;
