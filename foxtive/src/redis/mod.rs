@@ -4,7 +4,7 @@ use crate::redis::conn::create_redis_connection;
 use crate::results::redis_result::RedisResultToAppResult;
 use anyhow::Error;
 use futures_util::StreamExt;
-use log::{error, info};
+use tracing::{error, info};
 use redis::{AsyncCommands, FromRedisValue, ToRedisArgs};
 use serde::Serialize;
 use std::future::Future;

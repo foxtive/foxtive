@@ -2,7 +2,7 @@ use futures_util::StreamExt;
 use futures_util::future::BoxFuture;
 use lapin::types::FieldTable;
 use lapin::{BasicProperties, ConnectionState};
-use log::{error, info, warn};
+use tracing::{error, info, warn};
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;

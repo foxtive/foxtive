@@ -1,6 +1,6 @@
 #[cfg(feature = "cache")]
 #[allow(unused_imports)]
-use crate::cache::{Cache, contract::CacheDriverContract};
+use crate::cache::{contract::CacheDriverContract, Cache};
 #[cfg(feature = "database")]
 use crate::database::create_db_pool;
 #[cfg(feature = "jwt")]
@@ -16,14 +16,16 @@ use crate::rabbitmq::conn::create_rmq_conn_pool;
 #[cfg(feature = "redis")]
 use crate::redis::conn::create_redis_conn_pool;
 use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
-use log::info;
 use std::fs;
 use std::path::Path;
 #[allow(unused_imports)]
 use std::sync::Arc;
 #[cfg(feature = "templating")]
 use tera::Tera;
+use tracing::info;
 
+pub mod logger;
+mod logger_layers;
 pub(crate) mod state;
 
 #[cfg(feature = "cache")]

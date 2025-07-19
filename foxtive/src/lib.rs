@@ -10,7 +10,6 @@ pub mod redis;
 pub mod cache;
 #[cfg(feature = "database")]
 pub mod database;
-pub mod env_logger;
 pub mod ext;
 mod ext_impl;
 pub mod helpers;

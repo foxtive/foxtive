@@ -1,6 +1,6 @@
 use crate::prelude::AppResult;
 use async_trait::async_trait;
-use log::{debug, error};
+use tracing::{debug, error};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::future::Future;

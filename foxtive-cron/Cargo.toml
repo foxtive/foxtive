@@ -1,6 +1,6 @@
 [package]
 name = "foxtive-cron"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "MIT"
 description = "Foxtive Cron"
@@ -12,7 +12,7 @@ tokio-macros = ["tokio/macros"]
 
 [dependencies]
 cron = "0.15.0"
-log = "0.4.27"
+tracing = "0.1.41"
 chrono = "0.4.41"
 async-trait = "0.1.88"
 anyhow = { version = "1.0.98", features = ["backtrace"] }

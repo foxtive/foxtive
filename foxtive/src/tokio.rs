@@ -1,5 +1,5 @@
 use crate::results::AppResult;
-use log::error;
+use tracing::error;
 use std::future::Future;
 use std::time::Duration;
 use tokio::task::{JoinHandle, spawn_blocking};

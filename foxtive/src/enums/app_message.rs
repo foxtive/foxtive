@@ -2,7 +2,7 @@
 use crate::helpers::reqwest::ReqwestResponseError;
 use crate::results::AppResult;
 use http::StatusCode;
-use log::{error, info};
+use tracing::{error, info};
 use std::env::VarError;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
