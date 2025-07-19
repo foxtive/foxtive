@@ -1,6 +1,6 @@
 #[cfg(feature = "cache")]
 #[allow(unused_imports)]
-use crate::cache::{Cache, contract::CacheDriverContract};
+use crate::cache::{contract::CacheDriverContract, Cache};
 #[cfg(feature = "database")]
 use crate::database::create_db_pool;
 #[cfg(feature = "jwt")]
@@ -16,14 +16,17 @@ use crate::rabbitmq::conn::create_rmq_conn_pool;
 #[cfg(feature = "redis")]
 use crate::redis::conn::create_redis_conn_pool;
 use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
-use log::info;
+use crate::Environment;
 use std::fs;
 use std::path::Path;
 #[allow(unused_imports)]
 use std::sync::Arc;
 #[cfg(feature = "templating")]
 use tera::Tera;
+use tracing::info;
 
+pub mod logger;
+mod logger_layers;
 pub(crate) mod state;
 
 #[cfg(feature = "cache")]
@@ -43,6 +46,8 @@ pub struct FoxtiveSetup {
     pub app_key: String,
     pub app_code: String,
     pub app_name: String,
+
+    pub env: Environment,
 
     #[cfg(feature = "jwt")]
     pub jwt_iss_public_key: String,
@@ -119,6 +124,8 @@ async fn create_state(setup: FoxtiveSetup) -> FoxtiveState {
 
     FoxtiveState {
         helpers,
+
+        env: setup.env,
 
         app_env_prefix: env_prefix.clone(),
 

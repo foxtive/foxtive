@@ -2,7 +2,7 @@ use futures_util::StreamExt;
 use futures_util::future::BoxFuture;
 use lapin::types::FieldTable;
 use lapin::{BasicProperties, ConnectionState};
-use log::{error, info, warn};
+use tracing::{error, info, warn};
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
@@ -17,7 +17,7 @@ pub use {
 };
 
 use crate::FOXTIVE;
-use crate::prelude::{AppResult, OnceLockHelper};
+use crate::prelude::{AppResult, AppStateExt};
 pub use crate::rabbitmq::message::Message;
 
 pub mod config;

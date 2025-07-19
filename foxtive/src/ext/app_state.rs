@@ -1,4 +1,4 @@
-use crate::FOXTIVE;
+use crate::{Environment, FOXTIVE};
 #[cfg(feature = "cache")]
 use crate::cache::Cache;
 #[cfg(feature = "database")]
@@ -13,9 +13,13 @@ use diesel::{PgConnection, r2d2};
 #[allow(unused_imports)]
 use std::sync::{Arc, OnceLock};
 
-pub trait OnceLockHelper {
+pub trait AppStateExt {
     fn app(&self) -> &FoxtiveState {
         FOXTIVE.get().unwrap()
+    }
+
+    fn env(&self) -> Environment {
+        self.app().env
     }
 
     fn helpers(&self) -> &FoxtiveHelpers {
@@ -58,4 +62,4 @@ pub trait OnceLockHelper {
     }
 }
 
-impl OnceLockHelper for OnceLock<FoxtiveState> {}
+impl AppStateExt for OnceLock<FoxtiveState> {}
