@@ -1,9 +1,9 @@
 use crate::prelude::AppResult;
 use async_trait::async_trait;
-use tracing::{debug, error};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::future::Future;
+use tracing::{debug, error};
 
 /// Contract for implementing cache storage drivers
 #[async_trait::async_trait]

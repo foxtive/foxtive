@@ -2,13 +2,13 @@ use futures_util::StreamExt;
 use futures_util::future::BoxFuture;
 use lapin::types::FieldTable;
 use lapin::{BasicProperties, ConnectionState};
-use tracing::{error, info, warn};
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
+use tracing::{error, info, warn};
 
 pub use {
     lapin::message::{Delivery, DeliveryResult},

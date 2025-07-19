@@ -2,10 +2,10 @@
 use crate::helpers::reqwest::ReqwestResponseError;
 use crate::results::AppResult;
 use http::StatusCode;
-use tracing::{error, info};
 use std::env::VarError;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
+use tracing::{error, info};
 
 #[derive(Error, Debug, Clone)]
 pub enum AppMessage {

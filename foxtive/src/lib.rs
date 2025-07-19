@@ -10,6 +10,7 @@ pub mod redis;
 pub mod cache;
 #[cfg(feature = "database")]
 pub mod database;
+mod env;
 pub mod ext;
 mod ext_impl;
 pub mod helpers;
@@ -17,7 +18,6 @@ pub mod helpers;
 pub mod rabbitmq;
 pub mod setup;
 pub mod tokio;
-mod env;
 
 pub static FOXTIVE: OnceLock<FoxtiveState> = OnceLock::new();
 

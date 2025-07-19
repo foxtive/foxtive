@@ -1,9 +1,9 @@
 use crate::results::AppResult;
-use tracing::error;
 use std::future::Future;
 use std::time::Duration;
 use tokio::task::{JoinHandle, spawn_blocking};
 use tokio::{spawn, time};
+use tracing::error;
 
 pub struct Tokio;
 

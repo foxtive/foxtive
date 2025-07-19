@@ -2,6 +2,7 @@ use std::fmt::{Debug, Formatter};
 #[allow(unused_imports)]
 use std::sync::Arc;
 
+use crate::Environment;
 #[cfg(feature = "jwt")]
 use crate::helpers::jwt::Jwt;
 #[cfg(feature = "crypto")]
@@ -12,7 +13,6 @@ use crate::rabbitmq::RabbitMQ;
 use crate::redis::Redis;
 #[cfg(feature = "templating")]
 use tera::{Context, Tera};
-use crate::Environment;
 
 #[derive(Clone)]
 pub struct FoxtiveState {

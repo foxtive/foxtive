@@ -1,10 +1,10 @@
 use crate::prelude::AppResult;
+use crate::setup::logger_layers::EventCallbackLayer;
 use std::sync::Arc;
 use tracing::Level;
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use crate::setup::logger_layers::EventCallbackLayer;
 
 pub type LoggerEventHandler = Arc<dyn Fn(&tracing::Event<'_>) + Send + Sync + 'static>;
 

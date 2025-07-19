@@ -1,10 +1,10 @@
-use crate::{Environment, FOXTIVE};
 #[cfg(feature = "cache")]
 use crate::cache::Cache;
 #[cfg(feature = "database")]
 use crate::database::ext::DatabaseConnectionExt;
 #[cfg(feature = "database")]
 use crate::prelude::AppResult;
+use crate::{Environment, FOXTIVE};
 use crate::{FoxtiveHelpers, FoxtiveState};
 #[cfg(feature = "database")]
 use diesel::r2d2::ConnectionManager;

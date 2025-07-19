@@ -161,16 +161,40 @@ mod tests {
     #[test]
     fn test_from_str() {
         assert_eq!("local".parse::<Environment>().unwrap(), Environment::Local);
-        assert_eq!("development".parse::<Environment>().unwrap(), Environment::Development);
-        assert_eq!("dev".parse::<Environment>().unwrap(), Environment::Development);
-        assert_eq!("staging".parse::<Environment>().unwrap(), Environment::Staging);
-        assert_eq!("stage".parse::<Environment>().unwrap(), Environment::Staging);
-        assert_eq!("production".parse::<Environment>().unwrap(), Environment::Production);
-        assert_eq!("prod".parse::<Environment>().unwrap(), Environment::Production);
+        assert_eq!(
+            "development".parse::<Environment>().unwrap(),
+            Environment::Development
+        );
+        assert_eq!(
+            "dev".parse::<Environment>().unwrap(),
+            Environment::Development
+        );
+        assert_eq!(
+            "staging".parse::<Environment>().unwrap(),
+            Environment::Staging
+        );
+        assert_eq!(
+            "stage".parse::<Environment>().unwrap(),
+            Environment::Staging
+        );
+        assert_eq!(
+            "production".parse::<Environment>().unwrap(),
+            Environment::Production
+        );
+        assert_eq!(
+            "prod".parse::<Environment>().unwrap(),
+            Environment::Production
+        );
 
         // Case insensitive
-        assert_eq!("PRODUCTION".parse::<Environment>().unwrap(), Environment::Production);
-        assert_eq!("Dev".parse::<Environment>().unwrap(), Environment::Development);
+        assert_eq!(
+            "PRODUCTION".parse::<Environment>().unwrap(),
+            Environment::Production
+        );
+        assert_eq!(
+            "Dev".parse::<Environment>().unwrap(),
+            Environment::Development
+        );
 
         // Invalid value
         assert!("invalid".parse::<Environment>().is_err());

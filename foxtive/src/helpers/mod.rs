@@ -112,6 +112,6 @@ pub use tokio::blk;
 #[cfg(feature = "regex")]
 pub use regex::*;
 
-pub use file_ext::{FileExtHelper, COMPOUND_EXTENSIONS};
+pub use file_ext::{COMPOUND_EXTENSIONS, FileExtHelper};
 
 pub use input_sanitizer::*;
