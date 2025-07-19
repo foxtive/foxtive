@@ -3,6 +3,7 @@ Foxtive changelog file
 
 ### 0.14.0 (2024-06-19)
 * feat(env): optionally use tracing logger for more advance logging capabilities
+* bump(rust-argon2): to version 3.0
 
 ### 0.13.2 (2024-06-14)
 * fix(file-ext): return ext without a dot (return "txt" instead of ".txt")
