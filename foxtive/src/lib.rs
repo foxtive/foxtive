@@ -17,11 +17,13 @@ pub mod helpers;
 pub mod rabbitmq;
 pub mod setup;
 pub mod tokio;
+mod env;
 
 pub static FOXTIVE: OnceLock<FoxtiveState> = OnceLock::new();
 
 pub use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
 pub use anyhow::Error;
+pub use env::Environment;
 
 pub mod prelude {
     pub use crate::enums::app_message::AppMessage;

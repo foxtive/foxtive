@@ -12,9 +12,11 @@ use crate::rabbitmq::RabbitMQ;
 use crate::redis::Redis;
 #[cfg(feature = "templating")]
 use tera::{Context, Tera};
+use crate::Environment;
 
 #[derive(Clone)]
 pub struct FoxtiveState {
+    pub env: Environment,
     pub app_code: String,
     pub app_name: String,
     pub app_key: String,
