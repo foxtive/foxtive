@@ -1,15 +1,15 @@
 use crate::prelude::AppResult;
-use crate::setup::logger_layers::EventCallbackLayer;
+use crate::setup::trace_layers::EventCallbackLayer;
 use std::sync::Arc;
 use tracing::Level;
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
-pub type LoggerEventHandler = Arc<dyn Fn(&tracing::Event<'_>) + Send + Sync + 'static>;
+pub type TracingEventHandler = Arc<dyn Fn(&tracing::Event<'_>) + Send + Sync + 'static>;
 
 #[derive(Clone)]
-pub struct TracingConfig {
+pub struct Tracing {
     pub level: Level,
     pub format: OutputFormat,
     pub target: OutputTarget,
@@ -19,10 +19,10 @@ pub struct TracingConfig {
     pub include_thread_ids: bool,
     pub include_thread_names: bool,
     pub enable_ansi: bool,
-    pub on_logger_event: Option<LoggerEventHandler>,
+    pub on_logger_event: Option<TracingEventHandler>,
 }
 
-impl std::fmt::Debug for TracingConfig {
+impl std::fmt::Debug for Tracing {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TracingConfig")
             .field("level", &self.level)
@@ -57,7 +57,7 @@ pub enum OutputTarget {
     File(String),
 }
 
-impl Default for TracingConfig {
+impl Default for Tracing {
     fn default() -> Self {
         Self {
             level: Level::INFO,
@@ -74,7 +74,7 @@ impl Default for TracingConfig {
     }
 }
 
-pub fn init_tracing(config: TracingConfig) -> AppResult<()> {
+pub fn init_tracing(config: Tracing) -> AppResult<()> {
     macro_rules! init_subscriber {
         ($fmt_layer:expr) => {
             let env_filter = EnvFilter::try_from_default_env()
@@ -276,7 +276,7 @@ pub fn init_tracing(config: TracingConfig) -> AppResult<()> {
     Ok(())
 }
 
-impl TracingConfig {
+impl Tracing {
     pub fn with_logger_event_callback<F>(mut self, callback: F) -> Self
     where
         F: Fn(&tracing::Event<'_>) + Send + Sync + 'static,
@@ -393,7 +393,7 @@ mod tests {
         let counter = Arc::new(AtomicUsize::new(0));
         let counter_clone = counter.clone();
 
-        let config = TracingConfig::default().with_logger_event_callback(move |event| {
+        let config = Tracing::default().with_logger_event_callback(move |event| {
             let level = event.metadata().level();
             let target = event.metadata().target();
             println!("Event callback triggered: level={level}, target={target}");
@@ -412,7 +412,7 @@ mod tests {
 
     #[test]
     fn test_minimal_config() {
-        let config = TracingConfig::minimal();
+        let config = Tracing::minimal();
         assert!(!config.include_file);
         assert!(!config.include_line_number);
         assert!(!config.include_target);
@@ -422,7 +422,7 @@ mod tests {
 
     #[test]
     fn test_verbose_config() {
-        let config = TracingConfig::verbose();
+        let config = Tracing::verbose();
         assert!(config.include_file);
         assert!(config.include_line_number);
         assert!(config.include_target);
@@ -433,7 +433,7 @@ mod tests {
 
     #[test]
     fn test_hide_location_info() {
-        let config = TracingConfig::default().hide_location_info();
+        let config = Tracing::default().hide_location_info();
         assert!(!config.include_file);
         assert!(!config.include_line_number);
         assert!(!config.include_target);
@@ -441,7 +441,7 @@ mod tests {
 
     #[test]
     fn test_show_location_info() {
-        let config = TracingConfig::minimal().show_location_info();
+        let config = Tracing::minimal().show_location_info();
         assert!(config.include_file);
         assert!(config.include_line_number);
         assert!(config.include_target);
