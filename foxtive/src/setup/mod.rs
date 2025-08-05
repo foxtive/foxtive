@@ -25,9 +25,9 @@ use std::sync::Arc;
 use tera::Tera;
 use tracing::info;
 
+pub(crate) mod state;
 pub mod trace;
 mod trace_layers;
-pub(crate) mod state;
 
 #[cfg(feature = "cache")]
 pub enum CacheDriverSetup {
