@@ -2,6 +2,11 @@
 Foxtive changelog file 
 
 ### 0.14.0 (2024-06-19)
+* refactor(logger): renamed module to "trace"
+* bump(tokio): to version 1.47.1
+* bump(fancy-regex): to version 0.16.1
+
+### 0.14.0 (2024-06-19)
 * feat(env): optionally use tracing logger for more advance logging capabilities
 * bump(rust-argon2): to version 3.0
 * feat(environment): specify app env
