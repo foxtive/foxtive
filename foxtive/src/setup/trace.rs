@@ -1,6 +1,6 @@
-use std::str::FromStr;
 use crate::prelude::{AppMessage, AppResult};
 use crate::setup::trace_layers::EventCallbackLayer;
+use std::str::FromStr;
 use std::sync::Arc;
 use tracing::Level;
 use tracing_subscriber::filter::EnvFilter;
@@ -73,7 +73,6 @@ impl FromStr for OutputFormat {
 }
 
 impl OutputFormat {
-
     /// Gets the output format from environment variable or returns default
     pub fn from_env(var_name: &str) -> AppResult<OutputFormat> {
         std::env::var(var_name)
