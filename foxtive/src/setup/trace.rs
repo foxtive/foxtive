@@ -1,4 +1,5 @@
-use crate::prelude::AppResult;
+use std::str::FromStr;
+use crate::prelude::{AppMessage, AppResult};
 use crate::setup::trace_layers::EventCallbackLayer;
 use std::sync::Arc;
 use tracing::Level;
@@ -22,6 +23,21 @@ pub struct Tracing {
     pub on_logger_event: Option<TracingEventHandler>,
 }
 
+#[derive(Debug, Clone)]
+pub enum OutputFormat {
+    Pretty,
+    Json,
+    Compact,
+    Full,
+}
+
+#[derive(Debug, Clone)]
+pub enum OutputTarget {
+    Stdout,
+    Stderr,
+    File(String),
+}
+
 impl std::fmt::Debug for Tracing {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TracingConfig")
@@ -42,19 +58,36 @@ impl std::fmt::Debug for Tracing {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum OutputFormat {
-    Pretty,
-    Json,
-    Compact,
-    Full,
+impl FromStr for OutputFormat {
+    type Err = crate::Error;
+
+    fn from_str(val: &str) -> Result<Self, Self::Err> {
+        match val.to_lowercase().as_str() {
+            "json" => Ok(OutputFormat::Json),
+            "full" => Ok(OutputFormat::Full),
+            "compact" => Ok(OutputFormat::Compact),
+            "pretty" => Ok(OutputFormat::Pretty),
+            _ => Err(AppMessage::InternalServerErrorMessage("Invalid tracing format").ae()),
+        }
+    }
 }
 
-#[derive(Debug, Clone)]
-pub enum OutputTarget {
-    Stdout,
-    Stderr,
-    File(String),
+impl OutputFormat {
+
+    /// Gets the output format from environment variable or returns default
+    pub fn from_env(var_name: &str) -> AppResult<OutputFormat> {
+        std::env::var(var_name)
+            .map_err(|e| AppMessage::MissingEnvironmentVariable(var_name.to_string(), e).ae())
+            .and_then(|val| val.parse())
+    }
+
+    /// Gets the output format from environment variable or returns default
+    pub fn from_env_or_default(var_name: &str, default: OutputFormat) -> OutputFormat {
+        std::env::var(var_name)
+            .ok()
+            .and_then(|val| val.parse().ok())
+            .unwrap_or(default)
+    }
 }
 
 impl Default for Tracing {
