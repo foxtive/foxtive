@@ -1,6 +1,14 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.15.1 (2024-08-06)
+* feat(trace): impl FromStr for OutputFormat
+
+### 0.15.0 (2024-08-06)
+* refactor(logger): renamed module to "trace"
+* bump(tokio): to version 1.47.1
+* bump(fancy-regex): to version 0.16.1
+
 ### 0.14.0 (2024-06-19)
 * refactor(logger): renamed module to "trace"
 * bump(tokio): to version 1.47.1
