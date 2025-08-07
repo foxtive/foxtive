@@ -325,6 +325,11 @@ impl Tracing {
         self
     }
 
+    pub fn with_level(mut self, level: Level) -> Self {
+        self.level = level;
+        self
+    }
+
     pub fn with_output_format(mut self, format: OutputFormat) -> Self {
         self.format = format;
         self
@@ -477,5 +482,14 @@ mod tests {
         assert!(config.include_file);
         assert!(config.include_line_number);
         assert!(config.include_target);
+    }
+
+    #[test]
+    fn test_log_level() {
+        let config = Tracing::default().with_level(Level::WARN);
+        assert_eq!(config.level, Level::WARN);
+
+        let config = Tracing::default().with_level(Level::ERROR);
+        assert_eq!(config.level, Level::ERROR);
     }
 }

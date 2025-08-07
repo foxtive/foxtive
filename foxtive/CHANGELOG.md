@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.15.2 (2024-08-07)
+* feat(trace): add .with_level(lvl) method
+
 ### 0.15.1 (2024-08-06)
 * feat(trace): impl FromStr for OutputFormat
 

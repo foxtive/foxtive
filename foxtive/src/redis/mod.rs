@@ -251,7 +251,7 @@ impl Redis {
         let mut pubsub = client.get_async_pubsub().await?;
         info!("[subscriber] subscribing to: {channel}");
 
-        pubsub.subscribe(&[channel.clone()]).await?;
+        pubsub.subscribe(std::slice::from_ref(&channel)).await?;
         let mut stream = pubsub.into_on_message();
 
         while let Some(msg) = stream.next().await {
