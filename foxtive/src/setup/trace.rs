@@ -1,6 +1,6 @@
-use std::str::FromStr;
 use crate::prelude::{AppMessage, AppResult};
 use crate::setup::trace_layers::EventCallbackLayer;
+use std::str::FromStr;
 use std::sync::Arc;
 use tracing::Level;
 use tracing_subscriber::filter::EnvFilter;
@@ -73,7 +73,6 @@ impl FromStr for OutputFormat {
 }
 
 impl OutputFormat {
-
     /// Gets the output format from environment variable or returns default
     pub fn from_env(var_name: &str) -> AppResult<OutputFormat> {
         std::env::var(var_name)
@@ -326,6 +325,11 @@ impl Tracing {
         self
     }
 
+    pub fn with_level(mut self, level: Level) -> Self {
+        self.level = level;
+        self
+    }
+
     pub fn with_output_format(mut self, format: OutputFormat) -> Self {
         self.format = format;
         self
@@ -478,5 +482,14 @@ mod tests {
         assert!(config.include_file);
         assert!(config.include_line_number);
         assert!(config.include_target);
+    }
+
+    #[test]
+    fn test_log_level() {
+        let config = Tracing::default().with_level(Level::WARN);
+        assert_eq!(config.level, Level::WARN);
+
+        let config = Tracing::default().with_level(Level::ERROR);
+        assert_eq!(config.level, Level::ERROR);
     }
 }
