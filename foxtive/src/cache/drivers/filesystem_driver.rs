@@ -56,21 +56,21 @@ impl CacheDriverContract for FilesystemCacheDriver {
         // Also scan the directory for any files not yet in cache
         let mut dir = fs::read_dir(&*self.base_path).await?;
         while let Some(entry) = dir.next_entry().await? {
-            if entry.file_type().await?.is_file() {
-                if let Some(file_name) = entry.file_name().to_str() {
-                    // Only process .cache files
-                    if let Some(stripped) = file_name.strip_suffix(".cache") {
-                        // Convert filename back to key
-                        let original_key = if stripped == "empty_key" {
-                            "".to_string()
-                        } else {
-                            stripped.to_string()
-                        };
+            if entry.file_type().await?.is_file()
+                && let Some(file_name) = entry.file_name().to_str()
+            {
+                // Only process .cache files
+                if let Some(stripped) = file_name.strip_suffix(".cache") {
+                    // Convert filename back to key
+                    let original_key = if stripped == "empty_key" {
+                        "".to_string()
+                    } else {
+                        stripped.to_string()
+                    };
 
-                        // Add to result if not already included from path cache
-                        if !keys.contains(&original_key) {
-                            keys.push(original_key);
-                        }
+                    // Add to result if not already included from path cache
+                    if !keys.contains(&original_key) {
+                        keys.push(original_key);
                     }
                 }
             }
