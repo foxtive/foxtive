@@ -99,7 +99,7 @@ impl Tester {
                 r"^[a-z](?!.*\-\-)(?!.*\.\.)(?!.*\-$)(?!.*\.$)[a-z\d\-\.\_]{0,37}$",
                 cs,
             ), // Letters, digits, dashes, dots, and underscores.
-            RegexType::Custom(val, cs, _0) => (val, cs.unwrap_or(CaseSensitivity::CaseSensitive)),
+            RegexType::Custom(val, cs, _size) => (val, cs.unwrap_or(CaseSensitivity::CaseSensitive)),
         }
     }
 }
