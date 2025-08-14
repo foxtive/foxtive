@@ -1,6 +1,7 @@
+use crate::Environment;
 #[cfg(feature = "cache")]
 #[allow(unused_imports)]
-use crate::cache::{contract::CacheDriverContract, Cache};
+use crate::cache::{Cache, contract::CacheDriverContract};
 #[cfg(feature = "database")]
 use crate::database::create_db_pool;
 #[cfg(feature = "jwt")]
@@ -18,7 +19,6 @@ use crate::rabbitmq::conn::create_rmq_conn_pool;
 use crate::redis::conn::create_redis_conn_pool;
 use crate::results::AppResult;
 use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
-use crate::Environment;
 use std::path::Path;
 #[allow(unused_imports)]
 use std::sync::Arc;
