@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+#[derive(Clone)]
 pub struct DbConfig {
     pub(crate) dsn: String,
     pub(crate) max_size: u32,

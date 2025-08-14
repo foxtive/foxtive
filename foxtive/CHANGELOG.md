@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.16.0 (2024-08-14)
+* feat(app): avoid panic & log more debug ingo
+
 ### 0.15.2 (2024-08-07)
 * feat(trace): add .with_level(lvl) method
 
