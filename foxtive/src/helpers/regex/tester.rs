@@ -1,40 +1,9 @@
+use crate::helpers::regex::{CaseSensitivity, RegexType};
+
 /// A utility struct for working with regular expressions for username validation.
-pub struct Regex;
+pub struct Tester;
 
-/// Enum to specify case-sensitivity and character transformation rules.
-pub enum CaseSensitivity {
-    CaseSensitive,
-    CaseInsensitive,
-}
-
-/// Enum representing different types of regex patterns for username validation.
-pub enum RegexType {
-    /// Allows only lowercase letters (1 to 38 characters).
-    Alphabetic(CaseSensitivity),
-
-    /// Allows only lowercase letters and numbers (1 to 38 characters), also must start with char.
-    AlphaNumeric(CaseSensitivity),
-
-    /// Allows lowercase letters, digits, and hyphens (`-`), but no consecutive or trailing hyphens.
-    AlphaNumericDash(CaseSensitivity),
-
-    /// Allows lowercase letters, digits, and dots (`.`), but no consecutive or trailing dots.
-    AlphaNumericDot(CaseSensitivity),
-
-    /// Allows lowercase letters, digits, hyphens (`-`), and dots (`.`), but no consecutive dots, hyphens, or trailing dots.
-    AlphaNumericDashDot(CaseSensitivity),
-
-    /// Allows lowercase letters, digits, and underscores (`_`), but no consecutive or trailing underscores.
-    AlphaNumericUnderscore(CaseSensitivity),
-
-    /// Allows lowercase letters, digits, dots (`.`), and underscores (`_`), but no consecutive dots or underscores, and no trailing dots or underscores.
-    AlphaNumericDotUnderscore(CaseSensitivity),
-
-    /// Provide your custom regex
-    Custom(&'static str, Option<CaseSensitivity>),
-}
-
-impl Regex {
+impl Tester {
     /// Validates a string using a specified regex pattern.
     ///
     /// # Parameters
@@ -50,18 +19,18 @@ impl Regex {
     /// # Examples
     ///
     /// ```rust
-    /// use foxtive::helpers::{CaseSensitivity, Regex, RegexType};
+    /// use foxtive::helpers::regex::{CaseSensitivity, Tester, RegexType};
     ///
     /// let valid_username = "user_name123";
-    /// let result = Regex::validate(valid_username, RegexType::AlphaNumericUnderscore(CaseSensitivity::CaseSensitive));
+    /// let result = Tester::validate(valid_username, RegexType::AlphaNumericUnderscore(CaseSensitivity::CaseSensitive));
     /// assert_eq!(result.is_ok() && result.unwrap(), true);
     ///
     /// let invalid_username = "user@@";
-    /// let result = Regex::validate(invalid_username, RegexType::AlphaNumeric(CaseSensitivity::CaseSensitive));
+    /// let result = Tester::validate(invalid_username, RegexType::AlphaNumeric(CaseSensitivity::CaseSensitive));
     /// assert_eq!(result.is_ok() && result.unwrap(), false);
     /// ```
     pub fn validate(val: &str, rt: RegexType) -> Box<Result<bool, fancy_regex::Error>> {
-        let (regex_pattern, case_sensitivity) = Regex::acquire_regex(rt);
+        let (regex_pattern, case_sensitivity) = Tester::acquire_regex(rt);
 
         // Adjust the regex pattern for case-insensitivity if necessary
         let regex_pattern = match case_sensitivity {
@@ -90,14 +59,14 @@ impl Regex {
     /// # Examples
     ///
     /// ```rust
-    /// use foxtive::helpers::Regex;
+    /// use foxtive::helpers::regex::Tester;
     ///
     /// let valid_username = "user.first";
-    /// let result = Regex::validate_username(valid_username);
+    /// let result = Tester::validate_username(valid_username);
     /// assert_eq!(result.is_ok() && result.unwrap(), true);
     ///
     /// let invalid_username = "user#123";
-    /// let result = Regex::validate_username(invalid_username);
+    /// let result = Tester::validate_username(invalid_username);
     /// assert_eq!(result.is_ok() && result.unwrap(), false);
     /// ```
     pub fn validate_username(val: &str) -> Box<Result<bool, fancy_regex::Error>> {
@@ -130,7 +99,7 @@ impl Regex {
                 r"^[a-z](?!.*\-\-)(?!.*\.\.)(?!.*\-$)(?!.*\.$)[a-z\d\-\.\_]{0,37}$",
                 cs,
             ), // Letters, digits, dashes, dots, and underscores.
-            RegexType::Custom(val, cs) => (val, cs.unwrap_or(CaseSensitivity::CaseSensitive)),
+            RegexType::Custom(val, cs, _0) => (val, cs.unwrap_or(CaseSensitivity::CaseSensitive)),
         }
     }
 }
@@ -142,13 +111,13 @@ mod tests {
     #[test]
     fn test_alphabetic_valid() {
         // Case-sensitive tests
-        let result = Regex::validate(
+        let result = Tester::validate(
             "username",
             RegexType::Alphabetic(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "USERNAME",
             RegexType::Alphabetic(CaseSensitivity::CaseInsensitive),
         );
@@ -157,7 +126,7 @@ mod tests {
 
     #[test]
     fn test_alphabetic_case_insensitive_valid() {
-        let result = Regex::validate(
+        let result = Tester::validate(
             "UserName",
             RegexType::Alphabetic(CaseSensitivity::CaseInsensitive),
         );
@@ -167,19 +136,19 @@ mod tests {
     #[test]
     fn test_alphabetic_invalid() {
         // Case-sensitive tests
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user1name",
             RegexType::Alphabetic(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && !result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "1username",
             RegexType::Alphabetic(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && !result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "username1",
             RegexType::Alphabetic(CaseSensitivity::CaseSensitive),
         );
@@ -190,19 +159,19 @@ mod tests {
     #[test]
     fn test_alpha_numeric_valid() {
         // Case-sensitive tests
-        let result = Regex::validate(
+        let result = Tester::validate(
             "username",
             RegexType::AlphaNumeric(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user1name",
             RegexType::AlphaNumeric(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user1name2",
             RegexType::AlphaNumeric(CaseSensitivity::CaseSensitive),
         );
@@ -211,7 +180,7 @@ mod tests {
 
     #[test]
     fn test_alpha_numeric_case_insensitive_valid() {
-        let result = Regex::validate(
+        let result = Tester::validate(
             "User1Name",
             RegexType::AlphaNumeric(CaseSensitivity::CaseInsensitive),
         );
@@ -220,19 +189,19 @@ mod tests {
 
     #[test]
     fn test_alpha_numeric_invalid() {
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user123!",
             RegexType::AlphaNumeric(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && !result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user123_",
             RegexType::AlphaNumeric(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && !result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "123user",
             RegexType::AlphaNumeric(CaseSensitivity::CaseSensitive),
         );
@@ -243,13 +212,13 @@ mod tests {
     #[test]
     fn test_alpha_numeric_dash_valid() {
         // Case-sensitive tests
-        let result = Regex::validate(
+        let result = Tester::validate(
             "username-123",
             RegexType::AlphaNumericDash(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user-123",
             RegexType::AlphaNumericDash(CaseSensitivity::CaseSensitive),
         );
@@ -258,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_alpha_numeric_dash_case_insensitive_valid() {
-        let result = Regex::validate(
+        let result = Tester::validate(
             "UserName-123",
             RegexType::AlphaNumericDash(CaseSensitivity::CaseInsensitive),
         );
@@ -267,19 +236,19 @@ mod tests {
 
     #[test]
     fn test_alpha_numeric_dash_invalid() {
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user--123",
             RegexType::AlphaNumericDash(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && !result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user-",
             RegexType::AlphaNumericDash(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && !result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "-user123",
             RegexType::AlphaNumericDash(CaseSensitivity::CaseSensitive),
         );
@@ -290,13 +259,13 @@ mod tests {
     #[test]
     fn test_alpha_numeric_dot_valid() {
         // Case-sensitive tests
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user.name",
             RegexType::AlphaNumericDot(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user123.name",
             RegexType::AlphaNumericDot(CaseSensitivity::CaseSensitive),
         );
@@ -305,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_alpha_numeric_dot_case_insensitive_valid() {
-        let result = Regex::validate(
+        let result = Tester::validate(
             "User.Name",
             RegexType::AlphaNumericDot(CaseSensitivity::CaseInsensitive),
         );
@@ -314,19 +283,19 @@ mod tests {
 
     #[test]
     fn test_alpha_numeric_dot_invalid() {
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user..name",
             RegexType::AlphaNumericDot(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && !result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user.name.",
             RegexType::AlphaNumericDot(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && !result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             ".username",
             RegexType::AlphaNumericDot(CaseSensitivity::CaseSensitive),
         );
@@ -337,13 +306,13 @@ mod tests {
     #[test]
     fn test_alpha_numeric_dash_dot_valid() {
         // Case-sensitive tests
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user-name.123",
             RegexType::AlphaNumericDashDot(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user-name_123",
             RegexType::AlphaNumericDashDot(CaseSensitivity::CaseSensitive),
         );
@@ -352,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_alpha_numeric_dash_dot_case_insensitive_valid() {
-        let result = Regex::validate(
+        let result = Tester::validate(
             "User-Name.123",
             RegexType::AlphaNumericDashDot(CaseSensitivity::CaseInsensitive),
         );
@@ -361,19 +330,19 @@ mod tests {
 
     #[test]
     fn test_alpha_numeric_dash_dot_invalid() {
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user..name",
             RegexType::AlphaNumericDashDot(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && !result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user-name.",
             RegexType::AlphaNumericDashDot(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && !result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user-.name",
             RegexType::AlphaNumericDashDot(CaseSensitivity::CaseSensitive),
         );
@@ -384,13 +353,13 @@ mod tests {
     #[test]
     fn test_alpha_numeric_underscore_valid() {
         // Case-sensitive tests
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user_name",
             RegexType::AlphaNumericUnderscore(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user123_name",
             RegexType::AlphaNumericUnderscore(CaseSensitivity::CaseSensitive),
         );
@@ -399,7 +368,7 @@ mod tests {
 
     #[test]
     fn test_alpha_numeric_underscore_case_insensitive_valid() {
-        let result = Regex::validate(
+        let result = Tester::validate(
             "User_Name",
             RegexType::AlphaNumericUnderscore(CaseSensitivity::CaseInsensitive),
         );
@@ -408,19 +377,19 @@ mod tests {
 
     #[test]
     fn test_alpha_numeric_underscore_invalid() {
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user__name",
             RegexType::AlphaNumericUnderscore(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && !result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user_name_",
             RegexType::AlphaNumericUnderscore(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && !result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "_username",
             RegexType::AlphaNumericUnderscore(CaseSensitivity::CaseSensitive),
         );
@@ -431,7 +400,7 @@ mod tests {
     #[test]
     fn test_alpha_numeric_dot_underscore_valid() {
         // Case-sensitive tests
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user.name_123",
             RegexType::AlphaNumericDotUnderscore(CaseSensitivity::CaseSensitive),
         );
@@ -440,7 +409,7 @@ mod tests {
 
     #[test]
     fn test_alpha_numeric_dot_underscore_case_insensitive_valid() {
-        let result = Regex::validate(
+        let result = Tester::validate(
             "User.Name_123",
             RegexType::AlphaNumericDotUnderscore(CaseSensitivity::CaseInsensitive),
         );
@@ -449,19 +418,19 @@ mod tests {
 
     #[test]
     fn test_alpha_numeric_dot_underscore_invalid() {
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user..name_123",
             RegexType::AlphaNumericDotUnderscore(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && !result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "user_name_.",
             RegexType::AlphaNumericDotUnderscore(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && !result.unwrap());
 
-        let result = Regex::validate(
+        let result = Tester::validate(
             "_user.name",
             RegexType::AlphaNumericDotUnderscore(CaseSensitivity::CaseSensitive),
         );

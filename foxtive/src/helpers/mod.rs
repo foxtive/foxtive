@@ -11,7 +11,7 @@
 //! - `jwt`: Includes JSON Web Token handling
 //! - `crypto`: Enables password hashing and cryptographic functions
 //! - `reqwest`: Provides HTTP client utilities
-//! - `regex`: Enables regular expression functionality
+//! - `regex`: Enables regular expression functionality and text cleaning utilities
 //!
 //! ## Modules
 //!
@@ -33,7 +33,8 @@
 //! * `jwt` (requires `jwt` feature) - JSON Web Token operations
 //! * `password` (requires `crypto` feature) - Password hashing and verification
 //! * `reqwest` (requires `reqwest` feature) - HTTP client utilities
-//! * `regex` (requires `regex` feature) - Regular expression operations
+//! * `regex` (requires `regex` feature) - Regular expression operations and validation
+//! * `text_cleaner` (requires `regex` feature) - Text cleaning and sanitization utilities
 //!
 //! ## Usage
 //!
@@ -41,7 +42,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! foxtive = { version = "0.7", features = ["base64", "jwt"] }
+//! foxtive = { version = "0.7", features = ["base64", "jwt", "regex"] }
 //! ```
 //!
 //! ## Examples
@@ -105,12 +106,9 @@ mod file_ext;
 pub mod file_size;
 mod input_sanitizer;
 #[cfg(feature = "regex")]
-mod regex;
+pub mod regex;
 
 pub use tokio::blk;
-
-#[cfg(feature = "regex")]
-pub use regex::*;
 
 pub use file_ext::{COMPOUND_EXTENSIONS, FileExtHelper};
 

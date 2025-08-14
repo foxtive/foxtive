@@ -1,6 +1,10 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.17.0 (2024-08-14)
+* refactor(regex): renamed "Regex" to "Tester"
+* feat(TextCleaner): add helper to use Tester-style methods to clen-up text
+
 ### 0.16.0 (2024-08-14)
 * feat(app): avoid panic & log more debug ingo
 
