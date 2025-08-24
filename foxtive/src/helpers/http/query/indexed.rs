@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use crate::helpers::http::query::{ordering, QueryParams};
 use super::ordering::OrderBy;
+use crate::helpers::http::query::{QueryParams, ordering};
+use std::collections::HashMap;
 
 pub trait IndexedOrdering {
     /// Parse indexed order parameters from extra fields
