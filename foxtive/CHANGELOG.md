@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.17.1 (2024-08-24)
+* feat(http): add http query param parser, gated by "http" feature
+
 ### 0.17.0 (2024-08-14)
 * refactor(regex): renamed "Regex" to "Tester"
 * feat(TextCleaner): add helper to use Tester-style methods to clen-up text
