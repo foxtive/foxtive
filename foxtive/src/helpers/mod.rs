@@ -104,6 +104,8 @@ mod tokio;
 pub mod env;
 mod file_ext;
 pub mod file_size;
+#[cfg(feature = "http")]
+pub mod http;
 mod input_sanitizer;
 #[cfg(feature = "regex")]
 pub mod regex;

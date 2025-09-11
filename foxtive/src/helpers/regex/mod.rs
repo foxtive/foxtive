@@ -1,8 +1,8 @@
-mod text_cleaner;
 mod tester;
+mod text_cleaner;
 
-pub use text_cleaner::TextCleaner;
 pub use tester::*;
+pub use text_cleaner::TextCleaner;
 
 /// Enum to specify case-sensitivity and character transformation rules.
 #[derive(Clone, Copy)]

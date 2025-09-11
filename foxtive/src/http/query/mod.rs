@@ -1,14 +1,14 @@
+mod compact;
 mod indexed;
 mod ordering;
-mod compact;
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashMap;
 use chrono::NaiveDate;
-use serde::Deserialize;
-use indexed::IndexedOrdering;
 use compact::CompactOrdering;
+use indexed::IndexedOrdering;
+use serde::Deserialize;
+use std::collections::HashMap;
 
 pub use ordering::OrderBy;
 
