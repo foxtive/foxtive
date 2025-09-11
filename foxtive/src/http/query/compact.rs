@@ -1,5 +1,5 @@
-use crate::http::QueryParams;
 use super::ordering::OrderBy;
+use crate::http::QueryParams;
 
 pub trait CompactOrdering {
     /// Parse compact colon-separated order format

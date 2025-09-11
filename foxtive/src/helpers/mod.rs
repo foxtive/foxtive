@@ -110,6 +110,6 @@ pub mod regex;
 
 pub use tokio::blk;
 
-pub use file_ext::{FileExtHelper, COMPOUND_EXTENSIONS};
+pub use file_ext::{COMPOUND_EXTENSIONS, FileExtHelper};
 
 pub use input_sanitizer::*;
