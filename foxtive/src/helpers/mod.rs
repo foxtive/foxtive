@@ -107,11 +107,9 @@ pub mod file_size;
 mod input_sanitizer;
 #[cfg(feature = "regex")]
 pub mod regex;
-#[cfg(feature = "http")]
-pub mod http;
 
 pub use tokio::blk;
 
-pub use file_ext::{COMPOUND_EXTENSIONS, FileExtHelper};
+pub use file_ext::{FileExtHelper, COMPOUND_EXTENSIONS};
 
 pub use input_sanitizer::*;

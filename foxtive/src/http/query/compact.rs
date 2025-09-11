@@ -1,4 +1,4 @@
-use crate::helpers::http::query::QueryParams;
+use crate::http::query::QueryParams;
 use super::ordering::OrderBy;
 
 pub trait CompactOrdering {

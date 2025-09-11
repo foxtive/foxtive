@@ -14,6 +14,8 @@ mod env;
 pub mod ext;
 mod ext_impl;
 pub mod helpers;
+#[cfg(feature = "http")]
+pub mod http;
 #[cfg(feature = "rabbitmq")]
 pub mod rabbitmq;
 pub mod setup;
@@ -21,6 +23,7 @@ pub mod tokio;
 
 pub static FOXTIVE: OnceLock<FoxtiveState> = OnceLock::new();
 
+pub use ::http::StatusCode;
 pub use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
 pub use anyhow::Error;
 pub use env::Environment;
@@ -32,5 +35,5 @@ pub mod prelude {
     pub use crate::rabbitmq::RabbitMQ;
     #[cfg(feature = "redis")]
     pub use crate::redis::Redis;
-    pub use crate::results::{AppResult, app_result::IntoAppResult};
+    pub use crate::results::{app_result::IntoAppResult, AppResult};
 }

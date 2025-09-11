@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::helpers::http::query::{ordering, QueryParams};
+use crate::http::query::{ordering, QueryParams};
 use super::ordering::OrderBy;
 
 pub trait IndexedOrdering {
