@@ -1,6 +1,10 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.18.0 (2024-09-11)
+* refactor(http): move to base lib level
+* feat(status-code): re-export StatusCode for use in conjunction with AppMessage
+
 ### 0.17.1 (2024-08-24)
 * feat(http): add http query param parser, gated by "http" feature
 
