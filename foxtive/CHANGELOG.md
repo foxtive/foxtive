@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.18.1 (2024-09-16)
+* bump(diesel): to version 2.3.1
+
 ### 0.18.0 (2024-09-11)
 * refactor(http): move to base lib level
 * feat(status-code): re-export StatusCode for use in conjunction with AppMessage
