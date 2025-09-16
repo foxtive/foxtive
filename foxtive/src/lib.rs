@@ -26,6 +26,7 @@ pub static FOXTIVE: OnceLock<FoxtiveState> = OnceLock::new();
 pub use ::http::StatusCode;
 pub use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
 pub use anyhow::Error;
+pub use async_trait::async_trait;
 pub use env::Environment;
 
 pub mod prelude {
