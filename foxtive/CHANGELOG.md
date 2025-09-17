@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.18.3 (2024-09-17)
+* fix(in-memory-cache): it requires regex feature to work
+
 ### 0.18.2 (2024-09-17)
 * feat(template): re-export tera Context as TemplateContext
 

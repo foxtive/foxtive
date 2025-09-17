@@ -1,6 +1,6 @@
 [package]
 name = "foxtive"
-version = "0.18.2"
+version = "0.18.3"
 edition = "2024"
 license = "MIT"
 description = "Foxtive Framework"
@@ -24,7 +24,7 @@ http = ["dep:serde_urlencoded"]
 cache = []
 cache-redis = ["cache", "redis"]
 cache-filesystem = ["cache", "tokio/fs", "regex"]
-cache-in-memory = ["cache", "dep:dashmap"]
+cache-in-memory = ["cache", "dep:dashmap", "regex"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
