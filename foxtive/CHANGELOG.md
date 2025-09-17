@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.18.2 (2024-09-17)
+* feat(template): re-export tera Context as TemplateContext
+
 ### 0.18.1 (2024-09-16)
 * bump(diesel): to version 2.3.1
 
