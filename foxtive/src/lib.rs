@@ -28,6 +28,8 @@ pub use ::http::StatusCode;
 pub use anyhow::Error;
 pub use async_trait::async_trait;
 pub use env::Environment;
+#[cfg(feature = "templating")]
+pub use tera::Context as TemplateContext;
 
 pub mod prelude {
     pub use crate::enums::app_message::AppMessage;
