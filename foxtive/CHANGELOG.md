@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.18.4 (2024-09-21)
+* feat(regex): add AlphaNumericSpace to RegexType
+
 ### 0.18.3 (2024-09-17)
 * fix(in-memory-cache): it requires regex feature to work
 

@@ -20,6 +20,9 @@ pub enum RegexType {
     /// Keeps only letters and numbers, ensures it starts with a letter (max 38 chars).
     AlphaNumeric(CaseSensitivity),
 
+    /// Keeps letters, digits, and spaces, normalizes whitespace to single spaces.
+    AlphaNumericSpace(CaseSensitivity),
+
     /// Keeps letters, digits, and hyphens, removes consecutive/trailing hyphens.
     AlphaNumericDash(CaseSensitivity),
 

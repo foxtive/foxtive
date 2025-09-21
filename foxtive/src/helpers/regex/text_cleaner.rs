@@ -34,6 +34,9 @@ impl TextCleaner {
             RegexType::AlphaNumeric(case_sensitivity) => {
                 Self::clean_alphanumeric(text, case_sensitivity)
             }
+            RegexType::AlphaNumericSpace(case_sensitivity) => {
+                Self::clean_alphanumeric_space(text, case_sensitivity)
+            }
             RegexType::AlphaNumericDash(case_sensitivity) => {
                 Self::clean_alphanumeric_dash(text, case_sensitivity)
             }
@@ -96,6 +99,20 @@ impl TextCleaner {
 
         result = Self::apply_case_transformation(result, case_sensitivity);
         result = Self::ensure_starts_with_letter(result);
+        Self::truncate_to_length(result, 38)
+    }
+
+    /// Cleans text for alphanumeric + space pattern, normalizing whitespace.
+    fn clean_alphanumeric_space(text: &str, case_sensitivity: CaseSensitivity) -> String {
+        let mut result: String = text
+            .chars()
+            .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+            .collect();
+
+        result = Self::apply_case_transformation(result, case_sensitivity);
+        result = Self::ensure_starts_with_letter(result);
+        result = Self::normalize_whitespace(result);
+        result = Self::remove_trailing_whitespace(result);
         Self::truncate_to_length(result, 38)
     }
 
@@ -225,6 +242,31 @@ impl TextCleaner {
         text.trim_end_matches(target_char).to_string()
     }
 
+    /// Normalizes whitespace by replacing multiple consecutive whitespace characters with single spaces.
+    fn normalize_whitespace(text: String) -> String {
+        let mut result = String::new();
+        let mut prev_was_space = false;
+
+        for ch in text.chars() {
+            if ch.is_whitespace() {
+                if !prev_was_space {
+                    result.push(' '); // Convert all whitespace to regular space
+                    prev_was_space = true;
+                }
+            } else {
+                result.push(ch);
+                prev_was_space = false;
+            }
+        }
+
+        result
+    }
+
+    /// Removes trailing whitespace.
+    fn remove_trailing_whitespace(text: String) -> String {
+        text.trim_end().to_string()
+    }
+
     /// Truncates string to specified maximum length.
     fn truncate_to_length(text: String, max_length: usize) -> String {
         text.chars().take(max_length).collect()
@@ -267,6 +309,47 @@ mod tests {
             RegexType::AlphaNumeric(CaseSensitivity::CaseSensitive),
         );
         assert_eq!(cleaned, "username");
+    }
+
+    #[test]
+    fn test_clean_alphanumeric_space() {
+        let dirty_text = "User   Name  123!!!";
+        let cleaned = TextCleaner::clean(
+            dirty_text,
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseSensitive),
+        );
+        assert_eq!(cleaned, "user name 123");
+
+        let mixed_whitespace = "User\t\nName\r123";
+        let cleaned = TextCleaner::clean(
+            mixed_whitespace,
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseSensitive),
+        );
+        assert_eq!(cleaned, "user name 123");
+
+        let trailing_spaces = "username   ";
+        let cleaned = TextCleaner::clean(
+            trailing_spaces,
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseSensitive),
+        );
+        assert_eq!(cleaned, "username");
+
+        let leading_spaces = "   123username";
+        let cleaned = TextCleaner::clean(
+            leading_spaces,
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseSensitive),
+        );
+        assert_eq!(cleaned, "username");
+    }
+
+    #[test]
+    fn test_clean_alphanumeric_space_case_insensitive() {
+        let mixed_case = "User  NAME  123";
+        let cleaned = TextCleaner::clean(
+            mixed_case,
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseInsensitive),
+        );
+        assert_eq!(cleaned, "user name 123");
     }
 
     #[test]
@@ -390,5 +473,22 @@ mod tests {
             RegexType::AlphaNumericUnderscore(CaseSensitivity::CaseSensitive),
         );
         assert_eq!(cleaned, "user_name");
+    }
+
+    #[test]
+    fn test_normalize_whitespace() {
+        let multiple_spaces = "user    name";
+        let cleaned = TextCleaner::clean(
+            multiple_spaces,
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseSensitive),
+        );
+        assert_eq!(cleaned, "user name");
+
+        let mixed_whitespace_types = "user\t\t\nname";
+        let cleaned = TextCleaner::clean(
+            mixed_whitespace_types,
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseSensitive),
+        );
+        assert_eq!(cleaned, "user name");
     }
 }
