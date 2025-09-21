@@ -87,6 +87,7 @@ impl Tester {
         match rt {
             RegexType::Alphabetic(cs) => (r"^[a-z]{1,38}$", cs), // Only lowercase letters, 1-38 characters.
             RegexType::AlphaNumeric(cs) => (r"^[a-z][a-z0-9]{0,37}$", cs), // Only lowercase letters, 1-38 characters.
+            RegexType::AlphaNumericSpace(cs) => (r"^[a-z](?!.*\s\s)(?!.*\s$)[a-z0-9\s]{0,37}$", cs), // Letters, digits, and spaces, no consecutive or trailing spaces.
             RegexType::AlphaNumericDash(cs) => (r"^[a-z](?!.*\-\-)(?!.*\-$)[a-z\d\-]{0,37}$", cs), // Letters, digits, and dashes, no consecutive or trailing dashes.
             RegexType::AlphaNumericDot(cs) => (r"^[a-z](?!.*\.\.)(?!.*\.$)[a-z\d\.]{0,37}$", cs), // Letters, digits, and dots, no consecutive or trailing dots.
             RegexType::AlphaNumericUnderscore(cs) => {
@@ -206,6 +207,75 @@ mod tests {
         let result = Tester::validate(
             "123user",
             RegexType::AlphaNumeric(CaseSensitivity::CaseSensitive),
+        );
+        assert!(result.is_ok() && !result.unwrap());
+    }
+
+    #[test]
+    fn test_alphanumeric_space_valid() {
+        // Case-sensitive tests
+        let result = Tester::validate(
+            "user name",
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseSensitive),
+        );
+        assert!(result.is_ok() && result.unwrap());
+
+        let result = Tester::validate(
+            "user123 name",
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseSensitive),
+        );
+        assert!(result.is_ok() && result.unwrap());
+
+        let result = Tester::validate(
+            "user name 123",
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseSensitive),
+        );
+        assert!(result.is_ok() && result.unwrap());
+    }
+
+    #[test]
+    fn test_alphanumeric_space_case_insensitive_valid() {
+        let result = Tester::validate(
+            "User Name 123",
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseInsensitive),
+        );
+        assert!(result.is_ok() && result.unwrap());
+    }
+
+    #[test]
+    fn test_alphanumeric_space_invalid() {
+        // Test consecutive spaces
+        let result = Tester::validate(
+            "user  name",
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseSensitive),
+        );
+        assert!(result.is_ok() && !result.unwrap());
+
+        // Test trailing space
+        let result = Tester::validate(
+            "user name ",
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseSensitive),
+        );
+        assert!(result.is_ok() && !result.unwrap());
+
+        // Test starting with space
+        let result = Tester::validate(
+            " username",
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseSensitive),
+        );
+        assert!(result.is_ok() && !result.unwrap());
+
+        // Test starting with number
+        let result = Tester::validate(
+            "1username",
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseSensitive),
+        );
+        assert!(result.is_ok() && !result.unwrap());
+
+        // Test special characters
+        let result = Tester::validate(
+            "user@name",
+            RegexType::AlphaNumericSpace(CaseSensitivity::CaseSensitive),
         );
         assert!(result.is_ok() && !result.unwrap());
     }
