@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.18.5 (2024-09-27)
+* fix(QueryParams): impl Serialize
+
 ### 0.18.4 (2024-09-21)
 * feat(regex): add AlphaNumericSpace to RegexType
 

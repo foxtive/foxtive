@@ -7,7 +7,7 @@ mod tests;
 use chrono::NaiveDate;
 use compact::CompactOrdering;
 use indexed::IndexedOrdering;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub use ordering::OrderBy;
@@ -24,7 +24,7 @@ pub enum OrderingFormat {
 }
 
 /// Represents common query parameters used for filtering, pagination, and sorting in API requests.
-#[derive(Deserialize, Clone, Default)]
+#[derive(Deserialize, Serialize, Clone, Default)]
 pub struct QueryParams {
     /// Search term for filtering results based on relevant text.
     ///
