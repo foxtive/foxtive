@@ -22,6 +22,8 @@ use tokio::task::{spawn_blocking, JoinHandle};
 /// # Examples
 ///
 /// ```
+/// use foxtive::helpers::tokio::blk;
+///
 /// // Run a CPU-intensive calculation
 /// let handle = blk(|| {
 ///     expensive_calculation()
@@ -30,6 +32,8 @@ use tokio::task::{spawn_blocking, JoinHandle};
 /// ```
 ///
 /// ```
+/// use foxtive::helpers::tokio::blk;
+///
 /// // Perform blocking I/O
 /// let handle = blk(|| {
 ///     std::fs::read_to_string("file.txt")
@@ -73,6 +77,8 @@ where
 /// # Examples
 ///
 /// ```
+/// use foxtive::helpers::tokio::run_async;
+///
 /// let result = run_async(async {
 ///     // Some async work
 ///     42
@@ -81,11 +87,12 @@ where
 /// ```
 ///
 /// ```
+/// use foxtive::helpers::tokio::run_async;
+///
 /// let data = run_async(async {
 ///     fetch_data().await
 /// });
 /// ```
-#[allow(dead_code)]
 pub fn run_async<F: Future>(fut: F) -> F::Output {
     if let Ok(hnd) = tokio::runtime::Handle::try_current() {
         tracing::debug!("Use existing tokio runtime and block on future");
