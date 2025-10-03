@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.19.1 (2025-10-03)
+* feat(run_async): added helper func to run async future and in blocking context and return result
+
 ### 0.19.0 (2025-10-03)
 * bump(jsonwebtoken): to version 10.0.0
 
