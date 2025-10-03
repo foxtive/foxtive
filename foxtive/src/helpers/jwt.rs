@@ -146,7 +146,7 @@ impl Jwt {
     ///
     /// println!("Token Payload: {}", claims.claims.sub);
     /// ```
-    pub fn decode<C: DeserializeOwned>(
+    pub fn decode<C: DeserializeOwned + Clone>(
         &self,
         token: &str,
         val: &Validation,
