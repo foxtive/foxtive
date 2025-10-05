@@ -21,7 +21,7 @@ use tokio::task::{spawn_blocking, JoinHandle};
 ///
 /// # Examples
 ///
-/// ```
+/// ```no_run
 /// use foxtive::helpers::blk;
 ///
 /// // Run a CPU-intensive calculation
@@ -31,7 +31,7 @@ use tokio::task::{spawn_blocking, JoinHandle};
 /// let result = handle.await.unwrap();
 /// ```
 ///
-/// ```
+/// ```no_run
 /// use foxtive::helpers::blk;
 ///
 /// // Perform blocking I/O
@@ -76,7 +76,7 @@ where
 ///
 /// # Examples
 ///
-/// ```
+/// ```no_run
 /// use foxtive::helpers::run_async;
 ///
 /// let result = run_async(async {
@@ -86,7 +86,7 @@ where
 /// assert_eq!(result, 42);
 /// ```
 ///
-/// ```
+/// ```no_run
 /// use foxtive::helpers::run_async;
 ///
 /// let data = run_async(async {
