@@ -21,24 +21,33 @@ use tokio::task::{spawn_blocking, JoinHandle};
 ///
 /// # Examples
 ///
-/// ```no_run
+/// ```
+/// use foxtive::helpers::run_async;
 /// use foxtive::helpers::blk;
 ///
 /// // Run a CPU-intensive calculation
-/// let handle = blk(|| {
-///     expensive_calculation()
+/// run_async(async {
+///     let handle = blk(|| {
+///         // Some expensive calculation
+///         (1..=1000).sum::<i32>()
+///     });
+///     let result = handle.await.unwrap();
+///     assert_eq!(result, 500500);
 /// });
-/// let result = handle.await.unwrap();
 /// ```
 ///
-/// ```no_run
+/// ```
+/// use foxtive::helpers::run_async;
 /// use foxtive::helpers::blk;
 ///
 /// // Perform blocking I/O
-/// let handle = blk(|| {
-///     std::fs::read_to_string("file.txt")
+/// run_async(async {
+///     let handle = blk(|| {
+///         std::fs::read_to_string("Cargo.toml")
+///     });
+///     let contents = handle.await.unwrap();
+///     assert!(contents.is_ok() || contents.is_err());
 /// });
-/// let contents = handle.await.unwrap();
 /// ```
 ///
 /// # Notes
@@ -76,7 +85,7 @@ where
 ///
 /// # Examples
 ///
-/// ```no_run
+/// ```
 /// use foxtive::helpers::run_async;
 ///
 /// let result = run_async(async {
@@ -86,12 +95,15 @@ where
 /// assert_eq!(result, 42);
 /// ```
 ///
-/// ```no_run
+/// ```
 /// use foxtive::helpers::run_async;
 ///
 /// let data = run_async(async {
-///     fetch_data().await
+///     // Simulate fetching data
+///     tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
+///     "data".to_string()
 /// });
+/// assert_eq!(data, "data");
 /// ```
 pub fn run_async<F: Future>(fut: F) -> F::Output {
     if let Ok(hnd) = tokio::runtime::Handle::try_current() {
