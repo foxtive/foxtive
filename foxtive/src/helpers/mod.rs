@@ -108,7 +108,7 @@ mod input_sanitizer;
 #[cfg(feature = "regex")]
 pub mod regex;
 
-pub use tokio::blk;
+pub use tokio::{blk, run_async};
 
 pub use file_ext::{COMPOUND_EXTENSIONS, FileExtHelper};
 
