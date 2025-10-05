@@ -1,4 +1,4 @@
-use tokio::task::{spawn_blocking, JoinHandle};
+use tokio::task::{JoinHandle, spawn_blocking};
 
 /// Spawns a blocking function on the tokio blocking thread pool.
 ///
@@ -183,14 +183,10 @@ mod tests {
 
     #[test]
     fn test_run_async_with_result_type() {
-        let result: Result<i32, &str> = run_async(async {
-            Ok(42)
-        });
+        let result: Result<i32, &str> = run_async(async { Ok(42) });
         assert_eq!(result, Ok(42));
 
-        let error: Result<i32, &str> = run_async(async {
-            Err("failed")
-        });
+        let error: Result<i32, &str> = run_async(async { Err("failed") });
         assert_eq!(error, Err("failed"));
     }
 
@@ -291,9 +287,7 @@ mod tests {
     #[test]
     fn test_blk_concurrent_execution() {
         run_async(async {
-            let handles: Vec<_> = (0..5)
-                .map(|i| blk(move || i * 2))
-                .collect();
+            let handles: Vec<_> = (0..5).map(|i| blk(move || i * 2)).collect();
 
             let mut results = Vec::new();
             for handle in handles {
@@ -311,7 +305,9 @@ mod tests {
                 // Simulate blocking work
                 std::thread::sleep(Duration::from_millis(10));
                 42
-            }).await.unwrap();
+            })
+            .await
+            .unwrap();
 
             tokio::time::sleep(Duration::from_millis(10)).await;
 
@@ -324,9 +320,7 @@ mod tests {
     #[test]
     fn test_blk_with_result_type() {
         run_async(async {
-            let handle = blk(|| -> Result<i32, String> {
-                Ok(42)
-            });
+            let handle = blk(|| -> Result<i32, String> { Ok(42) });
 
             let result = handle.await.unwrap();
             assert_eq!(result, Ok(42));
