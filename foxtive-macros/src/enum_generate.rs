@@ -34,7 +34,7 @@ pub fn generate_enum(input: TokenStream) -> TokenStream {
     } = syn::parse_macro_input!(input as EnumInput);
 
     let expanded = quote! {
-        #[derive(strum_macros::EnumString, strum_macros::Display, Clone, Eq, PartialEq)]
+        #[derive(strum_macros::EnumString, strum_macros::Display, Copy, Clone, Eq, PartialEq)]
         #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
         pub enum #enum_name {
             #variants
