@@ -86,32 +86,32 @@ impl Hmac {
             HashFunc::Sha224 => {
                 let mut mac = HHmac::<Sha224>::new_from_slice(self.secret.as_bytes())?;
                 mac.update(value.as_bytes());
-                Self::convert_to_string(mac.finalize().into_bytes().as_slice())
+                Self::convert_to_string(&mac.finalize().into_bytes())
             }
             HashFunc::Sha256 => {
                 let mut mac = HHmac::<Sha256>::new_from_slice(self.secret.as_bytes())?;
                 mac.update(value.as_bytes());
-                Self::convert_to_string(mac.finalize().into_bytes().as_slice())
+                Self::convert_to_string(&mac.finalize().into_bytes())
             }
             HashFunc::Sha384 => {
                 let mut mac = HHmac::<Sha384>::new_from_slice(self.secret.as_bytes())?;
                 mac.update(value.as_bytes());
-                Self::convert_to_string(mac.finalize().into_bytes().as_slice())
+                Self::convert_to_string(&mac.finalize().into_bytes())
             }
             HashFunc::Sha512 => {
                 let mut mac = HHmac::<Sha512>::new_from_slice(self.secret.as_bytes())?;
                 mac.update(value.as_bytes());
-                Self::convert_to_string(mac.finalize().into_bytes().as_slice())
+                Self::convert_to_string(&mac.finalize().into_bytes())
             }
             HashFunc::Sha512224 => {
                 let mut mac = HHmac::<Sha512_224>::new_from_slice(self.secret.as_bytes())?;
                 mac.update(value.as_bytes());
-                Self::convert_to_string(mac.finalize().into_bytes().as_slice())
+                Self::convert_to_string(&mac.finalize().into_bytes())
             }
             HashFunc::Sha512256 => {
                 let mut mac = HHmac::<Sha512_256>::new_from_slice(self.secret.as_bytes())?;
                 mac.update(value.as_bytes());
-                Self::convert_to_string(mac.finalize().into_bytes().as_slice())
+                Self::convert_to_string(&mac.finalize().into_bytes())
             }
         }
     }
