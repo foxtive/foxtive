@@ -4,4 +4,6 @@ members = [
     "foxtive", 
     "foxtive-cron",
     "foxtive-macros",
+    "foxtive-supervisor",
+    "foxtive-supervisor/examples/*",
 ]

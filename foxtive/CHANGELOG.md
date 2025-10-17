@@ -1,6 +1,10 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.19.2 (2025-10-17)
+* fix(hmac): resolved deprecation notices
+* bump(redis+lapin): to latest safe versions
+
 ### 0.19.1 (2025-10-03)
 * feat(run_async): added helper func to run async future and in blocking context and return result
 

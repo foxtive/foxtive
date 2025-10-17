@@ -1,6 +1,6 @@
 [package]
 name = "foxtive"
-version = "0.19.1"
+version = "0.19.2"
 edition = "2024"
 license = "MIT"
 description = "Foxtive Framework"
@@ -34,11 +34,11 @@ anyhow = { version = "1.0.100", features = ["backtrace", "default"] }
 deadpool = { version = "0.12.3", optional = true }
 
 # RabbitMQ
-lapin = { version = "3.2.1", optional = true }
+lapin = { version = "3.7.1", optional = true }
 deadpool-lapin = { version = "0.13.1", features = ["rt_tokio_1"], optional = true }
 
 # Redis
-redis = { version = "0.32.4", default-features = false, optional = true, features = [
+redis = { version = "0.32.7", default-features = false, optional = true, features = [
     "tokio-native-tls-comp", "connection-manager"
 ] }
 deadpool-redis = { version = "0.22.0", features = ["rt_tokio_1"], optional = true }
