@@ -9,7 +9,7 @@ mod tests;
 
 use crate::contracts::SupervisedTask;
 
-pub use runtime::{spawn_supervised, spawn_supervised_many, SupervisionResult, TaskRuntime};
+pub use runtime::{SupervisionResult, TaskRuntime, spawn_supervised, spawn_supervised_many};
 
 /// Builder pattern for creating and starting a supervisor
 ///

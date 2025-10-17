@@ -51,14 +51,10 @@ pub enum HealthStatus {
     Healthy,
 
     /// Task is functioning but with reduced capacity or warnings
-    Degraded {
-        reason: String,
-    },
+    Degraded { reason: String },
 
     /// Task is not functioning properly
-    Unhealthy {
-        reason: String,
-    },
+    Unhealthy { reason: String },
 
     /// Task is in unknown state (initialization, transition)
     Unknown,
@@ -76,10 +72,7 @@ pub enum BackoffStrategy {
     /// Example: 2s -> 4s -> 8s -> 16s -> ... -> 60s (max)
     ///
     /// Best for: Network failures, external service issues
-    Exponential {
-        initial: Duration,
-        max: Duration,
-    },
+    Exponential { initial: Duration, max: Duration },
 
     /// Linear backoff: initial + (increment * attempt)
     ///
@@ -97,10 +90,7 @@ pub enum BackoffStrategy {
     /// Example: 1s -> 1s -> 2s -> 3s -> 5s -> 8s -> ... -> max
     ///
     /// Best for: Graceful degradation scenarios
-    Fibonacci {
-        initial: Duration,
-        max: Duration,
-    },
+    Fibonacci { initial: Duration, max: Duration },
 
     /// Custom backoff with user-defined delay calculation
     ///
@@ -124,7 +114,11 @@ impl std::fmt::Debug for BackoffStrategy {
                 .field("initial", initial)
                 .field("max", max)
                 .finish(),
-            Self::Linear { initial, increment, max } => f
+            Self::Linear {
+                initial,
+                increment,
+                max,
+            } => f
                 .debug_struct("Linear")
                 .field("initial", initial)
                 .field("increment", increment)
@@ -149,7 +143,11 @@ impl Clone for BackoffStrategy {
                 initial: *initial,
                 max: *max,
             },
-            Self::Linear { initial, increment, max } => Self::Linear {
+            Self::Linear {
+                initial,
+                increment,
+                max,
+            } => Self::Linear {
                 initial: *initial,
                 increment: *increment,
                 max: *max,
@@ -189,7 +187,11 @@ impl BackoffStrategy {
                 initial.saturating_mul(multiplier).min(*max)
             }
 
-            Self::Linear { initial, increment, max } => {
+            Self::Linear {
+                initial,
+                increment,
+                max,
+            } => {
                 let total_increment = increment.saturating_mul(attempt.saturating_sub(1) as u32);
                 initial.saturating_add(total_increment).min(*max)
             }
@@ -250,7 +252,11 @@ impl BackoffStrategy {
 
     /// Create linear backoff with custom parameters
     pub fn linear_custom(initial: Duration, increment: Duration, max: Duration) -> Self {
-        Self::Linear { initial, increment, max }
+        Self::Linear {
+            initial,
+            increment,
+            max,
+        }
     }
 
     /// Create Fibonacci backoff with defaults (1s -> 60s)
@@ -369,9 +375,7 @@ mod tests {
 
     #[test]
     fn test_custom_backoff() {
-        let strategy = BackoffStrategy::custom(|attempt| {
-            Duration::from_secs(attempt as u64 * 3)
-        });
+        let strategy = BackoffStrategy::custom(|attempt| Duration::from_secs(attempt as u64 * 3));
 
         assert_eq!(strategy.calculate_delay(1), Duration::from_secs(3));
         assert_eq!(strategy.calculate_delay(2), Duration::from_secs(6));
@@ -410,9 +414,6 @@ mod tests {
         let original = BackoffStrategy::exponential();
         let cloned = original.clone();
 
-        assert_eq!(
-            original.calculate_delay(3),
-            cloned.calculate_delay(3)
-        );
+        assert_eq!(original.calculate_delay(3), cloned.calculate_delay(3));
     }
 }

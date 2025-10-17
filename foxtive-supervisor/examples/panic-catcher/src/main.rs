@@ -1,9 +1,9 @@
-use foxtive_supervisor::contracts::SupervisedTask;
 use foxtive_supervisor::Supervisor;
+use foxtive_supervisor::contracts::SupervisedTask;
+use foxtive_supervisor::enums::BackoffStrategy;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use tracing::info;
-use foxtive_supervisor::enums::BackoffStrategy;
 
 pub struct PanicCatcherTask {
     name: String,

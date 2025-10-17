@@ -1,8 +1,8 @@
+use crate::contracts::SupervisedTask;
+use crate::enums::{RestartPolicy, SupervisionStatus};
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
-use crate::contracts::SupervisedTask;
-use crate::enums::{RestartPolicy, SupervisionStatus};
 
 pub struct TaskRuntime {
     tasks: Vec<Arc<dyn SupervisedTask>>,

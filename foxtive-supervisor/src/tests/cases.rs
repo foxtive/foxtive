@@ -1,10 +1,10 @@
 use super::mocks::*;
-use crate::enums::{BackoffStrategy, RestartPolicy, SupervisionStatus};
-use crate::{spawn_supervised, spawn_supervised_many, TaskRuntime};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Arc;
-use std::time::Duration;
 use crate::contracts::SupervisedTask;
+use crate::enums::{BackoffStrategy, RestartPolicy, SupervisionStatus};
+use crate::{TaskRuntime, spawn_supervised, spawn_supervised_many};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::time::Duration;
 
 #[tokio::test]
 async fn test_successful_task_completion() {
