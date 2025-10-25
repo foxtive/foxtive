@@ -107,6 +107,7 @@ pub mod file_size;
 mod input_sanitizer;
 #[cfg(feature = "regex")]
 pub mod regex;
+pub mod serde_json;
 
 pub use tokio::{blk, run_async};
 
