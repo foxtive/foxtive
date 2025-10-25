@@ -1,8 +1,6 @@
 use serde::{de, Deserialize, Deserializer};
 use serde_json::Value;
 
-// ... (your existing functions)
-
 /// Deserializes a boolean field that can be represented as a string, number, or boolean.
 ///
 /// Handles multiple representations of boolean values:
@@ -18,6 +16,7 @@ use serde_json::Value;
 ///
 /// ```rust
 /// use serde::Deserialize;
+/// use foxtive::helpers::serde_json::deserialize_bool_from_any;
 ///
 /// #[derive(Deserialize)]
 /// struct Settings {
@@ -53,6 +52,7 @@ pub fn deserialize_bool_from_any<'de, D: Deserializer<'de>>(
 ///
 /// ```rust
 /// use serde::Deserialize;
+/// use foxtive::helpers::serde_json::deserialize_optional_bool_from_any;
 ///
 /// #[derive(Deserialize)]
 /// struct Settings {
@@ -93,6 +93,7 @@ pub fn deserialize_optional_bool_from_any<'de, D: Deserializer<'de>>(
 ///
 /// ```rust
 /// use serde::Deserialize;
+/// use foxtive::helpers::serde_json::deserialize_optional_timestamp;
 ///
 /// #[derive(Deserialize)]
 /// struct Event {
@@ -135,6 +136,7 @@ pub fn deserialize_optional_timestamp<'de, D: Deserializer<'de>>(
 ///
 /// ```rust
 /// use serde::Deserialize;
+/// use foxtive::helpers::serde_json::deserialize_vec_from_string_or_array;
 ///
 /// #[derive(Deserialize)]
 /// struct Product {
@@ -168,6 +170,7 @@ pub fn deserialize_vec_from_string_or_array<'de, D: Deserializer<'de>>(
 ///
 /// ```rust
 /// use serde::Deserialize;
+/// use foxtive::helpers::serde_json::deserialize_optional_vec_from_string_or_array;
 ///
 /// #[derive(Deserialize)]
 /// struct Product {
@@ -209,6 +212,7 @@ pub fn deserialize_optional_vec_from_string_or_array<'de, D: Deserializer<'de>>(
 ///
 /// ```rust
 /// use serde::Deserialize;
+/// use foxtive::helpers::serde_json::deserialize_optional_i64_zero_as_none;
 ///
 /// #[derive(Deserialize)]
 /// struct Account {
@@ -247,6 +251,7 @@ pub fn deserialize_optional_i64_zero_as_none<'de, D: Deserializer<'de>>(
 ///
 /// ```rust
 /// use serde::Deserialize;
+/// use foxtive::helpers::serde_json::deserialize_optional_string_empty_as_none;
 ///
 /// #[derive(Deserialize)]
 /// struct User {
@@ -277,6 +282,7 @@ pub fn deserialize_optional_string_empty_as_none<'de, D: Deserializer<'de>>(
 ///
 /// ```rust
 /// use serde::Deserialize;
+/// use foxtive::helpers::serde_json::deserialize_percentage_to_decimal;
 ///
 /// #[derive(Deserialize)]
 /// struct Discount {
@@ -323,6 +329,7 @@ pub fn deserialize_percentage_to_decimal<'de, D: Deserializer<'de>>(
 ///
 /// ```rust
 /// use serde::Deserialize;
+/// use foxtive::helpers::serde_json::deserialize_i64_with_default;
 ///
 /// #[derive(Deserialize)]
 /// struct Config {
