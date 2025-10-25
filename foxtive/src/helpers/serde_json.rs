@@ -1,4 +1,4 @@
-use serde::{de, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de};
 use serde_json::Value;
 
 /// Deserializes a boolean field that can be represented as a string, number, or boolean.
@@ -77,7 +77,9 @@ pub fn deserialize_optional_bool_from_any<'de, D: Deserializer<'de>>(
             Some(0) => Ok(Some(false)),
             _ => Err(de::Error::custom("Boolean number must be 0 or 1")),
         },
-        _ => Err(de::Error::custom("Expected boolean, string, number, or null")),
+        _ => Err(de::Error::custom(
+            "Expected boolean, string, number, or null",
+        )),
     }
 }
 
@@ -321,7 +323,6 @@ pub fn deserialize_percentage_to_decimal<'de, D: Deserializer<'de>>(
         ))
     }
 }
-
 
 /// Deserializes a number with default value if null or missing.
 ///
@@ -574,7 +575,10 @@ mod tests {
     fn test_optional_vec_string() {
         let json = r#"{"value": "a,b,c"}"#;
         let result: OptionalVecTest = serde_json::from_str(json).unwrap();
-        assert_eq!(result.value, Some(vec!["a".to_string(), "b".to_string(), "c".to_string()]));
+        assert_eq!(
+            result.value,
+            Some(vec!["a".to_string(), "b".to_string(), "c".to_string()])
+        );
     }
 
     // Tests for deserialize_optional_i64_zero_as_none
@@ -683,11 +687,7 @@ mod tests {
 
     #[test]
     fn test_percentage_invalid() {
-        let invalid_cases = vec![
-            r#"{"value": 101}"#,
-            r#"{"value": -1}"#,
-            r#"{"value": 1.5}"#,
-        ];
+        let invalid_cases = vec![r#"{"value": 101}"#, r#"{"value": -1}"#, r#"{"value": 1.5}"#];
 
         for json in invalid_cases {
             let result: Result<PercentageTest, _> = serde_json::from_str(json);
