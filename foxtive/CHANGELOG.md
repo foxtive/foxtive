@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.19.4 (2025-10-25)
+* feat(serde_json): add serialization/deserialization helper methods
+
 ### 0.19.3 (2025-10-25)
 * feat(serde_json): add serialization/deserialization helper methods
 * bump(jsonwebtoken): to version 10.1.0

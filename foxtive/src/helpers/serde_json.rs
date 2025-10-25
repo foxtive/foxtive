@@ -1,6 +1,148 @@
 use serde::{Deserialize, Deserializer, de};
 use serde_json::Value;
 
+/// Deserializes an optional field that can be either a string or a number into an `Option<String>`.
+///
+/// This is useful for API responses where a field might be:
+/// - A string: `"123"` or `"abc"`
+/// - A number: `123`
+/// - Null or missing: `null`
+///
+/// # Examples
+///
+/// ```rust
+/// use serde::Deserialize;
+/// use foxtive::helpers::serde_json::deserialize_optional_string_from_any;
+///
+/// #[derive(Deserialize)]
+/// struct Response {
+///     #[serde(deserialize_with = "deserialize_optional_string_from_any")]
+///     id: Option<String>,
+/// }
+/// ```
+pub fn deserialize_optional_string_from_any<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error> {
+    let value: Option<Value> = Option::deserialize(deserializer)?;
+    Ok(match value {
+        Some(Value::String(s)) => Some(s),
+        Some(Value::Number(num)) => Some(num.to_string()),
+        None => None,
+        _ => return Err(de::Error::custom("Expected string, number, or null")),
+    })
+}
+
+/// Deserializes a required field that can be either a string or a number into a `String`.
+///
+/// This is useful for API responses where a field is always present but the type varies:
+/// - A string: `"123"` or `"abc"`
+/// - A number: `123`
+///
+/// # Errors
+///
+/// Returns an error if the value is not a string or number.
+///
+/// # Examples
+///
+/// ```rust
+/// use serde::Deserialize;
+/// use foxtive::helpers::serde_json::deserialize_string_from_any;
+///
+/// #[derive(Deserialize)]
+/// struct Response {
+///     #[serde(deserialize_with = "deserialize_string_from_any")]
+///     id: String,
+/// }
+/// ```
+pub fn deserialize_string_from_any<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<String, D::Error> {
+    let value: Value = Value::deserialize(deserializer)?;
+    match value {
+        Value::String(s) => Ok(s),
+        Value::Number(num) => Ok(num.to_string()),
+        _ => Err(de::Error::custom("Expected string or number")),
+    }
+}
+
+/// Deserializes a field that can be either a string or a number into an `i64`.
+///
+/// This is useful for API responses where numeric IDs might be represented as:
+/// - A string: `"123456"`
+/// - A number: `123456`
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The value is not a string or number
+/// - The string cannot be parsed as an i64
+/// - The number is not a valid i64
+///
+/// # Examples
+///
+/// ```rust
+/// use serde::Deserialize;
+/// use foxtive::helpers::serde_json::deserialize_i64_from_any;
+///
+/// #[derive(Deserialize)]
+/// struct Response {
+///     #[serde(deserialize_with = "deserialize_i64_from_any")]
+///     id: i64,
+/// }
+/// ```
+pub fn deserialize_i64_from_any<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<i64, D::Error> {
+    let value: Value = Value::deserialize(deserializer)?;
+    match value {
+        Value::String(s) => s.parse::<i64>().map_err(de::Error::custom),
+        Value::Number(num) => num
+            .as_i64()
+            .ok_or_else(|| de::Error::custom("Invalid number")),
+        _ => Err(de::Error::custom("Expected string or number")),
+    }
+}
+
+/// Deserializes a field that can be either a string or a number into an `f64`.
+///
+/// This is useful for API responses where floating-point values might be represented as:
+/// - A string: `"10.5"` or `"3.14159"`
+/// - A number: `10.5` or `3.14159`
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The value is not a string or number
+/// - The string cannot be parsed as an f64
+/// - The number is not a valid f64
+///
+/// # Examples
+///
+/// ```rust
+/// use serde::Deserialize;
+/// use foxtive::helpers::serde_json::deserialize_f64_from_any;
+///
+/// #[derive(Deserialize)]
+/// struct Measurement {
+///     #[serde(deserialize_with = "deserialize_f64_from_any")]
+///     value: f64,
+/// }
+/// ```
+pub fn deserialize_f64_from_any<'de, D>(deserializer: D) -> Result<f64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+
+    match value {
+        Value::Number(num) => num
+            .as_f64()
+            .ok_or_else(|| de::Error::custom("Invalid number")),
+        Value::String(s) => s.parse::<f64>().map_err(de::Error::custom),
+        _ => Err(de::Error::custom("Expected a number or string")),
+    }
+}
+
 /// Deserializes a boolean field that can be represented as a string, number, or boolean.
 ///
 /// Handles multiple representations of boolean values:
@@ -356,6 +498,7 @@ pub fn deserialize_i64_with_default<'de, D: Deserializer<'de>>(
 mod tests {
     use super::*;
     use serde::Deserialize;
+    use serde_json::json;
 
     // Test structs for each deserializer
     #[derive(Deserialize, Debug, PartialEq)]
@@ -422,6 +565,128 @@ mod tests {
         let json = r#"{"value": false}"#;
         let result: BoolTest = serde_json::from_str(json).unwrap();
         assert!(!result.value);
+    }
+
+    // Helper structs for testing
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct OptionalStringStruct {
+        #[serde(deserialize_with = "deserialize_optional_string_from_any")]
+        field: Option<String>,
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct RequiredStringStruct {
+        #[serde(deserialize_with = "deserialize_string_from_any")]
+        field: String,
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct I64Struct {
+        #[serde(deserialize_with = "deserialize_i64_from_any")]
+        field: i64,
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct F64Struct {
+        #[serde(deserialize_with = "deserialize_f64_from_any")]
+        field: f64,
+    }
+
+    #[test]
+    fn test_deserialize_optional_string_from_any() {
+        // String input
+        let json = json!({ "field": "hello" });
+        let result: OptionalStringStruct = serde_json::from_value(json).unwrap();
+        assert_eq!(result.field, Some("hello".to_string()));
+
+        // Number input
+        let json = json!({ "field": 123 });
+        let result: OptionalStringStruct = serde_json::from_value(json).unwrap();
+        assert_eq!(result.field, Some("123".to_string()));
+
+        // Null input
+        let json = json!({ "field": null });
+        let result: OptionalStringStruct = serde_json::from_value(json).unwrap();
+        assert_eq!(result.field, None);
+
+        // Invalid type
+        let json = json!({ "field": true });
+        let result: Result<OptionalStringStruct, _> = serde_json::from_value(json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_deserialize_string_from_any() {
+        // String input
+        let json = json!({ "field": "hello" });
+        let result: RequiredStringStruct = serde_json::from_value(json).unwrap();
+        assert_eq!(result.field, "hello".to_string());
+
+        // Number input
+        let json = json!({ "field": 42 });
+        let result: RequiredStringStruct = serde_json::from_value(json).unwrap();
+        assert_eq!(result.field, "42".to_string());
+
+        // Invalid type
+        let json = json!({ "field": null });
+        let result: Result<RequiredStringStruct, _> = serde_json::from_value(json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_deserialize_i64_from_any() {
+        // String input
+        let json = json!({ "field": "123456" });
+        let result: I64Struct = serde_json::from_value(json).unwrap();
+        assert_eq!(result.field, 123456);
+
+        // Number input
+        let json = json!({ "field": 123456 });
+        let result: I64Struct = serde_json::from_value(json).unwrap();
+        assert_eq!(result.field, 123456);
+
+        // Negative values
+        let json = json!({ "field": -123 });
+        let result: I64Struct = serde_json::from_value(json).unwrap();
+        assert_eq!(result.field, -123);
+
+        // Invalid string
+        let json = json!({ "field": "not_a_number" });
+        assert!(serde_json::from_value::<I64Struct>(json).is_err());
+
+        // Float number (should fail for i64)
+        let json = json!({ "field": 123.45 });
+        assert!(serde_json::from_value::<I64Struct>(json).is_err());
+
+        // Invalid type
+        let json = json!({ "field": true });
+        assert!(serde_json::from_value::<I64Struct>(json).is_err());
+    }
+
+    #[test]
+    fn test_deserialize_f64_from_any() {
+        // String input - use a value that can be represented exactly in binary
+        let json = json!({ "field": "10.5" });
+        let result: F64Struct = serde_json::from_value(json).unwrap();
+        assert_eq!(result.field, 10.5);
+
+        // Number input - use a value that can be represented exactly in binary
+        let json = json!({ "field": 10.5 });
+        let result: F64Struct = serde_json::from_value(json).unwrap();
+        assert_eq!(result.field, 10.5);
+
+        // Integer input
+        let json = json!({ "field": 42 });
+        let result: F64Struct = serde_json::from_value(json).unwrap();
+        assert_eq!(result.field, 42.0);
+
+        // Invalid string
+        let json = json!({ "field": "not_a_float" });
+        assert!(serde_json::from_value::<F64Struct>(json).is_err());
+
+        // Invalid type
+        let json = json!({ "field": null });
+        assert!(serde_json::from_value::<F64Struct>(json).is_err());
     }
 
     #[test]
