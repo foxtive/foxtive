@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.19.5 (2025-10-31)
+* feat(global-state): add is_initialized method and document methods
+
 ### 0.19.4 (2025-10-25)
 * feat(serde_json): add serialization/deserialization helper methods
 
