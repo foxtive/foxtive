@@ -1,4 +1,4 @@
-use serde::{Deserialize, Deserializer, de};
+use serde::{de, Deserialize, Deserializer};
 use serde_json::Value;
 
 /// Deserializes an optional field that can be either a string or a number into an `Option<String>`.
@@ -103,6 +103,55 @@ pub fn deserialize_i64_from_any<'de, D: Deserializer<'de>>(
     }
 }
 
+/// Deserializes a field that can be either a string, number, or null into an `Option<i64>`.
+///
+/// This is useful for API responses where numeric IDs might be represented as:
+/// - A string: `"123456"`
+/// - A number: `123456`
+/// - Null or absent: `null` or field not present
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The value is not a string, number, or null
+/// - The string cannot be parsed as an i64
+/// - The number is not a valid i64
+///
+/// # Examples
+///
+/// ```rust
+/// use serde::Deserialize;
+/// use foxtive::helpers::serde_json::deserialize_optional_i64_from_any;
+///
+/// #[derive(Deserialize)]
+/// struct Response {
+///     #[serde(default, deserialize_with = "deserialize_optional_i64_from_any")]
+///     id: Option<i64>,
+/// }
+/// ```
+pub fn deserialize_optional_i64_from_any<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<Value>::deserialize(deserializer)?;
+
+    match value {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(s)) => {
+            if s.is_empty() {
+                Ok(None)
+            } else {
+                s.parse::<i64>().map(Some).map_err(de::Error::custom)
+            }
+        }
+        Some(Value::Number(num)) => num
+            .as_i64()
+            .ok_or_else(|| de::Error::custom("Invalid number"))
+            .map(Some),
+        _ => Err(de::Error::custom("Expected string, number, or null")),
+    }
+}
+
 /// Deserializes a field that can be either a string or a number into an `f64`.
 ///
 /// This is useful for API responses where floating-point values might be represented as:
@@ -140,6 +189,55 @@ where
             .ok_or_else(|| de::Error::custom("Invalid number")),
         Value::String(s) => s.parse::<f64>().map_err(de::Error::custom),
         _ => Err(de::Error::custom("Expected a number or string")),
+    }
+}
+
+/// Deserializes a field that can be either a string, number, or null into an `Option<f64>`.
+///
+/// This is useful for API responses where floating-point values might be represented as:
+/// - A string: `"10.5"` or `"3.14159"`
+/// - A number: `10.5` or `3.14159`
+/// - Null or absent: `null` or field not present
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The value is not a string, number, or null
+/// - The string cannot be parsed as an f64
+/// - The number is not a valid f64
+///
+/// # Examples
+///
+/// ```rust
+/// use serde::Deserialize;
+/// use foxtive::helpers::serde_json::deserialize_optional_f64_from_any;
+///
+/// #[derive(Deserialize)]
+/// struct Measurement {
+///     #[serde(default, deserialize_with = "deserialize_optional_f64_from_any")]
+///     value: Option<f64>,
+/// }
+/// ```
+pub fn deserialize_optional_f64_from_any<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<Value>::deserialize(deserializer)?;
+
+    match value {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(num)) => num
+            .as_f64()
+            .ok_or_else(|| de::Error::custom("Invalid number"))
+            .map(Some),
+        Some(Value::String(s)) => {
+            if s.is_empty() {
+                Ok(None)
+            } else {
+                s.parse::<f64>().map(Some).map_err(de::Error::custom)
+            }
+        }
+        _ => Err(de::Error::custom("Expected a number, string, or null")),
     }
 }
 
@@ -592,6 +690,18 @@ mod tests {
         field: f64,
     }
 
+    #[derive(Deserialize)]
+    struct TestF64 {
+        #[serde(default, deserialize_with = "deserialize_optional_f64_from_any")]
+        value: Option<f64>,
+    }
+
+    #[derive(Deserialize)]
+    struct TestI64 {
+        #[serde(default, deserialize_with = "deserialize_optional_i64_from_any")]
+        id: Option<i64>,
+    }
+
     #[test]
     fn test_deserialize_optional_string_from_any() {
         // String input
@@ -987,5 +1097,67 @@ mod tests {
         let json = r#"{}"#;
         let result: I64DefaultTest = serde_json::from_str(json).unwrap();
         assert_eq!(result.value, 0);
+    }
+
+    #[test]
+    fn test_optional_f64() {
+        assert_eq!(
+            serde_json::from_str::<TestF64>(r#"{"value": 10.5}"#)
+                .unwrap()
+                .value,
+            Some(10.5)
+        );
+
+        assert_eq!(
+            serde_json::from_str::<TestF64>(r#"{"value": "3.15"}"#)
+                .unwrap()
+                .value,
+            Some(3.15)
+        );
+        assert_eq!(
+            serde_json::from_str::<TestF64>(r#"{"value": null}"#)
+                .unwrap()
+                .value,
+            None
+        );
+        assert_eq!(
+            serde_json::from_str::<TestF64>(r#"{}"#).unwrap().value,
+            None
+        );
+        assert_eq!(
+            serde_json::from_str::<TestF64>(r#"{"value": ""}"#)
+                .unwrap()
+                .value,
+            None
+        );
+        assert!(serde_json::from_str::<TestF64>(r#"{"value": "invalid"}"#).is_err());
+    }
+
+    #[test]
+    fn test_optional_i64() {
+        assert_eq!(
+            serde_json::from_str::<TestI64>(r#"{"id": 123}"#)
+                .unwrap()
+                .id,
+            Some(123)
+        );
+        assert_eq!(
+            serde_json::from_str::<TestI64>(r#"{"id": "456"}"#)
+                .unwrap()
+                .id,
+            Some(456)
+        );
+        assert_eq!(
+            serde_json::from_str::<TestI64>(r#"{"id": null}"#)
+                .unwrap()
+                .id,
+            None
+        );
+        assert_eq!(serde_json::from_str::<TestI64>(r#"{}"#).unwrap().id, None);
+        assert_eq!(
+            serde_json::from_str::<TestI64>(r#"{"id": ""}"#).unwrap().id,
+            None
+        );
+        assert!(serde_json::from_str::<TestI64>(r#"{"id": "invalid"}"#).is_err());
     }
 }
