@@ -6,6 +6,7 @@ use syn::{
     punctuated::Punctuated,
 };
 
+#[cfg(feature = "database")]
 /// Struct to parse macro input for `generate_diesel_enum`
 struct DieselEnumInput {
     enum_name: Ident,
@@ -19,6 +20,7 @@ struct DieselEnumWithFeatureInput {
     variants: Punctuated<Variant, Token![,]>,
 }
 
+#[cfg(feature = "database")]
 impl Parse for DieselEnumInput {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let enum_name: Ident = input.parse()?; // Parse the enum name
@@ -51,6 +53,7 @@ impl Parse for DieselEnumWithFeatureInput {
     }
 }
 
+#[cfg(feature = "database")]
 /// Procedural macro to generate a Diesel-compatible enum **without** feature flags
 pub fn generate_diesel_enum(input: TokenStream) -> TokenStream {
     let DieselEnumInput {
