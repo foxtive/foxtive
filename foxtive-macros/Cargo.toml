@@ -1,6 +1,6 @@
 [package]
 name = "foxtive-macros"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2024"
 license = "MIT"
 description = "Foxtive Macros"
@@ -14,5 +14,7 @@ proc-macro = true
 database = []
 
 [dependencies]
-quote = { version = "1.0" }
-syn = { version = "2.0", features = ["full"] }
+quote = { version = "1.0.43" }
+syn = { version = "2.0.114", features = ["full"] }
+strum_macros = { version = "0.27.2" }
+strum = { version = "0.27.2", default-features = false, features = ["std"] }
