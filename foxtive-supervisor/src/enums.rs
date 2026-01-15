@@ -15,10 +15,11 @@ pub enum SupervisionStatus {
 }
 
 /// Defines when and how often a task should restart after failure
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum RestartPolicy {
     /// Always restart, no matter how many times it fails
     /// Use for: Critical services that must always run
+    #[default]
     Always,
 
     /// Restart up to N times, then give up
@@ -45,7 +46,7 @@ pub enum TaskState {
 }
 
 /// Health status for monitoring and observability
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum HealthStatus {
     /// Task is operating normally
     Healthy,
@@ -57,6 +58,7 @@ pub enum HealthStatus {
     Unhealthy { reason: String },
 
     /// Task is in unknown state (initialization, transition)
+    #[default]
     Unknown,
 }
 
@@ -96,12 +98,6 @@ pub enum BackoffStrategy {
     ///
     /// Receives attempt number, returns delay duration
     Custom(Box<dyn Fn(usize) -> Duration + Send + Sync>),
-}
-
-impl Default for RestartPolicy {
-    fn default() -> Self {
-        Self::Always
-    }
 }
 
 // Manual Debug implementation
@@ -317,12 +313,6 @@ impl HealthStatus {
         Self::Unhealthy {
             reason: reason.into(),
         }
-    }
-}
-
-impl Default for HealthStatus {
-    fn default() -> Self {
-        Self::Unknown
     }
 }
 

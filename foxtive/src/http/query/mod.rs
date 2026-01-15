@@ -4,7 +4,7 @@ mod ordering;
 #[cfg(test)]
 mod tests;
 
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveDateTime};
 use compact::CompactOrdering;
 use indexed::IndexedOrdering;
 use serde::{Deserialize, Serialize};
@@ -76,6 +76,16 @@ pub struct QueryParams {
     ///
     /// Example: `?end_date=2024-12-31`
     pub end_date: Option<NaiveDate>,
+
+    /// Filters results by a start datetime (inclusive). Expected format: `YYYY-MM-DDTHH:MM:SS`.
+    ///
+    /// Example: `?start_datetime=2024-01-01T09:30:00`
+    pub start_datetime: Option<NaiveDateTime>,
+
+    /// Filters results by an end datetime (inclusive). Expected format: `YYYY-MM-DDTHH:MM:SS`.
+    ///
+    /// Example: `?end_datetime=2024-12-31T18:00:00`
+    pub end_datetime: Option<NaiveDateTime>,
 }
 
 impl QueryParams {
