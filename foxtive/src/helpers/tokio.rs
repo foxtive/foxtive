@@ -1,7 +1,7 @@
 use crate::prelude::AppResult;
 use anyhow::Context;
 use std::future::Future;
-use tokio::task::{spawn_blocking, JoinHandle};
+use tokio::task::{JoinHandle, spawn_blocking};
 
 /// Spawns a blocking function on the tokio blocking thread pool.
 ///
