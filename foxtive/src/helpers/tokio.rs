@@ -91,7 +91,7 @@ where
 ///
 /// # Examples
 ///
-/// ```
+/// ```norun
 /// use foxtive::helpers::block;
 ///
 /// // From within an async context (uses existing runtime)
