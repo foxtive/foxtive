@@ -1,6 +1,6 @@
 [package]
 name = "foxtive"
-version = "0.20.0"
+version = "0.21.0"
 edition = "2024"
 license = "MIT"
 description = "Foxtive Framework"
@@ -47,8 +47,8 @@ deadpool-redis = { version = "0.22.1", features = ["rt_tokio_1"], optional = tru
 dashmap = { version = "6.1.0", optional = true }
 
 http = "1.4.0"
-thiserror = "2.0.17"
-uuid = { version = "1.19.0", features = ["v4", "serde"] }
+thiserror = "2.0.18"
+uuid = { version = "1.20.0", features = ["v4", "serde"] }
 serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1.47.1", features = ["rt-multi-thread", "time"] }
 chrono = { version = "0.4.43", features = ["std", "serde"] }
@@ -62,8 +62,8 @@ hmac = { version = "0.12.1", optional = true }
 fancy-regex = { version = "0.17.0", optional = true }
 tera = { version = "1.20.1", optional = true }
 reqwest = { version = "0.13.1", features = ["native-tls"], optional = true }
-diesel = { version = "2.3.5", features = ["postgres", "r2d2"], optional = true }
-jsonwebtoken = { version = "10.2.0", optional = true, features = ["rust_crypto"] }
+diesel = { version = "2.3.6", features = ["postgres", "r2d2"], optional = true }
+jsonwebtoken = { version = "10.3.0", optional = true, features = ["rust_crypto"] }
 strum = { version = "0.27.2", default-features = false, features = ["std"], optional = true }
 rust-argon2 = { version = "3.0.0", optional = true }
 ammonia = { version = "4.1.2", default-features = false, optional = true }
@@ -74,4 +74,5 @@ tracing-subscriber = { version = "0.3.22", features = ["json", "env-filter"] }
 
 [dev-dependencies]
 tokio = { version = "1.49.0", features = ["rt-multi-thread", "time", "macros"] }
+futures = { version = "0.3.31" }
 tempfile = { version = "3.24.0" }

@@ -109,7 +109,7 @@ mod input_sanitizer;
 pub mod regex;
 pub mod serde_json;
 
-pub use tokio::{blk, run_async};
+pub use tokio::{blk, block, run_async};
 
 pub use file_ext::{COMPOUND_EXTENSIONS, FileExtHelper};
 

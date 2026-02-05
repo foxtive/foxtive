@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.20.0 (2025-02-05)
+* feat(helpers): add intelligent block helper for spawn_blocking
+
 ### 0.20.0 (2025-01-15)
 * feat(http): add start_datetime & end_datetime to query params
 * bump(crates): to latest versions
