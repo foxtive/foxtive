@@ -91,8 +91,12 @@ where
 ///
 /// # Examples
 ///
-/// ```norun
+/// ```no_run
 /// use foxtive::helpers::block;
+///
+/// fn expensive_computation() {
+///     println!("Expensively computing...");
+/// }
 ///
 /// // From within an async context (uses existing runtime)
 /// async fn example() {
