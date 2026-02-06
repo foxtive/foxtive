@@ -32,7 +32,7 @@ use tokio::task::{spawn_blocking, JoinHandle};
 /// run_async(async {
 ///     let handle = blk(|| {
 ///         // Some expensive calculation
-///         (1..=1000).sum::<i32>()
+///         Ok((1..=1000).sum::<i32>())
 ///     });
 ///     let result = handle.await.unwrap();
 ///     assert_eq!(result, 500500);
@@ -48,7 +48,7 @@ use tokio::task::{spawn_blocking, JoinHandle};
 ///     let handle = blk(|| {
 ///         std::fs::read_to_string("Cargo.toml")
 ///     });
-///     let contents = handle.await.unwrap();
+///     let contents = handle;
 ///     assert!(contents.is_ok() || contents.is_err());
 /// });
 /// ```
@@ -92,10 +92,12 @@ where
 /// # Examples
 ///
 /// ```no_run
-/// use foxtive::helpers::block;
+/// use foxtive::helpers::block
+/// use foxtive::prelude::AppResult;
 ///
-/// fn expensive_computation() {
+/// fn expensive_computation() -> AppResult<()> {
 ///     println!("Expensively computing...");
+///     Ok(())
 /// }
 ///
 /// // From within an async context (uses existing runtime)
@@ -114,7 +116,7 @@ where
 /// fn sync_example() {
 ///     let result = futures::executor::block_on(block(|| {
 ///         // Blocking operation
-///         42
+///         Ok(42)
 ///     }));
 /// }
 /// ```
