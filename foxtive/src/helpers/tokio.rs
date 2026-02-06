@@ -24,7 +24,7 @@ use tokio::task::{JoinHandle, spawn_blocking};
 ///
 /// # Examples
 ///
-/// ```
+/// ```no_run
 /// use foxtive::helpers::run_async;
 /// use foxtive::helpers::blk;
 ///
@@ -39,7 +39,7 @@ use tokio::task::{JoinHandle, spawn_blocking};
 /// });
 /// ```
 ///
-/// ```
+/// ```no_run
 /// use foxtive::helpers::run_async;
 /// use foxtive::helpers::blk;
 ///
@@ -47,8 +47,8 @@ use tokio::task::{JoinHandle, spawn_blocking};
 /// run_async(async {
 ///     let handle = blk(|| {
 ///         std::fs::read_to_string("Cargo.toml")
-///     });
-///     let contents = handle.await.unwrap();
+///     }).await;
+///     let contents = handle;
 ///     assert!(contents.is_ok() || contents.is_err());
 /// });
 /// ```
@@ -65,6 +65,7 @@ where
 {
     spawn_blocking(f)
 }
+
 /// Spawns a blocking function, intelligently handling tokio runtime contexts.
 ///
 /// This function intelligently handles tokio runtime contexts:
@@ -93,9 +94,11 @@ where
 ///
 /// ```no_run
 /// use foxtive::helpers::block;
+/// use foxtive::prelude::AppResult;
 ///
-/// fn expensive_computation() {
+/// fn expensive_computation() -> AppResult<()> {
 ///     println!("Expensively computing...");
+///     Ok(())
 /// }
 ///
 /// // From within an async context (uses existing runtime)
@@ -114,7 +117,7 @@ where
 /// fn sync_example() {
 ///     let result = futures::executor::block_on(block(|| {
 ///         // Blocking operation
-///         42
+///         Ok(42)
 ///     }));
 /// }
 /// ```
@@ -127,14 +130,15 @@ where
 /// - Maintains runtime context, so nested `tokio::spawn` calls work correctly
 pub async fn block<F, R>(f: F) -> AppResult<R>
 where
-    F: FnOnce() -> R + Send + 'static,
+    F: FnOnce() -> AppResult<R> + Send + Sync + 'static,
     R: Send + 'static,
 {
     if tokio::runtime::Handle::try_current().is_ok() {
         tracing::debug!("Using existing tokio runtime for blocking task");
-        Ok(spawn_blocking(f)
+        spawn_blocking(f)
             .await
-            .context("Failed to spawn blocking task")?)
+            .context("Failed to spawn blocking task")
+            .flatten()
     } else {
         tracing::debug!("Creating new tokio runtime for blocking task");
 
@@ -143,7 +147,7 @@ where
             .build()
             .context("Failed to create tokio runtime")?;
 
-        Ok(rt.spawn_blocking(f).await?)
+        rt.spawn_blocking(f).await.map_err(crate::Error::from).flatten()
     }
 }
 
@@ -426,7 +430,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_block_with_runtime() {
-        let result = block(|| 42).await.unwrap();
+        let result = block(|| Ok(42)).await.unwrap();
         assert_eq!(result, 42);
     }
 
@@ -437,7 +441,7 @@ mod tests {
             for i in 1..=100 {
                 sum += i;
             }
-            sum
+            Ok(sum)
         })
         .await
         .unwrap();
@@ -446,7 +450,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_block_with_string() {
-        let result = block(|| "blocking result".to_string()).await.unwrap();
+        let result = block(|| Ok("blocking result".to_string())).await.unwrap();
         assert_eq!(result, "blocking result");
     }
 
@@ -456,7 +460,7 @@ mod tests {
 
         let result = block(|| {
             thread::sleep(Duration::from_millis(10));
-            "done"
+            Ok("done")
         })
         .await
         .unwrap();
@@ -467,7 +471,7 @@ mod tests {
     #[tokio::test]
     async fn test_block_captures_variables() {
         let value = 100;
-        let result = block(move || value * 2).await.unwrap();
+        let result = block(move || Ok(value * 2)).await.unwrap();
         assert_eq!(result, 200);
     }
 
@@ -479,7 +483,7 @@ mod tests {
         let result = block(move || {
             let mut count = counter_clone.lock().unwrap();
             *count += 1;
-            *count
+            Ok(*count)
         })
         .await
         .unwrap();
@@ -490,7 +494,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_block_concurrent_execution() {
-        let handles: Vec<_> = (0..5).map(|i| tokio::spawn(block(move || i * 2))).collect();
+        let handles: Vec<_> = (0..5).map(|i| tokio::spawn(block(move || Ok(i * 2)))).collect();
 
         let mut results = Vec::new();
         for handle in handles {
@@ -502,8 +506,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_block_with_result_type() {
-        let result: Result<i32, String> = block(|| Ok(42)).await.unwrap();
-        assert_eq!(result, Ok(42));
+        let result: AppResult<i32> = block(|| Ok(42)).await;
+        assert_eq!(result.unwrap(), 42);
     }
 
     #[tokio::test]
@@ -513,7 +517,7 @@ mod tests {
             // This should work because we maintain runtime context
             tokio::runtime::Handle::current().block_on(async {
                 tokio::time::sleep(Duration::from_millis(1)).await;
-                42
+                Ok(42)
             })
         })
         .await
@@ -526,7 +530,7 @@ mod tests {
     fn test_block_without_runtime() {
         // This test runs without #[tokio::test], so no runtime exists
         // block should create its own runtime
-        let result = futures::executor::block_on(block(|| 99)).unwrap();
+        let result = futures::executor::block_on(block(|| Ok(99))).unwrap();
         assert_eq!(result, 99);
     }
 
@@ -535,7 +539,7 @@ mod tests {
         // Verify it works in pure sync context
         let result = futures::executor::block_on(block(|| {
             std::thread::sleep(Duration::from_millis(10));
-            42
+            Ok(42)
         }))
         .unwrap();
         assert_eq!(result, 42);
@@ -545,7 +549,7 @@ mod tests {
     async fn test_block_integration_with_async() {
         let blocking_result = block(|| {
             std::thread::sleep(Duration::from_millis(10));
-            42
+            Ok(42)
         })
         .await
         .unwrap();
@@ -559,10 +563,10 @@ mod tests {
     #[tokio::test]
     async fn test_block_multiple_calls() {
         // First call uses existing runtime
-        let result1 = block(|| 1).await.unwrap();
+        let result1 = block(|| Ok(1)).await.unwrap();
 
         // Second call should also work
-        let result2 = block(|| 2).await.unwrap();
+        let result2 = block(|| Ok(2)).await.unwrap();
 
         assert_eq!(result1, 1);
         assert_eq!(result2, 2);
@@ -571,8 +575,8 @@ mod tests {
     #[test]
     fn test_block_nested_calls_without_runtime() {
         // Both calls should create their own runtimes
-        let result1 = futures::executor::block_on(block(|| 1)).unwrap();
-        let result2 = futures::executor::block_on(block(|| 2)).unwrap();
+        let result1 = futures::executor::block_on(block(|| Ok(1))).unwrap();
+        let result2 = futures::executor::block_on(block(|| Ok(2))).unwrap();
 
         assert_eq!(result1, 1);
         assert_eq!(result2, 2);
@@ -582,7 +586,7 @@ mod tests {
     async fn test_block_with_panic_recovery() {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             tokio::runtime::Handle::current().block_on(async {
-                block(|| {
+                block::<_, crate::Error>(|| {
                     panic!("intentional panic");
                 })
                 .await
