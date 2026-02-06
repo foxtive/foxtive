@@ -147,7 +147,10 @@ where
             .build()
             .context("Failed to create tokio runtime")?;
 
-        rt.spawn_blocking(f).await.map_err(crate::Error::from).flatten()
+        rt.spawn_blocking(f)
+            .await
+            .map_err(crate::Error::from)
+            .flatten()
     }
 }
 
@@ -494,7 +497,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_block_concurrent_execution() {
-        let handles: Vec<_> = (0..5).map(|i| tokio::spawn(block(move || Ok(i * 2)))).collect();
+        let handles: Vec<_> = (0..5)
+            .map(|i| tokio::spawn(block(move || Ok(i * 2))))
+            .collect();
 
         let mut results = Vec::new();
         for handle in handles {
