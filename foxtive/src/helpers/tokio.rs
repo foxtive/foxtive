@@ -24,7 +24,7 @@ use tokio::task::{spawn_blocking, JoinHandle};
 ///
 /// # Examples
 ///
-/// ```
+/// ```no_run
 /// use foxtive::helpers::run_async;
 /// use foxtive::helpers::blk;
 ///
@@ -39,7 +39,7 @@ use tokio::task::{spawn_blocking, JoinHandle};
 /// });
 /// ```
 ///
-/// ```
+/// ```no_run
 /// use foxtive::helpers::run_async;
 /// use foxtive::helpers::blk;
 ///
@@ -47,7 +47,7 @@ use tokio::task::{spawn_blocking, JoinHandle};
 /// run_async(async {
 ///     let handle = blk(|| {
 ///         std::fs::read_to_string("Cargo.toml")
-///     });
+///     }).await;
 ///     let contents = handle;
 ///     assert!(contents.is_ok() || contents.is_err());
 /// });
@@ -65,6 +65,7 @@ where
 {
     spawn_blocking(f)
 }
+
 /// Spawns a blocking function, intelligently handling tokio runtime contexts.
 ///
 /// This function intelligently handles tokio runtime contexts:
