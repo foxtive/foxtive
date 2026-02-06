@@ -32,7 +32,7 @@ use tokio::task::{spawn_blocking, JoinHandle};
 /// run_async(async {
 ///     let handle = blk(|| {
 ///         // Some expensive calculation
-///         Ok((1..=1000).sum::<i32>())
+///         (1..=1000).sum::<i32>()
 ///     });
 ///     let result = handle.await.unwrap();
 ///     assert_eq!(result, 500500);
@@ -92,7 +92,7 @@ where
 /// # Examples
 ///
 /// ```no_run
-/// use foxtive::helpers::block
+/// use foxtive::helpers::block;
 /// use foxtive::prelude::AppResult;
 ///
 /// fn expensive_computation() -> AppResult<()> {
