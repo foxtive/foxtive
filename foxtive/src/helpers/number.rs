@@ -9,6 +9,8 @@ pub use format_integer as format_number_int;
 /// # Examples
 ///
 /// ```
+/// use foxtive::helpers::number::to_cents;
+///
 /// assert_eq!(to_cents(3.45), 345);
 /// assert_eq!(to_cents(10.55), 1055);
 /// assert_eq!(to_cents(-1.23), -123);
@@ -22,6 +24,8 @@ pub fn to_cents(amount: f64) -> i64 {
 /// # Examples
 ///
 /// ```
+/// use foxtive::helpers::number::from_cents;
+///
 /// assert_eq!(from_cents(345), 3.45);
 /// assert_eq!(from_cents(1055), 10.55);
 /// assert_eq!(from_cents(-123), -1.23);
@@ -38,6 +42,8 @@ pub fn from_cents(cents: i64) -> f64 {
 /// # Examples
 ///
 /// ```
+/// use foxtive::helpers::number::format_currency;
+///
 /// assert_eq!(format_currency(1234.56), "1,234.56");
 /// assert_eq!(format_currency(1000000.0), "1,000,000.00");
 /// assert_eq!(format_currency(-1234.56), "-1,234.56");
@@ -88,6 +94,8 @@ where
 /// # Examples
 ///
 /// ```
+/// use foxtive::helpers::number::format_integer;
+///
 /// assert_eq!(format_integer(1234), "1,234");
 /// assert_eq!(format_integer(1000000_i64), "1,000,000");
 /// assert_eq!(format_integer(-1234), "-1,234");
