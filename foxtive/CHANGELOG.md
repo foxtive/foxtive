@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.22.2 (2025-02-12)
+* feat(numbers): add 'human_readable_int' to format and add `format_currency` & `format_integer` as aliases
+
 ### 0.22.1 (2025-02-06)
 * refactor(block): now enforces returning AppResult<T>
 
