@@ -48,7 +48,7 @@ pub fn from_cents(cents: i64) -> f64 {
 /// assert_eq!(format_currency(1000000.0), "1,000,000.00");
 /// assert_eq!(format_currency(-1234.56), "-1,234.56");
 /// assert_eq!(format_currency(1234), "1,234.00");
-/// assert_eq!(format_currency(5000_i64), "5,000.00");
+/// assert_eq!(format_currency(5000_i32), "5,000.00");
 /// ```
 pub fn format_currency<T>(num: T) -> String
 where
