@@ -1,13 +1,55 @@
-pub fn to_cent(float: f64) -> i64 {
-    (float * 100.00).round() as i64
+/// Alias for `format_currency` - formats a number with commas and two decimal places.
+pub use format_currency as format_number;
+
+/// Alias for `format_integer` - formats an integer with commas.
+pub use format_integer as format_number_int;
+
+/// Converts a dollar amount to cents.
+///
+/// # Examples
+///
+/// ```
+/// assert_eq!(to_cents(3.45), 345);
+/// assert_eq!(to_cents(10.55), 1055);
+/// assert_eq!(to_cents(-1.23), -123);
+/// ```
+pub fn to_cents(amount: f64) -> i64 {
+    (amount * 100.00).round() as i64
 }
 
-pub fn from_cent(int: i64) -> f64 {
-    (int as f64) / 100.00
+/// Converts cents to a dollar amount.
+///
+/// # Examples
+///
+/// ```
+/// assert_eq!(from_cents(345), 3.45);
+/// assert_eq!(from_cents(1055), 10.55);
+/// assert_eq!(from_cents(-123), -1.23);
+/// ```
+pub fn from_cents(cents: i64) -> f64 {
+    (cents as f64) / 100.00
 }
 
-pub fn human_readable(num: f64) -> String {
-    let num_str = format!("{num:.2}"); // Ensure two decimal places
+/// Formats any numeric type with thousand separators and exactly two decimal places.
+///
+/// Works with floats (`f32`, `f64`) and integers (`i32`, `i64`, `u32`, `u64`, etc.).
+/// Integers are displayed with `.00` at the end.
+///
+/// # Examples
+///
+/// ```
+/// assert_eq!(format_currency(1234.56), "1,234.56");
+/// assert_eq!(format_currency(1000000.0), "1,000,000.00");
+/// assert_eq!(format_currency(-1234.56), "-1,234.56");
+/// assert_eq!(format_currency(1234), "1,234.00");
+/// assert_eq!(format_currency(5000_i64), "5,000.00");
+/// ```
+pub fn format_currency<T>(num: T) -> String
+where
+    T: Into<f64> + Copy,
+{
+    let num_float: f64 = num.into();
+    let num_str = format!("{num_float:.2}"); // Ensure two decimal places
     let parts: Vec<&str> = num_str.split('.').collect(); // Split into integer and fractional parts
 
     let mut integer_part = parts[0].to_string();
@@ -39,31 +81,86 @@ pub fn human_readable(num: f64) -> String {
     str_num
 }
 
+/// Formats any integer type with thousand separators.
+///
+/// Works with `i32`, `i64`, `u32`, `u64`, and other types that implement `Display`.
+///
+/// # Examples
+///
+/// ```
+/// assert_eq!(format_integer(1234), "1,234");
+/// assert_eq!(format_integer(1000000_i64), "1,000,000");
+/// assert_eq!(format_integer(-1234), "-1,234");
+/// ```
+pub fn format_integer<T: std::fmt::Display>(num: T) -> String {
+    let num_str = num.to_string();
+    let mut result = String::new();
+    let mut negative = false;
+
+    let mut chars: Vec<char> = num_str.chars().collect();
+
+    // Handle negative numbers
+    if chars.first() == Some(&'-') {
+        chars.remove(0);
+        negative = true;
+    }
+
+    // Add commas from right to left
+    for (i, &ch) in chars.iter().rev().enumerate() {
+        if i % 3 == 0 && i != 0 {
+            result.insert(0, ',');
+        }
+        result.insert(0, ch);
+    }
+
+    if negative {
+        result.insert(0, '-');
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_to_cent() {
-        assert_eq!(to_cent(3.45), 345);
-        assert_eq!(to_cent(0.0), 0);
-        assert_eq!(to_cent(10.55), 1055);
-        assert_eq!(to_cent(-1.23), -123);
+    fn test_format_integer() {
+        assert_eq!(format_integer(1234), "1,234");
+        assert_eq!(format_integer(1000000), "1,000,000");
+        assert_eq!(format_integer(0), "0");
+        assert_eq!(format_integer(-1234), "-1,234");
+        assert_eq!(format_integer(999_i64), "999");
+        assert_eq!(format_integer(1000_u32), "1,000");
     }
 
     #[test]
-    fn test_from_cent() {
-        assert_eq!(from_cent(345), 3.45);
-        assert_eq!(from_cent(0), 0.0);
-        assert_eq!(from_cent(1055), 10.55);
-        assert_eq!(from_cent(-123), -1.23);
+    fn test_to_cents() {
+        assert_eq!(to_cents(3.45), 345);
+        assert_eq!(to_cents(0.0), 0);
+        assert_eq!(to_cents(10.55), 1055);
+        assert_eq!(to_cents(-1.23), -123);
     }
 
     #[test]
-    fn test_human_readable() {
-        assert_eq!(human_readable(1234.56), "1,234.56");
-        assert_eq!(human_readable(1000000.0), "1,000,000.00");
-        assert_eq!(human_readable(0.0), "0.00");
-        assert_eq!(human_readable(-1234.56), "-1,234.56");
+    fn test_from_cents() {
+        assert_eq!(from_cents(345), 3.45);
+        assert_eq!(from_cents(0), 0.0);
+        assert_eq!(from_cents(1055), 10.55);
+        assert_eq!(from_cents(-123), -1.23);
+    }
+
+    #[test]
+    fn test_format_currency() {
+        // Float tests
+        assert_eq!(format_currency(1234.56), "1,234.56");
+        assert_eq!(format_currency(1000000.0), "1,000,000.00");
+        assert_eq!(format_currency(0.0), "0.00");
+        assert_eq!(format_currency(-1234.56), "-1,234.56");
+
+        // Integer tests - formatted as currency
+        assert_eq!(format_currency(1234), "1,234.00");
+        assert_eq!(format_currency(5000_i32), "5,000.00");
+        assert_eq!(format_currency(-999), "-999.00");
     }
 }
