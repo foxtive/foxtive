@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.22.3 (2025-02-18)
+* fix(pagination): use generic function param instead of an fn pointer
+
 ### 0.22.2 (2025-02-12)
 * feat(numbers): add 'human_readable_int' to format and add `format_currency` & `format_integer` as aliases
 

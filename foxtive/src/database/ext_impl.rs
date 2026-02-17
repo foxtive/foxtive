@@ -64,7 +64,10 @@ impl<'a, T> OptionalResultExt<'a, T> for QueryResult<T> {
 }
 
 impl<T> PaginationResultExt<T> for AppPaginationResult<T> {
-    fn map_page_data<U>(self, mapper: fn(T) -> U) -> AppPaginationResult<U> {
+    fn map_page_data<U, F>(self, mapper: F) -> AppPaginationResult<U>
+    where
+        F: Fn(T) -> U,
+    {
         self.map(|paged| paged.format(mapper))
     }
 }
