@@ -1,8 +1,8 @@
 use crate::database::Model;
 use crate::prelude::AppResult;
 use crate::results::{AppOptionalResult, AppPaginationResult};
-use diesel::PgConnection;
 use diesel::r2d2::{ConnectionManager, PooledConnection};
+use diesel::PgConnection;
 use serde::Serialize;
 
 pub trait ShareableResultExt<S: Serialize, T: Serialize + Model> {
@@ -24,5 +24,7 @@ pub trait DatabaseConnectionExt {
 }
 
 pub trait PaginationResultExt<T> {
-    fn map_page_data<U>(self, mapper: fn(T) -> U) -> AppPaginationResult<U>;
+    fn map_page_data<U, F>(self, mapper: F) -> AppPaginationResult<U>
+    where
+        F: Fn(T) -> U;
 }
