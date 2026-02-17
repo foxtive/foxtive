@@ -1,8 +1,8 @@
 use crate::database::Model;
 use crate::prelude::AppResult;
 use crate::results::{AppOptionalResult, AppPaginationResult};
-use diesel::r2d2::{ConnectionManager, PooledConnection};
 use diesel::PgConnection;
+use diesel::r2d2::{ConnectionManager, PooledConnection};
 use serde::Serialize;
 
 pub trait ShareableResultExt<S: Serialize, T: Serialize + Model> {
