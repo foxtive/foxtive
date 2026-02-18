@@ -3,9 +3,9 @@ use async_trait::async_trait;
 use foxtive_cron::contracts::{JobContract, ValidatedSchedule};
 use foxtive_cron::{Cron, CronResult, FnJob, JobItem};
 use std::borrow::Cow;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
-use tokio::time::{timeout, Duration};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use tokio::time::{Duration, timeout};
 
 // Helpers
 
