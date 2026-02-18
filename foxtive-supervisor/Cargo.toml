@@ -1,9 +1,9 @@
 [package]
 name = "foxtive-supervisor"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "MIT"
-description = "Foxtive Cron"
+description = "Foxtive Supervisor - Advanced task supervision for Rust applications"
 repository = "https://github.com/foxtive/foxtive-cron"
 authors = ["ahmard"]
 
@@ -11,9 +11,10 @@ authors = ["ahmard"]
 tracing = "0.1.41"
 async-trait = "0.1.88"
 anyhow = { version = "1.0.98", features = ["backtrace"] }
-tokio = { version = "1.45.1", features = ["rt-multi-thread", "time"] }
+thiserror = "2.0.18"
+tokio = { version = "1.45.1", features = ["rt-multi-thread", "time", "sync"] }
 futures-util = "0.3.31"
 
 [dev-dependencies]
-tokio = { version = "1", features = ["macros", "time", "rt-multi-thread"] }
+tokio = { version = "1", features = ["full"] }
 

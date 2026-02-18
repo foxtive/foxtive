@@ -6,8 +6,16 @@ pub struct CronJobTask;
 
 #[async_trait::async_trait]
 impl SupervisedTask for CronJobTask {
+    fn id(&self) -> &'static str {
+        "cron-task"
+    }
+
     fn name(&self) -> String {
         "cron-job-task".to_string()
+    }
+
+    fn dependencies(&self) -> &'static [&'static str] {
+        &["server-task"]
     }
 
     async fn run(&self) -> anyhow::Result<()> {
@@ -20,6 +28,7 @@ impl SupervisedTask for CronJobTask {
 
         // Async function
         cron.add_job_fn(
+            "impulse",
             "Impulse",
             "*/15 * * * * * *", // every 15 seconds
             async_runner,

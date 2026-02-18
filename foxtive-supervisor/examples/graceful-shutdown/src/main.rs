@@ -1,5 +1,5 @@
-use foxtive_supervisor::Supervisor;
 use foxtive_supervisor::contracts::SupervisedTask;
+use foxtive_supervisor::Supervisor;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing::{error, info, warn};
 
@@ -11,6 +11,10 @@ pub struct GracefulShutdownTask {
 
 #[async_trait::async_trait]
 impl SupervisedTask for GracefulShutdownTask {
+    fn id(&self) -> &'static str {
+        "graceful-shutdown-task"
+    }
+
     fn name(&self) -> String {
         self.name.clone()
     }

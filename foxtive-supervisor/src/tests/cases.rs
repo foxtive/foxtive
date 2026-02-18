@@ -387,6 +387,10 @@ async fn test_shutdown_aborts_long_running_tasks() {
 
     #[async_trait::async_trait]
     impl SupervisedTask for TrackedLongTask {
+        fn id(&self) -> &'static str {
+            "long-task"
+        }
+
         fn name(&self) -> String {
             self.name.clone()
         }
