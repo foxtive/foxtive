@@ -6,15 +6,17 @@ async fn main() {
 
     // Async function
     cron.add_job_fn(
-        "Inline Hello Job",
-        "*/1 * * * * * *", // every second
+        "async-hello-job",  // stable id
+        "Inline Hello Job", // human-readable name
+        "*/1 * * * * * *",  // every second
         async_runner,
     )
     .expect("Failed to add job");
 
     // Blocking function
     cron.add_blocking_job_fn(
-        "Heavy Task",
+        "heavy-task",      // stable id
+        "Heavy Task",      // human-readable name
         "*/2 * * * * * *", // every 2 seconds
         blocking_runner,
     )
