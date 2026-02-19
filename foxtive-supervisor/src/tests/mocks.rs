@@ -1,7 +1,7 @@
 use crate::contracts::SupervisedTask;
 use crate::enums::{BackoffStrategy, RestartPolicy};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 pub(crate) struct MockTask {

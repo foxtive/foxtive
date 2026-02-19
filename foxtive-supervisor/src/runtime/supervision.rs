@@ -32,9 +32,7 @@ pub fn supervise(
                              Aborting task."
                         );
                         // Signal our own failure so our dependents don't hang
-                        let _ = setup_tx.send(Err(format!(
-                            "Dependency '{dep_id}' failed: {e}"
-                        )));
+                        let _ = setup_tx.send(Err(format!("Dependency '{dep_id}' failed: {e}")));
                         return SupervisionResult {
                             task_name: name,
                             task_id: id.to_string(),
@@ -49,9 +47,7 @@ pub fn supervise(
                         "[{name}] Dependency '{dep_id}' channel closed unexpectedly. \
                          Aborting task."
                     );
-                    let _ = setup_tx.send(Err(format!(
-                        "Dependency '{dep_id}' channel closed"
-                    )));
+                    let _ = setup_tx.send(Err(format!("Dependency '{dep_id}' channel closed")));
                     return SupervisionResult {
                         task_name: name,
                         task_id: id.to_string(),

@@ -118,7 +118,7 @@ use thiserror::Error;
 pub trait SupervisorResultExt<T> {
     /// Convert any error to a SupervisorError
     fn supervisor_error(self) -> Result<T, SupervisorError>;
-    
+
     /// Add supervisor context to the error
     fn supervisor_context<C>(self, context: C) -> Result<T, SupervisorError>
     where
@@ -135,7 +135,7 @@ where
             source: anyhow::Error::from(e),
         })
     }
-    
+
     fn supervisor_context<C>(self, context: C) -> Result<T, SupervisorError>
     where
         C: std::fmt::Display + Send + Sync + 'static,
@@ -151,7 +151,7 @@ where
 pub trait SupervisorErrorExt {
     /// Check if this error matches a specific validation error
     fn is_validation_error(&self, validation_type: &ValidationError) -> bool;
-    
+
     /// Get the underlying source error if it exists
     fn source_error(&self) -> Option<&(dyn std::error::Error + 'static)>;
 }
@@ -163,7 +163,7 @@ impl SupervisorErrorExt for SupervisorError {
             _ => false,
         }
     }
-    
+
     fn source_error(&self) -> Option<&(dyn std::error::Error + 'static)> {
         std::error::Error::source(self)
     }
@@ -339,21 +339,22 @@ impl SupervisorError {
     /// Get the error kind for this error
     pub fn kind(&self) -> ErrorKind {
         match self {
-            SupervisorError::DependencyValidation { .. } |
-            SupervisorError::CircularDependency { .. } |
-            SupervisorError::InvalidConfiguration { .. } => ErrorKind::Configuration,
-            
-            SupervisorError::PrerequisiteFailed { .. } |
-            SupervisorError::SetupFailed { .. } |
-            SupervisorError::DependencySetupFailed { .. } => ErrorKind::Runtime,
-            
-            SupervisorError::TaskExecutionFailed { .. } |
-            SupervisorError::TaskPanicked { .. } |
-            SupervisorError::MaxAttemptsReached { .. } |
-            SupervisorError::RestartPrevented { .. } => ErrorKind::Execution,
-            
-            SupervisorError::RuntimeFailure { .. } |
-            SupervisorError::InternalError { .. } => ErrorKind::System,
+            SupervisorError::DependencyValidation { .. }
+            | SupervisorError::CircularDependency { .. }
+            | SupervisorError::InvalidConfiguration { .. } => ErrorKind::Configuration,
+
+            SupervisorError::PrerequisiteFailed { .. }
+            | SupervisorError::SetupFailed { .. }
+            | SupervisorError::DependencySetupFailed { .. } => ErrorKind::Runtime,
+
+            SupervisorError::TaskExecutionFailed { .. }
+            | SupervisorError::TaskPanicked { .. }
+            | SupervisorError::MaxAttemptsReached { .. }
+            | SupervisorError::RestartPrevented { .. } => ErrorKind::Execution,
+
+            SupervisorError::RuntimeFailure { .. } | SupervisorError::InternalError { .. } => {
+                ErrorKind::System
+            }
         }
     }
 
@@ -383,7 +384,7 @@ impl SupervisorError {
     }
 
     /// Wrap this error in an anyhow::Error with additional context
-    pub fn context<C>(self, context: C) -> anyhow::Error 
+    pub fn context<C>(self, context: C) -> anyhow::Error
     where
         C: std::fmt::Display + Send + Sync + 'static,
     {
@@ -409,8 +410,6 @@ impl From<anyhow::Error> for SupervisorError {
         }
     }
 }
-
-
 
 // Helper constructors for common error cases
 impl SupervisorError {
@@ -439,10 +438,7 @@ impl SupervisorError {
     }
 
     /// Create a prerequisite failure error
-    pub fn prerequisite_failed(
-        name: impl Into<String>,
-        source: anyhow::Error,
-    ) -> Self {
+    pub fn prerequisite_failed(name: impl Into<String>, source: anyhow::Error) -> Self {
         SupervisorError::PrerequisiteFailed {
             name: name.into(),
             source,
@@ -545,10 +541,7 @@ impl SupervisorError {
     }
 
     /// Create a runtime failure error
-    pub fn runtime_failure(
-        operation: impl Into<String>,
-        source: anyhow::Error,
-    ) -> Self {
+    pub fn runtime_failure(operation: impl Into<String>, source: anyhow::Error) -> Self {
         SupervisorError::RuntimeFailure {
             operation: operation.into(),
             source,
@@ -556,10 +549,7 @@ impl SupervisorError {
     }
 
     /// Create an internal error
-    pub fn internal_error(
-        message: impl Into<String>,
-        source: Option<anyhow::Error>,
-    ) -> Self {
+    pub fn internal_error(message: impl Into<String>, source: Option<anyhow::Error>) -> Self {
         SupervisorError::InternalError {
             message: message.into(),
             source,

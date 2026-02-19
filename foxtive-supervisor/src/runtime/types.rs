@@ -18,8 +18,7 @@ use tokio::sync::broadcast;
 /// });
 /// runtime.add_prerequisite("http-server-ready", ready);
 /// ```
-pub type PrerequisiteFuture =
-    Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'static>>;
+pub type PrerequisiteFuture = Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'static>>;
 
 /// Result of task supervision containing execution metadata
 #[derive(Debug, Clone)]

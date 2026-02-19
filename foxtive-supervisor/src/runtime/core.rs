@@ -91,11 +91,7 @@ impl TaskRuntime {
     ///     rx.await.map_err(|_| anyhow::anyhow!("Server never signalled ready"))
     /// }));
     /// ```
-    pub fn add_prerequisite(
-        &mut self,
-        name: &'static str,
-        fut: PrerequisiteFuture,
-    ) -> &mut Self {
+    pub fn add_prerequisite(&mut self, name: &'static str, fut: PrerequisiteFuture) -> &mut Self {
         self.prerequisites.push((name, fut));
         self
     }
@@ -128,9 +124,8 @@ impl TaskRuntime {
         // --- Phase 1: prerequisites ---
         for (name, fut) in self.prerequisites.drain(..) {
             info!("[Supervisor] Awaiting prerequisite '{name}'...");
-            fut.await.map_err(|e| {
-                SupervisorError::prerequisite_failed(name, e)
-            })?;
+            fut.await
+                .map_err(|e| SupervisorError::prerequisite_failed(name, e))?;
             info!("[Supervisor] Prerequisite '{name}' satisfied");
         }
 
@@ -148,7 +143,10 @@ impl TaskRuntime {
         );
 
         // Build lookup: task_id -> setup broadcast sender so dependents can subscribe
-        let setup_signals: std::collections::HashMap<&'static str, broadcast::Sender<Result<(), String>>> = self
+        let setup_signals: std::collections::HashMap<
+            &'static str,
+            broadcast::Sender<Result<(), String>>,
+        > = self
             .tasks
             .iter()
             .map(|e| (e.task.id(), e.setup_tx.clone()))
@@ -157,23 +155,18 @@ impl TaskRuntime {
         // --- Phase 3: spawn ---
         for entry in self.tasks.iter() {
             // Collect receivers for each declared dependency
-            let dep_receivers: Vec<(&'static str, broadcast::Receiver<Result<(), String>>)> =
-                entry
-                    .task
-                    .dependencies()
-                    .iter()
-                    .map(|dep_id| {
-                        // validated above, safe to unwrap
-                        let sender = setup_signals[dep_id].clone();
-                        (*dep_id, sender.subscribe())
-                    })
-                    .collect();
+            let dep_receivers: Vec<(&'static str, broadcast::Receiver<Result<(), String>>)> = entry
+                .task
+                .dependencies()
+                .iter()
+                .map(|dep_id| {
+                    // validated above, safe to unwrap
+                    let sender = setup_signals[dep_id].clone();
+                    (*dep_id, sender.subscribe())
+                })
+                .collect();
 
-            let handle = supervise(
-                entry.task.clone(),
-                entry.setup_tx.clone(),
-                dep_receivers,
-            );
+            let handle = supervise(entry.task.clone(), entry.setup_tx.clone(), dep_receivers);
             self.handles.push(handle);
         }
 

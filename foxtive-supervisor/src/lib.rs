@@ -10,8 +10,8 @@ use std::sync::Arc;
 
 use crate::contracts::SupervisedTask;
 
-pub use crate::runtime::{SupervisionResult, TaskRuntime, spawn_supervised, spawn_supervised_many};
 pub use crate::error::{SupervisorError, ValidationError};
+pub use crate::runtime::{SupervisionResult, TaskRuntime, spawn_supervised, spawn_supervised_many};
 
 /// Builder for constructing and starting a supervisor
 ///
@@ -116,19 +116,25 @@ impl Supervisor {
     }
 
     /// Start all tasks; return the runtime for later use
-    pub async fn start(mut self) -> Result<crate::runtime::TaskRuntime, crate::error::SupervisorError> {
+    pub async fn start(
+        mut self,
+    ) -> Result<crate::runtime::TaskRuntime, crate::error::SupervisorError> {
         self.runtime.start_all().await?;
         Ok(self.runtime)
     }
 
     /// Start all tasks and block until the first one terminates
-    pub async fn start_and_wait_any(mut self) -> Result<SupervisionResult, crate::error::SupervisorError> {
+    pub async fn start_and_wait_any(
+        mut self,
+    ) -> Result<SupervisionResult, crate::error::SupervisorError> {
         self.runtime.start_all().await?;
         Ok(self.runtime.wait_any().await)
     }
 
     /// Start all tasks and block until all have terminated
-    pub async fn start_and_wait_all(mut self) -> Result<Vec<SupervisionResult>, crate::error::SupervisorError> {
+    pub async fn start_and_wait_all(
+        mut self,
+    ) -> Result<Vec<SupervisionResult>, crate::error::SupervisorError> {
         self.runtime.start_all().await?;
         Ok(self.runtime.wait_all().await)
     }

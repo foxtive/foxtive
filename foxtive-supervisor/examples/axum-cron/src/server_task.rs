@@ -1,6 +1,6 @@
+use axum::Router;
 use axum::response::Html;
 use axum::routing::get;
-use axum::Router;
 use foxtive_supervisor::contracts::SupervisedTask;
 use tokio::net::TcpListener;
 use tokio::sync::broadcast;
