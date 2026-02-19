@@ -1,6 +1,6 @@
-use axum::Router;
 use axum::response::Html;
 use axum::routing::get;
+use axum::Router;
 use foxtive_supervisor::contracts::SupervisedTask;
 use tokio::net::TcpListener;
 use tokio::sync::broadcast;
@@ -23,6 +23,10 @@ impl HttpServerTask {
 
 #[async_trait::async_trait]
 impl SupervisedTask for HttpServerTask {
+    fn id(&self) -> &'static str {
+        "server-task"
+    }
+
     fn name(&self) -> String {
         "axum-server-task".to_string()
     }

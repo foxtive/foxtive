@@ -12,6 +12,8 @@ pub enum SupervisionStatus {
     RestartPrevented,
     /// Setup failed, task never started
     SetupFailed,
+    /// A declared dependency failed its setup phase
+    DependencyFailed,
 }
 
 /// Defines when and how often a task should restart after failure

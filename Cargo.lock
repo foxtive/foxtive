@@ -1390,11 +1390,12 @@ dependencies = [
 
 [[package]]
 name = "foxtive-supervisor"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
  "futures-util",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
 ]
@@ -3926,6 +3927,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
+ "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",

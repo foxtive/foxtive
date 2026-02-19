@@ -1,7 +1,7 @@
 use crate::contracts::SupervisedTask;
 use crate::enums::{BackoffStrategy, RestartPolicy};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 pub(crate) struct MockTask {
@@ -41,6 +41,10 @@ impl MockTask {
 
 #[async_trait::async_trait]
 impl SupervisedTask for MockTask {
+    fn id(&self) -> &'static str {
+        "mock-task"
+    }
+
     fn name(&self) -> String {
         self.name.clone()
     }
@@ -70,6 +74,10 @@ pub(crate) struct PanickingTask {
 
 #[async_trait::async_trait]
 impl SupervisedTask for PanickingTask {
+    fn id(&self) -> &'static str {
+        "panicking-task"
+    }
+
     fn name(&self) -> String {
         self.name.clone()
     }
@@ -89,6 +97,10 @@ pub(crate) struct SetupFailTask {
 
 #[async_trait::async_trait]
 impl SupervisedTask for SetupFailTask {
+    fn id(&self) -> &'static str {
+        "setup-fail-task"
+    }
+
     fn name(&self) -> String {
         self.name.clone()
     }
@@ -130,6 +142,10 @@ impl HookTrackingTask {
 
 #[async_trait::async_trait]
 impl SupervisedTask for HookTrackingTask {
+    fn id(&self) -> &'static str {
+        "hook-tracking-task"
+    }
+
     fn name(&self) -> String {
         self.name.clone()
     }
@@ -179,6 +195,10 @@ pub(crate) struct ConditionalRestartTask {
 
 #[async_trait::async_trait]
 impl SupervisedTask for ConditionalRestartTask {
+    fn id(&self) -> &'static str {
+        "conditional-restart-task"
+    }
+
     fn name(&self) -> String {
         self.name.clone()
     }
@@ -200,6 +220,10 @@ pub(crate) struct LongRunningTask {
 
 #[async_trait::async_trait]
 impl SupervisedTask for LongRunningTask {
+    fn id(&self) -> &'static str {
+        "long-running-task"
+    }
+
     fn name(&self) -> String {
         self.name.clone()
     }

@@ -18,7 +18,7 @@ In production, things fail:
 
 ```toml
 [dependencies]
-foxtive-supervisor = "0.1"
+foxtive-supervisor = "0.2"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 async-trait = "0.1"
@@ -27,33 +27,96 @@ async-trait = "0.1"
 ## Quick Start
 
 ```rust
-use foxtive_supervisor::{SupervisedTask, spawn_supervised};
+use foxtive_supervisor::{Supervisor, SupervisedTask};
 
 struct MyWorker;
 
 #[async_trait::async_trait]
 impl SupervisedTask for MyWorker {
-    fn name(&self) -> String {
-        "my-worker".to_string()
+    fn id(&self) -> &'static str {
+        "my-worker"
     }
 
     async fn run(&self) -> anyhow::Result<()> {
-        // Your task logic here
         process_messages().await?;
         Ok(())
     }
 }
 
 #[tokio::main]
-async fn main() {
-    let handle = spawn_supervised(MyWorker);
-    
-    // Task runs in background, auto-restarts on failure
-    handle.await.unwrap();
+async fn main() -> anyhow::Result<()> {
+    Supervisor::new()
+        .add(MyWorker)
+        .start_and_wait_any()
+        .await?;
+
+    Ok(())
 }
 ```
 
 That's it. Your task will automatically restart if it fails.
+
+## Task Identity
+
+Every task declares a unique `id`. This is used for logging, monitoring, and dependency resolution:
+
+```rust
+impl SupervisedTask for MyTask {
+    fn id(&self) -> &'static str {
+        "my-task"   // must be unique across registered tasks
+    }
+
+    // Optional: human-readable name (defaults to id)
+    fn name(&self) -> String {
+        "My Task (friendly name)".to_string()
+    }
+}
+```
+
+## Task Dependencies
+
+Declare which tasks must complete their `setup()` phase before yours starts:
+
+```rust
+impl SupervisedTask for KafkaConsumer {
+    fn id(&self) -> &'static str {
+        "kafka-consumer"
+    }
+
+    fn dependencies(&self) -> &'static [&'static str] {
+        &["database", "redis"]  // waits for these task IDs to finish setup
+    }
+
+    async fn run(&self) -> anyhow::Result<()> {
+        // guaranteed: database and redis are ready
+        Ok(())
+    }
+}
+```
+
+The supervisor validates the dependency graph at startup — unknown IDs and circular dependencies are caught immediately with a clear error before any task spawns.
+
+## Prerequisites
+
+Need to wait for something external before *any* task starts? Use prerequisites:
+
+```rust
+// Wait for your HTTP server to bind before starting consumers
+let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+
+// somewhere in your server startup code:
+// ready_tx.send(()).unwrap();
+
+Supervisor::new()
+    .require("http-server-bound", async move {
+        ready_rx.await.map_err(|_| anyhow::anyhow!("server never signalled ready"))
+    })
+    .add(MyConsumer)
+    .start_and_wait_any()
+    .await?;
+```
+
+Prerequisites run sequentially before any task is spawned. If one fails, startup is aborted immediately.
 
 ## Restart Policies
 
@@ -62,14 +125,9 @@ Control *when* tasks restart:
 ```rust
 impl SupervisedTask for MyTask {
     fn restart_policy(&self) -> RestartPolicy {
-        // Never restart (run once)
-        RestartPolicy::Never
-        
-        // Try up to 5 times, then give up
-        RestartPolicy::MaxAttempts(5)
-        
-        // Keep trying forever (default)
-        RestartPolicy::Always
+        RestartPolicy::Never           // run once
+        RestartPolicy::MaxAttempts(5)  // try up to 5 times, then give up
+        RestartPolicy::Always          // keep trying forever (default)
     }
 }
 ```
@@ -83,14 +141,11 @@ use std::time::Duration;
 
 impl SupervisedTask for MyTask {
     fn backoff_strategy(&self) -> BackoffStrategy {
-        // Wait same amount each time
-        BackoffStrategy::Constant(Duration::from_secs(5))
-        
-        // Double the wait time after each failure (recommended)
-        BackoffStrategy::Exponential {
-            initial: Duration::from_secs(1),
-            max: Duration::from_secs(60),
-        }
+        BackoffStrategy::fixed(Duration::from_secs(5))   // same wait each time
+        BackoffStrategy::exponential()                    // 2s -> 4s -> 8s -> ... 60s (default)
+        BackoffStrategy::linear()                         // 5s -> 10s -> 15s -> ...
+        BackoffStrategy::fibonacci_with_default()         // 1s -> 1s -> 2s -> 3s -> 5s -> ...
+        BackoffStrategy::custom(|attempt| Duration::from_secs(attempt as u64 * 3))
     }
 }
 ```
@@ -102,67 +157,65 @@ Get notified about what's happening:
 ```rust
 #[async_trait::async_trait]
 impl SupervisedTask for MyTask {
-    // Run before the first attempt
     async fn setup(&self) -> anyhow::Result<()> {
-        println!("Setting up connections...");
+        // run once before first attempt — connections, topology, validation
         Ok(())
     }
 
-    // Run after task completes (success or failure)
     async fn cleanup(&self) {
-        println!("Closing connections...");
+        // run after task stops (success, failure, or panic)
     }
 
-    // Called before each restart attempt
     async fn on_restart(&self, attempt: usize) {
-        println!("Restarting (attempt #{})", attempt);
+        // called before each restart (not on first attempt)
     }
 
-    // Called when task returns an error
     async fn on_error(&self, error: &str, attempt: usize) {
-        eprintln!("Task failed: {} (attempt #{})", error, attempt);
+        // called when run() returns Err
     }
 
-    // Called when task panics
     async fn on_panic(&self, msg: &str, attempt: usize) {
-        eprintln!("Task panicked: {} (attempt #{})", msg, attempt);
+        // called when run() panics
     }
 
-    // Decide if restart should happen
     async fn should_restart(&self, attempt: usize, error: &str) -> bool {
-        // Custom logic - e.g., don't restart on auth errors
-        !error.contains("Unauthorized")
+        !error.contains("Unauthorized") // return false to prevent restart
     }
 
-    // Called during graceful shutdown
     async fn on_shutdown(&self) {
-        println!("Shutting down gracefully...");
+        // called during graceful shutdown
     }
 }
 ```
 
 ## Managing Multiple Tasks
 
-Use `TaskRuntime` to supervise multiple tasks:
+Use the `Supervisor` builder or `TaskRuntime` directly:
 
 ```rust
-use foxtive_supervisor::TaskRuntime;
+// Builder style
+Supervisor::new()
+    .add(DatabaseWorker)
+    .add(ApiServer)
+    .add(BackgroundJob)
+    .start_and_wait_any()
+    .await?;
 
+// Mixed types (boxed or Arc)
+Supervisor::new()
+    .add_boxed(Box::new(TaskA::new()))
+    .add_boxed(Box::new(TaskB::new()))
+    .start_and_wait_all()
+    .await?;
+
+// Manual runtime control
 let mut runtime = TaskRuntime::new();
-
-runtime
-    .register(DatabaseWorker)
-    .register(ApiServer)
-    .register(BackgroundJob);
-
+runtime.register(DatabaseWorker);
+runtime.register(ApiServer);
 runtime.start_all().await?;
 
-// Wait for any task to terminate
 let result = runtime.wait_any().await;
 println!("Task '{}' stopped: {:?}", result.task_name, result.final_status);
-
-// Or wait for all tasks
-let results = runtime.wait_all().await;
 ```
 
 ## Graceful Shutdown
@@ -172,9 +225,10 @@ Handle SIGTERM/SIGINT properly:
 ```rust
 use tokio::signal;
 
-let mut runtime = TaskRuntime::new();
-runtime.register(MyTask);
-runtime.start_all().await?;
+let mut runtime = Supervisor::new()
+    .add(MyTask)
+    .start()
+    .await?;
 
 tokio::select! {
     _ = signal::ctrl_c() => {
@@ -193,30 +247,37 @@ tokio::select! {
 use foxtive_supervisor::*;
 use std::time::Duration;
 
-struct KafkaConsumer {
-    topic: String,
+struct DatabasePool;
+struct KafkaConsumer { topic: String }
+
+#[async_trait::async_trait]
+impl SupervisedTask for DatabasePool {
+    fn id(&self) -> &'static str { "database" }
+
+    async fn setup(&self) -> anyhow::Result<()> {
+        // establish pool
+        Ok(())
+    }
+
+    async fn run(&self) -> anyhow::Result<()> {
+        // keep pool alive
+        Ok(())
+    }
 }
 
 #[async_trait::async_trait]
 impl SupervisedTask for KafkaConsumer {
-    fn name(&self) -> String {
-        format!("kafka-consumer-{}", self.topic)
+    fn id(&self) -> &'static str { "kafka-consumer" }
+
+    // won't start until DatabasePool setup() completes
+    fn dependencies(&self) -> &'static [&'static str] {
+        &["database"]
     }
 
-    fn restart_policy(&self) -> RestartPolicy {
-        RestartPolicy::Always // Keep consuming forever
-    }
+    fn restart_policy(&self) -> RestartPolicy { RestartPolicy::Always }
 
     fn backoff_strategy(&self) -> BackoffStrategy {
-        BackoffStrategy::Exponential {
-            initial: Duration::from_secs(1),
-            max: Duration::from_secs(30),
-        }
-    }
-
-    async fn setup(&self) -> anyhow::Result<()> {
-        // Connect to Kafka
-        Ok(())
+        BackoffStrategy::exponential_custom(Duration::from_secs(1), Duration::from_secs(30))
     }
 
     async fn run(&self) -> anyhow::Result<()> {
@@ -227,19 +288,63 @@ impl SupervisedTask for KafkaConsumer {
     }
 
     async fn on_error(&self, error: &str, attempt: usize) {
-        tracing::error!(
-            topic = %self.topic,
-            attempt = attempt,
-            error = %error,
-            "Consumer failed"
-        );
+        tracing::error!(topic = %self.topic, attempt, error, "Consumer failed");
     }
 
     async fn cleanup(&self) {
-        // Close Kafka connection
+        // close Kafka connection
     }
 }
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    Supervisor::new()
+        .add(DatabasePool)
+        .add(KafkaConsumer { topic: "orders".into() })
+        .start_and_wait_any()
+        .await?;
+
+    Ok(())
+}
 ```
+
+## Error Handling
+
+The supervisor provides structured error handling through the `SupervisorError` enum:
+
+```rust
+use foxtive_supervisor::{Supervisor, SupervisorError};
+
+async fn start_supervisor() -> Result<(), SupervisorError> {
+    let mut supervisor = Supervisor::new();
+    
+    // This might fail with structured errors
+    supervisor.start().await?;
+    
+    Ok(())
+}
+
+// Pattern matching for specific error handling
+match start_supervisor().await {
+    Err(SupervisorError::DependencyValidation { task_id, dependency_id, reason }) => {
+        eprintln!("Task '{}' has invalid dependency '{}': {:?}", task_id, dependency_id, reason);
+    }
+    Err(SupervisorError::CircularDependency { task_id, dependency_id }) => {
+        eprintln!("Circular dependency detected: '{}' -> '{}'", task_id, dependency_id);
+    }
+    Err(e) => {
+        eprintln!("Supervisor failed: {}", e);
+    }
+    Ok(()) => println!("Supervisor started successfully"),
+}
+```
+
+### Error Categories
+
+- **Configuration Errors**: `DependencyValidation`, `CircularDependency`, `InvalidConfiguration`
+- **Runtime Errors**: `PrerequisiteFailed`, `SetupFailed`, `DependencySetupFailed`
+- **Execution Errors**: `TaskExecutionFailed`, `TaskPanicked`, `MaxAttemptsReached`, `RestartPrevented`
+- **System Errors**: `RuntimeFailure`, `InternalError`
 
 ## Supervision Results
 
@@ -248,16 +353,18 @@ Every task returns a `SupervisionResult`:
 ```rust
 pub struct SupervisionResult {
     pub task_name: String,
-    pub total_attempts: usize,  // How many times it ran
+    pub id: String,
+    pub total_attempts: usize,
     pub final_status: SupervisionStatus,
 }
 
 pub enum SupervisionStatus {
-    CompletedNormally,      // Task finished successfully
-    MaxAttemptsReached,     // Hit restart limit
-    RestartPrevented,       // should_restart() returned false
-    SetupFailed,            // setup() failed
-    ManuallyStopped,        // Policy said stop, or task was aborted
+    CompletedNormally,    // task finished successfully
+    MaxAttemptsReached,   // hit restart limit
+    RestartPrevented,     // should_restart() returned false
+    SetupFailed,          // setup() failed
+    DependencyFailed,     // an upstream dependency's setup failed
+    ManuallyStopped,      // policy said stop, or task was aborted
 }
 ```
 

@@ -12,12 +12,20 @@ use crate::enums::{BackoffStrategy, HealthStatus, RestartPolicy, TaskState};
 /// - Any async task that should run continuously
 #[async_trait::async_trait]
 pub trait SupervisedTask: Send + Sync {
-    // ==============================================================================
     // REQUIRED METHODS
-    // ==============================================================================
 
-    /// Unique identifier for this task (used in logs and monitoring)
-    fn name(&self) -> String;
+    /// Unique identifier for this task (used in logs, monitoring, and dependency resolution)
+    ///
+    /// Must be unique across all registered tasks in the same supervisor.
+    /// Defaults to the task name if not overridden.
+    fn id(&self) -> &'static str;
+
+    /// Human-readable name for this task (used in logs and monitoring)
+    ///
+    /// Defaults to task_id if not overridden.
+    fn name(&self) -> String {
+        self.id().to_string()
+    }
 
     /// Main task execution - this should run until completion or error
     ///
@@ -27,9 +35,29 @@ pub trait SupervisedTask: Send + Sync {
     /// For one-shot tasks, return Ok(()) when complete.
     async fn run(&self) -> anyhow::Result<()>;
 
-    // ==============================================================================
+    // DEPENDENCY MANAGEMENT
+
+    /// Declare task IDs that must complete setup before this task starts
+    ///
+    /// The supervisor will wait for all listed dependencies to successfully
+    /// complete their `setup()` phase before calling `setup()` on this task.
+    ///
+    /// # Important
+    /// - Dependencies are resolved by `task_id`, not by name
+    /// - Circular dependencies will cause a startup error
+    /// - If a dependency's setup fails, this task will not start
+    ///
+    /// # Example
+    /// ```ignore
+    /// fn dependencies(&self) -> &'static [&'static str] {
+    ///     &["database", "redis"]
+    /// }
+    /// ```
+    fn dependencies(&self) -> &'static [&'static str] {
+        &[]
+    }
+
     // OPTIONAL CONFIGURATION
-    // ==============================================================================
 
     /// Restart policy when task fails or panics
     ///
@@ -45,9 +73,7 @@ pub trait SupervisedTask: Send + Sync {
         BackoffStrategy::default()
     }
 
-    // ==============================================================================
     // LIFECYCLE HOOKS
-    // ==============================================================================
 
     /// Called once before the first run() attempt
     ///
@@ -75,9 +101,7 @@ pub trait SupervisedTask: Send + Sync {
         // Default: no cleanup
     }
 
-    // ==============================================================================
     // RESTART CONTROL
-    // ==============================================================================
 
     /// Dynamic restart control - called before each restart
     ///
@@ -96,9 +120,7 @@ pub trait SupervisedTask: Send + Sync {
         true
     }
 
-    // ==============================================================================
     // MONITORING & OBSERVABILITY
-    // ==============================================================================
 
     /// Health check for monitoring endpoints
     ///
@@ -131,9 +153,7 @@ pub trait SupervisedTask: Send + Sync {
         // Default: no action
     }
 
-    // ==============================================================================
     // ERROR HANDLING HOOKS
-    // ==============================================================================
 
     /// Called when run() returns an error
     ///

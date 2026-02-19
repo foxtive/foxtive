@@ -1,5 +1,5 @@
-use foxtive_supervisor::Supervisor;
 use foxtive_supervisor::contracts::SupervisedTask;
+use foxtive_supervisor::Supervisor;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing::info;
 
@@ -11,6 +11,10 @@ pub struct BasicTask {
 
 #[async_trait::async_trait]
 impl SupervisedTask for BasicTask {
+    fn id(&self) -> &'static str {
+        "basic-task"
+    }
+
     fn name(&self) -> String {
         self.name.clone()
     }

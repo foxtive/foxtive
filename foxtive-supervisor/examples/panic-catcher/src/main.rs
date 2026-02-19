@@ -1,6 +1,6 @@
-use foxtive_supervisor::Supervisor;
 use foxtive_supervisor::contracts::SupervisedTask;
 use foxtive_supervisor::enums::BackoffStrategy;
+use foxtive_supervisor::Supervisor;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use tracing::info;
@@ -13,6 +13,10 @@ pub struct PanicCatcherTask {
 
 #[async_trait::async_trait]
 impl SupervisedTask for PanicCatcherTask {
+    fn id(&self) -> &'static str {
+        "panic-catcher-task"
+    }
+
     fn name(&self) -> String {
         self.name.clone()
     }
