@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.23.0 (2025-02-26)
+* fix(tokio): create a dedicated runtime for run_async to avoid blocking the loop
+
 ### 0.22.3 (2025-02-18)
 * fix(pagination): use generic function param instead of an fn pointer
 

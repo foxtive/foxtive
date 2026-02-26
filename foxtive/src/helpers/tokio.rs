@@ -1,7 +1,17 @@
 use crate::prelude::AppResult;
 use anyhow::Context;
 use std::future::Future;
+use std::sync::OnceLock;
+use tokio::runtime::Runtime;
 use tokio::task::{JoinHandle, spawn_blocking};
+
+static RUNTIME: OnceLock<Runtime> = OnceLock::new();
+
+fn runtime() -> &'static Runtime {
+    RUNTIME.get_or_init(|| {
+        Runtime::new().expect("Failed to create Tokio runtime")
+    })
+}
 
 /// Spawns a blocking function on the tokio blocking thread pool.
 ///
@@ -140,14 +150,9 @@ where
             .context("Failed to spawn blocking task")
             .flatten()
     } else {
-        tracing::debug!("Creating new tokio runtime for blocking task");
+        tracing::debug!("Using Foxtive's dedicated tokio runtime for blocking task");
 
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .context("Failed to create tokio runtime")?;
-
-        rt.spawn_blocking(f)
+        runtime().spawn_blocking(f)
             .await
             .map_err(crate::Error::from)
             .flatten()
@@ -201,14 +206,8 @@ pub fn run_async<F: Future>(fut: F) -> F::Output {
         tracing::debug!("Use existing tokio runtime and block on future");
         hnd.block_on(tokio::task::LocalSet::new().run_until(fut))
     } else {
-        tracing::debug!("Create tokio runtime and block on future");
-
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            //.unhandled_panic(tokio::runtime::UnhandledPanic::ShutdownRuntime)
-            .build()
-            .unwrap();
-        tokio::task::LocalSet::new().block_on(&rt, fut)
+        tracing::debug!("Using Foxtive's dedicated tokio runtime and block on future");
+        runtime().block_on(fut)
     }
 }
 
