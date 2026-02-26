@@ -4,7 +4,7 @@ use crate::redis::conn::create_redis_connection;
 use crate::results::redis_result::RedisResultToAppResult;
 use anyhow::Error;
 use futures_util::StreamExt;
-use redis::{AsyncCommands, FromRedisValue, ToRedisArgs};
+use redis::{AsyncCommands, FromRedisValue, ToRedisArgs, ToSingleRedisArg};
 use serde::Serialize;
 use std::future::Future;
 use std::num::{NonZeroU64, NonZeroUsize};
@@ -40,7 +40,7 @@ impl Redis {
 
     pub async fn set<T>(&self, key: &str, value: &T) -> AppResult<String>
     where
-        T: ToRedisArgs + Send + Sync,
+        T: ToSingleRedisArg + Send + Sync,
     {
         let mut conn = self.redis().await?;
         conn.set(key, value).await.into_app_result()
