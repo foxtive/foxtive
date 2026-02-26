@@ -8,9 +8,7 @@ use tokio::task::{JoinHandle, spawn_blocking};
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 
 fn runtime() -> &'static Runtime {
-    RUNTIME.get_or_init(|| {
-        Runtime::new().expect("Failed to create Tokio runtime")
-    })
+    RUNTIME.get_or_init(|| Runtime::new().expect("Failed to create Tokio runtime"))
 }
 
 /// Spawns a blocking function on the tokio blocking thread pool.
@@ -152,7 +150,8 @@ where
     } else {
         tracing::debug!("Using Foxtive's dedicated tokio runtime for blocking task");
 
-        runtime().spawn_blocking(f)
+        runtime()
+            .spawn_blocking(f)
             .await
             .map_err(crate::Error::from)
             .flatten()
