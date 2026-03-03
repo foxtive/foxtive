@@ -3,14 +3,12 @@ use anyhow::Context;
 use std::future::Future;
 use std::sync::OnceLock;
 use tokio::runtime::Runtime;
-use tokio::task::{JoinHandle, spawn_blocking};
+use tokio::task::{spawn_blocking, JoinHandle};
 
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 
 fn runtime() -> &'static Runtime {
-    RUNTIME.get_or_init(|| {
-        Runtime::new().expect("Failed to create Tokio runtime")
-    })
+    RUNTIME.get_or_init(|| Runtime::new().expect("Failed to create Tokio runtime"))
 }
 
 /// Spawns a blocking function on the tokio blocking thread pool.
@@ -152,7 +150,8 @@ where
     } else {
         tracing::debug!("Using Foxtive's dedicated tokio runtime for blocking task");
 
-        runtime().spawn_blocking(f)
+        runtime()
+            .spawn_blocking(f)
             .await
             .map_err(crate::Error::from)
             .flatten()
@@ -202,13 +201,7 @@ where
 /// assert_eq!(data, "data");
 /// ```
 pub fn run_async<F: Future>(fut: F) -> F::Output {
-    if let Ok(hnd) = tokio::runtime::Handle::try_current() {
-        tracing::debug!("Use existing tokio runtime and block on future");
-        hnd.block_on(tokio::task::LocalSet::new().run_until(fut))
-    } else {
-        tracing::debug!("Using Foxtive's dedicated tokio runtime and block on future");
-        runtime().block_on(fut)
-    }
+    runtime().block_on(fut)
 }
 
 #[cfg(test)]

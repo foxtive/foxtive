@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.23.1 (2025-03-03)
+* fix(tokio): use a dedicated runtime for run_async
+
 ### 0.23.0 (2025-02-26)
 * fix(tokio): create a dedicated runtime for run_async to avoid blocking the loop
 
