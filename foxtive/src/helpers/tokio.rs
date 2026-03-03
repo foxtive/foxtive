@@ -3,7 +3,7 @@ use anyhow::Context;
 use std::future::Future;
 use std::sync::OnceLock;
 use tokio::runtime::Runtime;
-use tokio::task::{JoinHandle, spawn_blocking};
+use tokio::task::{spawn_blocking, JoinHandle};
 
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 
@@ -201,13 +201,7 @@ where
 /// assert_eq!(data, "data");
 /// ```
 pub fn run_async<F: Future>(fut: F) -> F::Output {
-    if let Ok(hnd) = tokio::runtime::Handle::try_current() {
-        tracing::debug!("Use existing tokio runtime and block on future");
-        hnd.block_on(tokio::task::LocalSet::new().run_until(fut))
-    } else {
-        tracing::debug!("Using Foxtive's dedicated tokio runtime and block on future");
-        runtime().block_on(fut)
-    }
+    runtime().block_on(fut)
 }
 
 #[cfg(test)]
