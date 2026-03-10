@@ -1,5 +1,7 @@
+use crate::enums::AppMessage;
+use crate::prelude::AppResult;
 use crate::Error;
-use crate::prelude::{AppMessage, AppResult};
+use std::borrow::Cow;
 use std::future::Future;
 
 pub trait RecoverAppResultExt<T> {
@@ -14,7 +16,7 @@ pub trait RecoverAppResultExt<T> {
 }
 
 pub trait AppErrorExt {
-    fn message(&self) -> String;
+    fn message(&self) -> Cow<'_, str>;
 }
 
 impl<T: Send> RecoverAppResultExt<T> for AppResult<T> {
@@ -70,9 +72,9 @@ impl<T> RecoverAppResultExt<T> for Error {
 }
 
 impl AppErrorExt for Error {
-    fn message(&self) -> String {
+    fn message(&self) -> Cow<'_, str> {
         match self.downcast_ref::<AppMessage>() {
-            None => self.to_string(),
+            None => Cow::from(self.to_string()),
             Some(msg) => msg.message(),
         }
     }
@@ -85,27 +87,30 @@ mod tests {
 
     #[test]
     fn test_recover_from_error() {
-        let result = AppMessage::InternalServerError.ae().recover_from(|err| {
-            assert_eq!(err.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
-            assert_eq!(err.message(), "Internal Server Error");
-            Ok("recovered".to_string())
-        });
+        let result: AppResult<String> = AppMessage::internal_server_error("Internal Server Error")
+            .ae()
+            .recover_from(|err| {
+                assert_eq!(err.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
+                assert_eq!(err.message(), "Internal Server Error");
+                Ok("recovered".to_string())
+            });
         assert_eq!(result.unwrap(), "recovered");
     }
 
     #[test]
     fn test_recover_from_result() {
-        let result = Err(AppMessage::SuccessMessage("User created").ae()).recover_from(|err| {
-            assert_eq!(err.status_code(), StatusCode::OK);
-            assert_eq!(err.message(), "User created");
-            Ok("recovered".to_string())
-        });
+        let result: AppResult<String> =
+            Err(AppMessage::success("User created").ae()).recover_from(|err| {
+                assert_eq!(err.status_code(), StatusCode::OK);
+                assert_eq!(err.message(), "User created");
+                Ok("recovered".to_string())
+            });
         assert_eq!(result.unwrap(), "recovered");
     }
 
     #[tokio::test]
     async fn test_recover_from_async_error() {
-        let result = AppMessage::InternalServerError
+        let result: AppResult<String> = AppMessage::internal_server_error("Internal Server Error")
             .ae()
             .recover_from_async(|err| {
                 assert_eq!(err.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
@@ -118,7 +123,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_recover_from_async_result() {
-        let result = Err(AppMessage::SuccessMessage("User created").ae())
+        let result: AppResult<String> = Err(AppMessage::success("User created").ae())
             .recover_from_async(|err| {
                 assert_eq!(err.status_code(), StatusCode::OK);
                 assert_eq!(err.message(), "User created");
@@ -130,12 +135,12 @@ mod tests {
 
     #[test]
     fn test_msg() {
-        let result = AppMessage::InternalServerError.ae().message();
+        let err = AppMessage::internal_server_error("Internal Server Error").ae();
+        let result = err.message();
         assert_eq!(result, "Internal Server Error");
 
-        let result = AppMessage::WarningMessage("User has already been suspended")
-            .ae()
-            .message();
+        let err = AppMessage::warning("User has already been suspended").ae();
+        let result = err.message();
         assert_eq!(result, "User has already been suspended");
     }
 }

@@ -1,6 +1,4 @@
 use crate::helpers::json::{JsonEmpty, json_empty};
-#[cfg(feature = "database")]
-use crate::prelude::AppMessage;
 use crate::results::AppResult;
 #[cfg(feature = "database")]
 use diesel::QueryResult;
@@ -27,7 +25,7 @@ impl<T> IntoAppResult<T> for QueryResult<T> {
     fn into_app_result(self) -> AppResult<T> {
         match self {
             Ok(value) => Ok(value),
-            Err(Error::NotFound) => Err(AppMessage::EntityNotFound("".to_string()).into()),
+            Err(Error::NotFound) => Err(crate::prelude::AppMessage::not_found("").into()),
             Err(e) => Err(e.into()),
         }
     }

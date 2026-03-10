@@ -23,7 +23,7 @@ impl ReqwestResponseError {
         &self.status
     }
 
-    pub fn body(&self) -> &String {
+    pub fn body(&self) -> &str {
         &self.body
     }
 
@@ -38,7 +38,7 @@ impl ReqwestResponseError {
 
 impl Display for ReqwestResponseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.body.clone())
+        write!(f, "{}", self.body)
     }
 }
 
