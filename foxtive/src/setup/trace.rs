@@ -67,7 +67,7 @@ impl FromStr for OutputFormat {
             "full" => Ok(OutputFormat::Full),
             "compact" => Ok(OutputFormat::Compact),
             "pretty" => Ok(OutputFormat::Pretty),
-            _ => Err(AppMessage::InternalServerErrorMessage("Invalid tracing format").ae()),
+            _ => Err(AppMessage::internal_server_error("Invalid tracing format").ae()),
         }
     }
 }

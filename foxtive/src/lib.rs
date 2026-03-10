@@ -32,11 +32,11 @@ pub use env::Environment;
 pub use tera::Context as TemplateContext;
 
 pub mod prelude {
-    pub use crate::enums::app_message::AppMessage;
+    pub use crate::enums::AppMessage;
     pub use crate::ext::app_state::AppStateExt;
     #[cfg(feature = "rabbitmq")]
     pub use crate::rabbitmq::RabbitMQ;
     #[cfg(feature = "redis")]
     pub use crate::redis::Redis;
-    pub use crate::results::{AppResult, app_result::IntoAppResult};
+    pub use crate::results::{app_result::IntoAppResult, AppResult};
 }

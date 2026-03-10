@@ -76,7 +76,7 @@ pub async fn make_state(setup: FoxtiveSetup) -> AppResult<FoxtiveState> {
     let foxtive = create_state(setup).await?;
 
     crate::FOXTIVE.set(foxtive.clone()).map_err(|_| {
-        AppMessage::InternalServerErrorMessage("Failed to set global Foxtive state").ae()
+        AppMessage::internal_server_error("Failed to set global Foxtive state").ae()
     })?;
 
     debug!("Foxtive state initialized successfully");

@@ -1,25 +1,30 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
-### 0.23.1 (2025-03-03)
+### 0.24.0 (2026-03-10)
+* refactor(AppMessage): redundancy by merging variants like SuccessMessage and SuccessMessageString, clarify variant names, use more specific error types, and simplify the message method. I'll begin by merging the redundant variants in the enum definition.
+* feat(AppMessage): add static constructor methods for each AppMessage enum variant that accepts impl Into<String> for its string arguments. This will simplify the creation of AppMessage instances.
+* perf(AppMessage): use Cow<str> instead of String where necessary
+
+### 0.23.1 (2026-03-03)
 * fix(tokio): use a dedicated runtime for run_async
 
-### 0.23.0 (2025-02-26)
+### 0.23.0 (2026-02-26)
 * fix(tokio): create a dedicated runtime for run_async to avoid blocking the loop
 
-### 0.22.3 (2025-02-18)
+### 0.22.3 (2026-02-18)
 * fix(pagination): use generic function param instead of an fn pointer
 
-### 0.22.2 (2025-02-12)
+### 0.22.2 (2026-02-12)
 * feat(numbers): add 'human_readable_int' to format and add `format_currency` & `format_integer` as aliases
 
-### 0.22.1 (2025-02-06)
+### 0.22.1 (2026-02-06)
 * refactor(block): now enforces returning AppResult<T>
 
-### 0.22.0 (2025-02-05)
+### 0.22.0 (2026-02-05)
 * feat(helpers): add intelligent block helper for spawn_blocking
 
-### 0.20.0 (2025-01-15)
+### 0.20.0 (2026-01-15)
 * feat(http): add start_datetime & end_datetime to query params
 * bump(crates): to latest versions
 

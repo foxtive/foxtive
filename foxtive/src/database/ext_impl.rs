@@ -3,7 +3,7 @@ use crate::database::ext::{
     ShareableResultExt,
 };
 use crate::database::{DBPool, Model};
-use crate::prelude::AppMessage::EntityNotFound;
+use crate::enums::AppMessage;
 use crate::prelude::AppResult;
 use crate::results::{AppOptionalResult, AppPaginationResult};
 use diesel::r2d2::{ConnectionManager, PooledConnection};
@@ -49,7 +49,9 @@ impl<'a, T> OptionalResultExt<'a, T> for QueryResult<T> {
     fn required(self, entity: &'a str) -> AppResult<T> {
         match self {
             Ok(value) => Ok(value),
-            Err(Error::NotFound) => EntityNotFound(entity.to_string()).into_result(),
+            Err(Error::NotFound) => {
+                AppMessage::not_found(format!("Such {entity} does not exist")).into_result()
+            }
             Err(e) => Err(e.into()),
         }
     }
