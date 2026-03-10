@@ -1,7 +1,7 @@
-use crate::prelude::{AppResult};
+use crate::enums::AppMessage;
+use crate::prelude::AppResult;
 use std::fmt;
 use std::str::FromStr;
-use crate::enums::AppMessage;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Environment {

@@ -199,10 +199,8 @@ mod tests {
         assert_eq!(message.status_code(), StatusCode::NOT_FOUND);
         assert_eq!(message.message(), "Such User does not exist");
 
-        let message = AppMessage::missing_environment_variable(
-            "DATABASE_URL",
-            env::VarError::NotPresent,
-        );
+        let message =
+            AppMessage::missing_environment_variable("DATABASE_URL", env::VarError::NotPresent);
         assert_eq!(message.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
         assert_eq!(
             message.message(),
@@ -254,10 +252,8 @@ mod tests {
         let message = AppMessage::not_found("User not found");
         assert!(message.is_error());
 
-        let message = AppMessage::missing_environment_variable(
-            "DATABASE_URL",
-            env::VarError::NotPresent,
-        );
+        let message =
+            AppMessage::missing_environment_variable("DATABASE_URL", env::VarError::NotPresent);
         assert!(message.is_error());
     }
 

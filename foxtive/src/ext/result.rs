@@ -1,6 +1,6 @@
+use crate::Error;
 use crate::enums::AppMessage;
 use crate::prelude::AppResult;
-use crate::Error;
 use std::borrow::Cow;
 use std::future::Future;
 
