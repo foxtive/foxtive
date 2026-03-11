@@ -11,7 +11,7 @@
 #[macro_export]
 macro_rules! not_found {
     ($($arg:tt)*) => {
-        anyhow::Error::from($crate::prelude::AppMessage::not_found(format!($($arg)*)))
+        $crate::Error::from($crate::prelude::AppMessage::not_found(format!($($arg)*)))
     };
 }
 
@@ -28,7 +28,7 @@ macro_rules! not_found {
 #[macro_export]
 macro_rules! unauthorized {
     ($($arg:tt)*) => {
-        anyhow::Error::from($crate::prelude::AppMessage::unauthorized(format!($($arg)*)))
+        $crate::Error::from($crate::prelude::AppMessage::unauthorized(format!($($arg)*)))
     };
 }
 
@@ -45,7 +45,7 @@ macro_rules! unauthorized {
 #[macro_export]
 macro_rules! forbidden {
     ($($arg:tt)*) => {
-        anyhow::Error::from($crate::prelude::AppMessage::forbidden(format!($($arg)*)))
+        $crate::Error::from($crate::prelude::AppMessage::forbidden(format!($($arg)*)))
     };
 }
 
@@ -62,7 +62,7 @@ macro_rules! forbidden {
 #[macro_export]
 macro_rules! bad_request {
     ($($arg:tt)*) => {
-        anyhow::Error::from($crate::prelude::AppMessage::invalid(format!($($arg)*)))
+        $crate::Error::from($crate::prelude::AppMessage::bad_request(format!($($arg)*)))
     };
 }
 
@@ -96,7 +96,7 @@ macro_rules! invalid {
 #[macro_export]
 macro_rules! conflict {
     ($($arg:tt)*) => {
-        anyhow::Error::from($crate::prelude::AppMessage::conflict(format!($($arg)*)))
+        $crate::Error::from($crate::prelude::AppMessage::conflict(format!($($arg)*)))
     };
 }
 
@@ -113,7 +113,7 @@ macro_rules! conflict {
 #[macro_export]
 macro_rules! unprocessable_entity {
     ($($arg:tt)*) => {
-        anyhow::Error::from($crate::prelude::AppMessage::unprocessable_entity(format!($($arg)*)))
+        $crate::Error::from($crate::prelude::AppMessage::unprocessable_entity(format!($($arg)*)))
     };
 }
 
@@ -130,7 +130,7 @@ macro_rules! unprocessable_entity {
 #[macro_export]
 macro_rules! internal_server_error {
     ($($arg:tt)*) => {
-        anyhow::Error::from($crate::prelude::AppMessage::internal_server_error(format!($($arg)*)))
+        $crate::Error::from($crate::prelude::AppMessage::internal_server_error(format!($($arg)*)))
     };
 }
 
@@ -144,7 +144,6 @@ macro_rules! internal_server_error {
 /// use foxtive::prelude::AppResult;
 ///
 /// fn example() -> AppResult<()> {
-///     // inline form
 ///     return Err(validation_error!("Validation failed", {
 ///         "email" => ["is required", "must be valid"],
 ///         "name"  => ["is too short"],
@@ -163,12 +162,12 @@ macro_rules! validation_error {
         $(
             errors.insert($field.to_string(), vec![$($err.to_string()),*]);
         )*
-        anyhow::Error::from($crate::prelude::AppMessage::validation_error(format!($msg), errors))
+        $crate::Error::from($crate::prelude::AppMessage::validation_error(format!($msg), errors))
     }};
 
     // Pre-built map form: validation_error!("msg", errors_map)
     ($msg:expr, $errors:expr) => {
-        anyhow::Error::from($crate::prelude::AppMessage::validation_error(format!($msg), $errors))
+        $crate::Error::from($crate::prelude::AppMessage::validation_error(format!($msg), $errors))
     };
 }
 
@@ -199,7 +198,7 @@ macro_rules! ensure {
 /// use foxtive::ensure_found;
 /// use foxtive::prelude::AppResult;
 ///
-/// fn example(value: Option<u64>) -> anyhow::Result<u64> {
+/// fn example(value: Option<u64>) -> AppResult<u64> {
 ///     let v = ensure_found!(value, "Item not found");
 ///     Ok(v)
 /// }
@@ -220,7 +219,7 @@ mod tests {
     use crate::results::AppResult;
     use http::StatusCode;
 
-    fn downcast(err: &anyhow::Error) -> &AppMessage {
+    fn downcast(err: &crate::Error) -> &AppMessage {
         err.downcast_ref::<AppMessage>().unwrap()
     }
 
@@ -318,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_ensure_found() {
-        fn find(val: Option<u32>) -> anyhow::Result<u32> {
+        fn find(val: Option<u32>) -> AppResult<u32> {
             let v = ensure_found!(val, "Item not found");
             Ok(v)
         }

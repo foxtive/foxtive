@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.25.1 (2026-03-11)
+* fix(macros): error macros should use local Error instance of referencing anyhow's
+
 ### 0.25.0 (2026-03-11)
 * refactor(AppMessage): renamed Warning variant to Invalid 
 * feat(AppMessage): added Conflict, UnprocessableEntity, ValidationError variants
