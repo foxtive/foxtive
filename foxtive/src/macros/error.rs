@@ -1,9 +1,12 @@
 /// Creates a `not_found` error with optional format arguments.
 ///
-/// ```
+/// ```no_run
 /// use foxtive::not_found;
+/// use foxtive::prelude::AppResult;
 ///
-/// return Err(not_found!("User {} was not found", user_id));
+/// fn example(user_id: u64) -> AppResult<()> {
+///     return Err(not_found!("User {} was not found", user_id));
+/// }
 /// ```
 #[macro_export]
 macro_rules! not_found {
@@ -14,10 +17,13 @@ macro_rules! not_found {
 
 /// Creates an `unauthorized` error with optional format arguments.
 ///
-/// ```
+/// ```no_run
 /// use foxtive::unauthorized;
+/// use foxtive::prelude::AppResult;
 ///
-/// return Err(unauthorized!("Token {} has expired", token_id));
+/// fn example(token_id: &str) -> AppResult<()> {
+///     return Err(unauthorized!("Token {} has expired", token_id));
+/// }
 /// ```
 #[macro_export]
 macro_rules! unauthorized {
@@ -28,10 +34,13 @@ macro_rules! unauthorized {
 
 /// Creates a `forbidden` error with optional format arguments.
 ///
-/// ```
+/// ```no_run
 /// use foxtive::forbidden;
+/// use foxtive::prelude::AppResult;
 ///
-/// return Err(forbidden!("User {} lacks permission", user_id));
+/// fn example(user_id: u64) -> AppResult<()> {
+///     return Err(forbidden!("User {} lacks permission", user_id));
+/// }
 /// ```
 #[macro_export]
 macro_rules! forbidden {
@@ -42,24 +51,30 @@ macro_rules! forbidden {
 
 /// Creates a `bad_request` error with optional format arguments.
 ///
-/// ```
+/// ```no_run
 /// use foxtive::bad_request;
+/// use foxtive::prelude::AppResult;
 ///
-/// return Err(bad_request!("Field '{}' is invalid", field));
+/// fn example(field: &str) -> AppResult<()> {
+///     return Err(bad_request!("Field '{}' is invalid", field));
+/// }
 /// ```
 #[macro_export]
 macro_rules! bad_request {
     ($($arg:tt)*) => {
-        anyhow::Error::from($crate::prelude::AppMessage::invalid(format!($($arg)*)))
+        anyhow::Error::from($crate::prelude::AppMessage::bad_request(format!($($arg)*)))
     };
 }
 
 /// Alias for [`bad_request!`].
 ///
-/// ```
+/// ```no_run
 /// use foxtive::invalid;
+/// use foxtive::prelude::AppResult;
 ///
-/// return Err(invalid!("Field '{}' is invalid", field));
+/// fn example(field: &str) -> AppResult<()> {
+///     return Err(invalid!("Field '{}' is invalid", field));
+/// }
 /// ```
 #[macro_export]
 macro_rules! invalid {
@@ -70,10 +85,13 @@ macro_rules! invalid {
 
 /// Creates a `conflict` error with optional format arguments.
 ///
-/// ```
+/// ```no_run
 /// use foxtive::conflict;
+/// use foxtive::prelude::AppResult;
 ///
-/// return Err(conflict!("Email {} is already in use", email));
+/// fn example(email: &str) -> AppResult<()> {
+///     return Err(conflict!("Email {} is already in use", email));
+/// }
 /// ```
 #[macro_export]
 macro_rules! conflict {
@@ -84,10 +102,13 @@ macro_rules! conflict {
 
 /// Creates an `unprocessable_entity` error with optional format arguments.
 ///
-/// ```
+/// ```no_run
 /// use foxtive::unprocessable_entity;
+/// use foxtive::prelude::AppResult;
 ///
-/// return Err(unprocessable_entity!("Payload missing field '{}'", field));
+/// fn example(field: &str) -> AppResult<()> {
+///     return Err(unprocessable_entity!("Payload missing field '{}'", field));
+/// }
 /// ```
 #[macro_export]
 macro_rules! unprocessable_entity {
@@ -98,10 +119,13 @@ macro_rules! unprocessable_entity {
 
 /// Creates an `internal_server_error` error with optional format arguments.
 ///
-/// ```
+/// ```no_run
 /// use foxtive::internal_server_error;
+/// use foxtive::prelude::AppResult;
 ///
-/// return Err(internal_server_error!("Unexpected failure at step {}", step));
+/// fn example(step: u32) -> AppResult<()> {
+///     return Err(internal_server_error!("Unexpected failure at step {}", step));
+/// }
 /// ```
 #[macro_export]
 macro_rules! internal_server_error {
@@ -115,23 +139,27 @@ macro_rules! internal_server_error {
 /// Accepts either a pre-built `ValidationErrors` map, or an inline list of
 /// `"field" => ["error", ...]` pairs for convenience.
 ///
-/// ```
-/// use foxtive::validation_error;
+/// ```no_run
+/// use foxtive::{validation_error, ValidationErrors};
+/// use foxtive::prelude::AppResult;
 ///
-/// // Pre-built map
-/// return Err(validation_error!("Validation failed", errors));
+/// fn example() -> AppResult<()> {
+///     // inline form
+///     return Err(validation_error!("Validation failed", {
+///         "email" => ["is required", "must be valid"],
+///         "name"  => ["is too short"],
+///     }));
+/// }
 ///
-/// // Inline
-/// return Err(validation_error!("Validation failed", {
-///     "email" => ["is required", "must be valid"],
-///     "name"  => ["is too short"],
-/// }));
+/// fn example_prebuilt(errors: ValidationErrors) -> AppResult<()> {
+///     return Err(validation_error!("Validation failed", errors));
+/// }
 /// ```
 #[macro_export]
 macro_rules! validation_error {
     // Inline form: validation_error!("msg", { "field" => ["e1", "e2"], ... })
     ($msg:expr, { $($field:expr => [$($err:expr),* $(,)?]),* $(,)? }) => {{
-        let mut errors = $crate::ValidationErrors::new();
+        let mut errors = std::collections::HashMap::<String, Vec<String>>::new();
         $(
             errors.insert($field.to_string(), vec![$($err.to_string()),*]);
         )*
@@ -147,10 +175,14 @@ macro_rules! validation_error {
 /// Asserts a condition is true, otherwise returns a `bad_request` error.
 /// Useful for lightweight guard clauses at the top of service functions.
 ///
-/// ```
+/// ```no_run
 /// use foxtive::ensure;
+/// use foxtive::prelude::AppResult;
 ///
-/// ensure!(age >= 18, "User must be at least 18, got {}", age);
+/// fn example(age: u32) -> AppResult<()> {
+///     ensure!(age >= 18, "User must be at least 18, got {}", age);
+///     Ok(())
+/// }
 /// ```
 #[macro_export]
 macro_rules! ensure {
@@ -163,10 +195,14 @@ macro_rules! ensure {
 
 /// Unwraps an `Option`, returning a `not_found` error if `None`.
 ///
-/// ```
+/// ```no_run
 /// use foxtive::ensure_found;
+/// use foxtive::prelude::AppResult;
 ///
-/// let user = ensure_found!(db.find_user(id), "User {} not found", id);
+/// fn example(value: Option<u64>) -> anyhow::Result<u64> {
+///     let v = ensure_found!(value, "Item not found");
+///     Ok(v)
+/// }
 /// ```
 #[macro_export]
 macro_rules! ensure_found {
@@ -182,6 +218,7 @@ macro_rules! ensure_found {
 mod tests {
     use http::StatusCode;
     use crate::enums::AppMessage;
+    use crate::results::AppResult;
 
     fn downcast(err: &anyhow::Error) -> &AppMessage {
         err.downcast_ref::<AppMessage>().unwrap()
@@ -243,7 +280,7 @@ mod tests {
 
     #[test]
     fn test_validation_error_prebuilt_map() {
-        let mut map = crate::ValidationErrors::new();
+        let mut map = std::collections::HashMap::<String, Vec<String>>::new();
         map.insert("phone".into(), vec!["is invalid".into()]);
 
         let err = validation_error!("Validation failed", map);
@@ -254,7 +291,7 @@ mod tests {
 
     #[test]
     fn test_ensure_passes_and_fails() {
-        fn check(age: u32) -> anyhow::Result<()> {
+        fn check(age: u32) -> AppResult<()> {
             ensure!(age >= 18, "Must be at least 18, got {}", age);
             Ok(())
         }
