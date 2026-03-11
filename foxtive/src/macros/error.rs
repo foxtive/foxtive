@@ -62,7 +62,7 @@ macro_rules! forbidden {
 #[macro_export]
 macro_rules! bad_request {
     ($($arg:tt)*) => {
-        $crate::Error::from($crate::prelude::AppMessage::bad_request(format!($($arg)*)))
+        $crate::Error::from($crate::prelude::AppMessage::invalid(format!($($arg)*)))
     };
 }
 
