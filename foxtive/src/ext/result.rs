@@ -83,8 +83,8 @@ impl AppErrorExt for Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use http::StatusCode;
     use crate::{internal_server_error, invalid};
+    use http::StatusCode;
 
     #[test]
     fn test_recover_from_error() {
@@ -99,8 +99,8 @@ mod tests {
 
     #[test]
     fn test_recover_from_result() {
-        let result: AppResult<String> =
-            Err(AppMessage::success("User created").into_anyhow()).recover_from(|err| {
+        let result: AppResult<String> = Err(AppMessage::success("User created").into_anyhow())
+            .recover_from(|err| {
                 assert_eq!(err.status_code(), StatusCode::OK);
                 assert_eq!(err.message(), "User created");
                 Ok("recovered".to_string())

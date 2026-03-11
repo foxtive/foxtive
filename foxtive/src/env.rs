@@ -1,8 +1,8 @@
-use crate::prelude::{AppResult};
-use std::fmt;
-use std::str::FromStr;
 use crate::enums::AppMessage;
 use crate::internal_server_error;
+use crate::prelude::AppResult;
+use std::fmt;
+use std::str::FromStr;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Environment {
@@ -57,7 +57,9 @@ impl Environment {
     /// Gets the environment from environment variable or returns default
     pub fn from_env(var_name: &str) -> AppResult<Environment> {
         std::env::var(var_name)
-            .map_err(|e| AppMessage::MissingEnvironmentVariable(var_name.to_string(), e).into_anyhow())
+            .map_err(|e| {
+                AppMessage::MissingEnvironmentVariable(var_name.to_string(), e).into_anyhow()
+            })
             .and_then(|val: String| val.parse())
     }
 
@@ -95,7 +97,9 @@ impl FromStr for Environment {
             "development" | "dev" => Ok(Environment::Development),
             "staging" | "stage" => Ok(Environment::Staging),
             "production" | "prod" => Ok(Environment::Production),
-            _ => Err(internal_server_error!("Invalid environment value: '{s}'. Valid values are: local, development (dev), staging (stage), production (prod)")),
+            _ => Err(internal_server_error!(
+                "Invalid environment value: '{s}'. Valid values are: local, development (dev), staging (stage), production (prod)"
+            )),
         }
     }
 }

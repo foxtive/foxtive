@@ -1,4 +1,3 @@
-use crate::{internal_server_error, Environment};
 #[cfg(feature = "cache")]
 #[allow(unused_imports)]
 use crate::cache::{Cache, contract::CacheDriverContract};
@@ -18,6 +17,7 @@ use crate::rabbitmq::conn::create_rmq_conn_pool;
 use crate::redis::conn::create_redis_conn_pool;
 use crate::results::AppResult;
 use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
+use crate::{Environment, internal_server_error};
 use std::path::Path;
 #[allow(unused_imports)]
 use std::sync::Arc;
@@ -74,9 +74,9 @@ pub async fn make_state(setup: FoxtiveSetup) -> AppResult<FoxtiveState> {
     debug!("Initializing Foxtive state for app: {}", setup.app_name);
     let foxtive = create_state(setup).await?;
 
-    crate::FOXTIVE.set(foxtive.clone()).map_err(|_| {
-        internal_server_error!("Failed to set global Foxtive state")
-    })?;
+    crate::FOXTIVE
+        .set(foxtive.clone())
+        .map_err(|_| internal_server_error!("Failed to set global Foxtive state"))?;
 
     debug!("Foxtive state initialized successfully");
 

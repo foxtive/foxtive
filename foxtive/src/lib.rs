@@ -17,11 +17,11 @@ mod ext_impl;
 pub mod helpers;
 #[cfg(feature = "http")]
 pub mod http;
+pub mod macros;
 #[cfg(feature = "rabbitmq")]
 pub mod rabbitmq;
 pub mod setup;
 pub mod tokio;
-pub mod macros;
 
 pub static FOXTIVE: OnceLock<FoxtiveState> = OnceLock::new();
 
