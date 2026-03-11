@@ -80,7 +80,10 @@ impl AppMessage {
     ///
     /// # Example
     /// ```
-    /// let mut errors = HashMap::new();
+    /// use foxtive::enums::AppMessage;
+    /// use foxtive::ValidationErrors;
+    ///
+    /// let mut errors = ValidationErrors::new();
     /// errors.insert("email".into(), vec!["is required".into()]);
     /// let msg = AppMessage::validation_error("Validation failed", errors);
     /// ```
