@@ -1,6 +1,8 @@
 /// Creates a `not_found` error with optional format arguments.
 ///
 /// ```
+/// use foxtive::not_found;
+///
 /// return Err(not_found!("User {} was not found", user_id));
 /// ```
 #[macro_export]
@@ -13,6 +15,8 @@ macro_rules! not_found {
 /// Creates an `unauthorized` error with optional format arguments.
 ///
 /// ```
+/// use foxtive::unauthorized;
+///
 /// return Err(unauthorized!("Token {} has expired", token_id));
 /// ```
 #[macro_export]
@@ -25,6 +29,8 @@ macro_rules! unauthorized {
 /// Creates a `forbidden` error with optional format arguments.
 ///
 /// ```
+/// use foxtive::forbidden;
+///
 /// return Err(forbidden!("User {} lacks permission", user_id));
 /// ```
 #[macro_export]
@@ -37,6 +43,8 @@ macro_rules! forbidden {
 /// Creates a `bad_request` error with optional format arguments.
 ///
 /// ```
+/// use foxtive::bad_request;
+///
 /// return Err(bad_request!("Field '{}' is invalid", field));
 /// ```
 #[macro_export]
@@ -49,6 +57,8 @@ macro_rules! bad_request {
 /// Alias for [`bad_request!`].
 ///
 /// ```
+/// use foxtive::invalid;
+///
 /// return Err(invalid!("Field '{}' is invalid", field));
 /// ```
 #[macro_export]
@@ -61,6 +71,8 @@ macro_rules! invalid {
 /// Creates a `conflict` error with optional format arguments.
 ///
 /// ```
+/// use foxtive::conflict;
+///
 /// return Err(conflict!("Email {} is already in use", email));
 /// ```
 #[macro_export]
@@ -73,6 +85,8 @@ macro_rules! conflict {
 /// Creates an `unprocessable_entity` error with optional format arguments.
 ///
 /// ```
+/// use foxtive::unprocessable_entity;
+///
 /// return Err(unprocessable_entity!("Payload missing field '{}'", field));
 /// ```
 #[macro_export]
@@ -85,6 +99,8 @@ macro_rules! unprocessable_entity {
 /// Creates an `internal_server_error` error with optional format arguments.
 ///
 /// ```
+/// use foxtive::internal_server_error;
+///
 /// return Err(internal_server_error!("Unexpected failure at step {}", step));
 /// ```
 #[macro_export]
@@ -100,6 +116,8 @@ macro_rules! internal_server_error {
 /// `"field" => ["error", ...]` pairs for convenience.
 ///
 /// ```
+/// use foxtive::validation_error;
+///
 /// // Pre-built map
 /// return Err(validation_error!("Validation failed", errors));
 ///
@@ -130,6 +148,8 @@ macro_rules! validation_error {
 /// Useful for lightweight guard clauses at the top of service functions.
 ///
 /// ```
+/// use foxtive::ensure;
+///
 /// ensure!(age >= 18, "User must be at least 18, got {}", age);
 /// ```
 #[macro_export]
@@ -144,6 +164,8 @@ macro_rules! ensure {
 /// Unwraps an `Option`, returning a `not_found` error if `None`.
 ///
 /// ```
+/// use foxtive::ensure_found;
+///
 /// let user = ensure_found!(db.find_user(id), "User {} not found", id);
 /// ```
 #[macro_export]
