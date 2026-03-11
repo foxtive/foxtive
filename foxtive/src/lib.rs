@@ -43,5 +43,5 @@ pub mod prelude {
     pub use crate::rabbitmq::RabbitMQ;
     #[cfg(feature = "redis")]
     pub use crate::redis::Redis;
-    pub use crate::results::{app_result::IntoAppResult, AppResult};
+    pub use crate::results::{AppResult, app_result::IntoAppResult};
 }

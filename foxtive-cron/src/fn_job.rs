@@ -7,7 +7,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 type RunnableFunc =
-Arc<dyn Fn() -> Pin<Box<dyn Future<Output = CronResult<()>> + Send>> + Send + Sync>;
+    Arc<dyn Fn() -> Pin<Box<dyn Future<Output = CronResult<()>> + Send>> + Send + Sync>;
 
 /// A lightweight, closure-based implementation of [`JobContract`].
 ///

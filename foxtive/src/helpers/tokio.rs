@@ -3,7 +3,7 @@ use anyhow::Context;
 use std::future::Future;
 use std::sync::OnceLock;
 use tokio::runtime::Runtime;
-use tokio::task::{spawn_blocking, JoinHandle};
+use tokio::task::{JoinHandle, spawn_blocking};
 
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 
