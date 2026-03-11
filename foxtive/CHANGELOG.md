@@ -1,6 +1,12 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.25.0 (2026-03-11)
+* refactor(AppMessage): renamed Warning variant to Invalid 
+* feat(AppMessage): added Conflict, UnprocessableEntity, ValidationError variants
+* feat(AppMessage): added .kind_name() method
+* feat(AppMessage): added macros: not_found, unauthorized, forbidden, bad_request, invalid, conflict, unprocessable_entity, internal_server_error, validation_error, ensure, ensure_found
+
 ### 0.24.0 (2026-03-10)
 * refactor(AppMessage): redundancy by merging variants like SuccessMessage and SuccessMessageString, clarify variant names, use more specific error types, and simplify the message method. I'll begin by merging the redundant variants in the enum definition.
 * feat(AppMessage): add static constructor methods for each AppMessage enum variant that accepts impl Into<String> for its string arguments. This will simplify the creation of AppMessage instances.
