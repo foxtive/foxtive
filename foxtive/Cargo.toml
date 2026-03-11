@@ -1,6 +1,6 @@
 [package]
 name = "foxtive"
-version = "0.24.0"
+version = "0.25.0"
 edition = "2024"
 license = "MIT"
 description = "Foxtive Framework"
@@ -75,4 +75,4 @@ tracing-subscriber = { version = "0.3.22", features = ["json", "env-filter"] }
 [dev-dependencies]
 tokio = { version = "1.49.0", features = ["rt-multi-thread", "time", "macros"] }
 futures = { version = "0.3.32" }
-tempfile = { version = "3.26.0" }
+tempfile = { version = "3.27.0" }

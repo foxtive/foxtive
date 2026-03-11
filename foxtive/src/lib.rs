@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::OnceLock;
 
 pub mod enums;
@@ -20,8 +21,12 @@ pub mod http;
 pub mod rabbitmq;
 pub mod setup;
 pub mod tokio;
+pub mod macros;
 
 pub static FOXTIVE: OnceLock<FoxtiveState> = OnceLock::new();
+
+/// Structured validation errors: field name → list of messages.
+pub type ValidationErrors = HashMap<String, Vec<String>>;
 
 pub use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
 pub use ::http::StatusCode;

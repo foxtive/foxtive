@@ -84,11 +84,11 @@ impl AppErrorExt for Error {
 mod tests {
     use super::*;
     use http::StatusCode;
+    use crate::{internal_server_error, invalid};
 
     #[test]
     fn test_recover_from_error() {
-        let result: AppResult<String> = AppMessage::internal_server_error("Internal Server Error")
-            .ae()
+        let result: AppResult<String> = internal_server_error!("Internal Server Error")
             .recover_from(|err| {
                 assert_eq!(err.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
                 assert_eq!(err.message(), "Internal Server Error");
@@ -100,7 +100,7 @@ mod tests {
     #[test]
     fn test_recover_from_result() {
         let result: AppResult<String> =
-            Err(AppMessage::success("User created").ae()).recover_from(|err| {
+            Err(AppMessage::success("User created").into_anyhow()).recover_from(|err| {
                 assert_eq!(err.status_code(), StatusCode::OK);
                 assert_eq!(err.message(), "User created");
                 Ok("recovered".to_string())
@@ -110,8 +110,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_recover_from_async_error() {
-        let result: AppResult<String> = AppMessage::internal_server_error("Internal Server Error")
-            .ae()
+        let result: AppResult<String> = internal_server_error!("Internal Server Error")
             .recover_from_async(|err| {
                 assert_eq!(err.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
                 assert_eq!(err.message(), "Internal Server Error");
@@ -123,7 +122,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_recover_from_async_result() {
-        let result: AppResult<String> = Err(AppMessage::success("User created").ae())
+        let result: AppResult<String> = Err(AppMessage::success("User created").into_anyhow())
             .recover_from_async(|err| {
                 assert_eq!(err.status_code(), StatusCode::OK);
                 assert_eq!(err.message(), "User created");
@@ -135,11 +134,11 @@ mod tests {
 
     #[test]
     fn test_msg() {
-        let err = AppMessage::internal_server_error("Internal Server Error").ae();
+        let err = internal_server_error!("Internal Server Error");
         let result = err.message();
         assert_eq!(result, "Internal Server Error");
 
-        let err = AppMessage::warning("User has already been suspended").ae();
+        let err = invalid!("User has already been suspended");
         let result = err.message();
         assert_eq!(result, "User has already been suspended");
     }

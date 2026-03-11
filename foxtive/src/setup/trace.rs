@@ -6,6 +6,7 @@ use tracing::Level;
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use crate::internal_server_error;
 
 pub type TracingEventHandler = Arc<dyn Fn(&tracing::Event<'_>) + Send + Sync + 'static>;
 
@@ -67,7 +68,7 @@ impl FromStr for OutputFormat {
             "full" => Ok(OutputFormat::Full),
             "compact" => Ok(OutputFormat::Compact),
             "pretty" => Ok(OutputFormat::Pretty),
-            _ => Err(AppMessage::internal_server_error("Invalid tracing format").ae()),
+            _ => Err(internal_server_error!("Invalid tracing format")),
         }
     }
 }
@@ -76,7 +77,7 @@ impl OutputFormat {
     /// Gets the output format from environment variable or returns default
     pub fn from_env(var_name: &str) -> AppResult<OutputFormat> {
         std::env::var(var_name)
-            .map_err(|e| AppMessage::MissingEnvironmentVariable(var_name.to_string(), e).ae())
+            .map_err(|e| AppMessage::missing_environment_variable(var_name.to_string(), e).into_anyhow())
             .and_then(|val| val.parse())
     }
 

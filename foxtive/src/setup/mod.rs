@@ -1,4 +1,4 @@
-use crate::Environment;
+use crate::{internal_server_error, Environment};
 #[cfg(feature = "cache")]
 #[allow(unused_imports)]
 use crate::cache::{Cache, contract::CacheDriverContract};
@@ -8,7 +8,6 @@ use crate::database::create_db_pool;
 use crate::helpers::jwt::Jwt;
 #[cfg(feature = "crypto")]
 use crate::helpers::password::Password;
-use crate::prelude::AppMessage;
 #[cfg(feature = "rabbitmq")]
 use crate::prelude::RabbitMQ;
 #[cfg(feature = "redis")]
@@ -76,7 +75,7 @@ pub async fn make_state(setup: FoxtiveSetup) -> AppResult<FoxtiveState> {
     let foxtive = create_state(setup).await?;
 
     crate::FOXTIVE.set(foxtive.clone()).map_err(|_| {
-        AppMessage::internal_server_error("Failed to set global Foxtive state").ae()
+        internal_server_error!("Failed to set global Foxtive state")
     })?;
 
     debug!("Foxtive state initialized successfully");
