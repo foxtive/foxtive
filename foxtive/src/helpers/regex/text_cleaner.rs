@@ -34,6 +34,9 @@ impl TextCleaner {
             RegexType::AlphaNumeric(case_sensitivity) => {
                 Self::clean_alphanumeric(text, case_sensitivity)
             }
+            RegexType::AlphaNumericLoose(case_sensitivity) => {
+                Self::clean_alphanumeric_loose(text, case_sensitivity)
+            }
             RegexType::AlphaNumericSpace(case_sensitivity) => {
                 Self::clean_alphanumeric_space(text, case_sensitivity)
             }
@@ -52,6 +55,8 @@ impl TextCleaner {
             RegexType::AlphaNumericDotUnderscore(case_sensitivity) => {
                 Self::clean_alphanumeric_dot_underscore(text, case_sensitivity)
             }
+            RegexType::Digits => Self::clean_digits(text),
+            RegexType::Email => Self::clean_email(text),
             RegexType::Custom(allowed_chars, case_sensitivity, max_length) => Self::clean_custom(
                 text,
                 allowed_chars,
@@ -99,6 +104,14 @@ impl TextCleaner {
 
         result = Self::apply_case_transformation(result, case_sensitivity);
         result = Self::ensure_starts_with_letter(result);
+        Self::truncate_to_length(result, 38)
+    }
+
+    /// Cleans text to contain only alphanumeric characters, without a starting character restriction.
+    fn clean_alphanumeric_loose(text: &str, case_sensitivity: CaseSensitivity) -> String {
+        let mut result: String = text.chars().filter(|c| c.is_alphanumeric()).collect();
+
+        result = Self::apply_case_transformation(result, case_sensitivity);
         Self::truncate_to_length(result, 38)
     }
 
@@ -188,6 +201,20 @@ impl TextCleaner {
         result = Self::remove_trailing_char(result, '.');
         result = Self::remove_trailing_char(result, '_');
         Self::truncate_to_length(result, 38)
+    }
+
+    /// Cleans text to contain only ascii digits.
+    fn clean_digits(text: &str) -> String {
+        text.chars().filter(|c| c.is_ascii_digit()).collect()
+    }
+
+    /// Cleans an email address by removing invalid characters.
+    fn clean_email(text: &str) -> String {
+        // A very basic email cleaner. A proper implementation would be more complex.
+        text.chars()
+            .filter(|c| c.is_alphanumeric() || *c == '.' || *c == '@' || *c == '-' || *c == '_')
+            .collect::<String>()
+            .to_lowercase()
     }
 
     /// Cleans text using custom allowed characters.
@@ -312,6 +339,23 @@ mod tests {
     }
 
     #[test]
+    fn test_clean_alphanumeric_loose() {
+        let dirty_text = "123User@@Name456";
+        let cleaned = TextCleaner::clean(
+            dirty_text,
+            RegexType::AlphaNumericLoose(CaseSensitivity::CaseSensitive),
+        );
+        assert_eq!(cleaned, "123username456");
+    }
+
+    #[test]
+    fn test_clean_email() {
+        let dirty_email = " User..Email@Example.com!! ";
+        let cleaned = TextCleaner::clean(dirty_email, RegexType::Email);
+        assert_eq!(cleaned, "user..email@example.com");
+    }
+
+    #[test]
     fn test_clean_alphanumeric_space() {
         let dirty_text = "User   Name  123!!!";
         let cleaned = TextCleaner::clean(
@@ -412,6 +456,13 @@ mod tests {
         let complex_username = "!!!User123..Name456...";
         let cleaned = TextCleaner::clean_username(complex_username);
         assert_eq!(cleaned, "user123.name456");
+    }
+
+    #[test]
+    fn test_clean_digits() {
+        let dirty_text = "User123Name!!!";
+        let cleaned = TextCleaner::clean(dirty_text, RegexType::Digits);
+        assert_eq!(cleaned, "123");
     }
 
     #[test]

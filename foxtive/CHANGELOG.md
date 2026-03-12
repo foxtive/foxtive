@@ -1,6 +1,13 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.25.2 (2026-03-12)
+* feat(regex): add Digits, AlphaNumericLoose, and Email variants to RegexType
+* refactor(regex): update TextCleaner and Tester to support new regex variants
+* docs(trace): add documentation for tracing configuration
+* docs(state): add documentation for FoxtiveState
+* fix(app_result): provide a default error message for NotFound
+
 ### 0.25.1 (2026-03-11)
 * fix(macros): error macros should use local Error instance of referencing anyhow's
 
