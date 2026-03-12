@@ -20,6 +20,9 @@ pub enum RegexType {
     /// Keeps only letters and numbers, ensures it starts with a letter (max 38 chars).
     AlphaNumeric(CaseSensitivity),
 
+    /// Keeps letters and numbers, no restriction on starting character (max 38 chars).
+    AlphaNumericLoose(CaseSensitivity),
+
     /// Keeps letters, digits, and spaces, normalizes whitespace to single spaces.
     AlphaNumericSpace(CaseSensitivity),
 
@@ -37,6 +40,12 @@ pub enum RegexType {
 
     /// Keeps letters, digits, dots, and underscores, removes consecutive/trailing special chars.
     AlphaNumericDotUnderscore(CaseSensitivity),
+
+    /// Keeps digits, removes everything else
+    Digits,
+
+    /// Basic email validation/cleaning
+    Email,
 
     /// Use a custom cleaning pattern (allowed_chars, max_length)
     Custom(&'static str, Option<CaseSensitivity>, usize),

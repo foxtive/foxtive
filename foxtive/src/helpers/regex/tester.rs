@@ -87,6 +87,7 @@ impl Tester {
         match rt {
             RegexType::Alphabetic(cs) => (r"^[a-z]{1,38}$", cs), // Only lowercase letters, 1-38 characters.
             RegexType::AlphaNumeric(cs) => (r"^[a-z][a-z0-9]{0,37}$", cs), // Only lowercase letters, 1-38 characters.
+            RegexType::AlphaNumericLoose(cs) => (r"^[a-z0-9]{1,38}$", cs), // Letters and numbers, 1-38 characters.
             RegexType::AlphaNumericSpace(cs) => (r"^[a-z](?!.*\s\s)(?!.*\s$)[a-z0-9\s]{0,37}$", cs), // Letters, digits, and spaces, no consecutive or trailing spaces.
             RegexType::AlphaNumericDash(cs) => (r"^[a-z](?!.*\-\-)(?!.*\-$)[a-z\d\-]{0,37}$", cs), // Letters, digits, and dashes, no consecutive or trailing dashes.
             RegexType::AlphaNumericDot(cs) => (r"^[a-z](?!.*\.\.)(?!.*\.$)[a-z\d\.]{0,37}$", cs), // Letters, digits, and dots, no consecutive or trailing dots.
@@ -100,6 +101,11 @@ impl Tester {
                 r"^[a-z](?!.*\-\-)(?!.*\.\.)(?!.*\-$)(?!.*\.$)[a-z\d\-\.\_]{0,37}$",
                 cs,
             ), // Letters, digits, dashes, dots, and underscores.
+            RegexType::Digits => (r"^[0-9]+$", CaseSensitivity::CaseSensitive),
+            RegexType::Email => (
+                r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
+                CaseSensitivity::CaseInsensitive,
+            ),
             RegexType::Custom(val, cs, _size) => {
                 (val, cs.unwrap_or(CaseSensitivity::CaseSensitive))
             }
@@ -208,6 +214,40 @@ mod tests {
             "123user",
             RegexType::AlphaNumeric(CaseSensitivity::CaseSensitive),
         );
+        assert!(result.is_ok() && !result.unwrap());
+    }
+
+    #[test]
+    fn test_alpha_numeric_loose_valid() {
+        // Case-sensitive tests
+        let result = Tester::validate(
+            "123username",
+            RegexType::AlphaNumericLoose(CaseSensitivity::CaseSensitive),
+        );
+        assert!(result.is_ok() && result.unwrap());
+
+        let result = Tester::validate(
+            "user1name",
+            RegexType::AlphaNumericLoose(CaseSensitivity::CaseSensitive),
+        );
+        assert!(result.is_ok() && result.unwrap());
+    }
+
+    #[test]
+    fn test_email_valid() {
+        let result = Tester::validate("user@example.com", RegexType::Email);
+        assert!(result.is_ok() && result.unwrap());
+
+        let result = Tester::validate("user.name@example.co.uk", RegexType::Email);
+        assert!(result.is_ok() && result.unwrap());
+    }
+
+    #[test]
+    fn test_email_invalid() {
+        let result = Tester::validate("userexample.com", RegexType::Email);
+        assert!(result.is_ok() && !result.unwrap());
+
+        let result = Tester::validate("user@example", RegexType::Email);
         assert!(result.is_ok() && !result.unwrap());
     }
 
@@ -506,6 +546,18 @@ mod tests {
             "_user.name",
             RegexType::AlphaNumericDotUnderscore(CaseSensitivity::CaseSensitive),
         );
+        assert!(result.is_ok() && !result.unwrap());
+    }
+
+    #[test]
+    fn test_digits_valid() {
+        let result = Tester::validate("123456", RegexType::Digits);
+        assert!(result.is_ok() && result.unwrap());
+    }
+
+    #[test]
+    fn test_digits_invalid() {
+        let result = Tester::validate("123a456", RegexType::Digits);
         assert!(result.is_ok() && !result.unwrap());
     }
 }

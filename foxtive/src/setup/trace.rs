@@ -107,6 +107,42 @@ impl Default for Tracing {
     }
 }
 
+/// Initializes the tracing subscriber with the given configuration.
+///
+/// This function sets up the global tracing subscriber for the application. It allows for flexible
+/// configuration of the logging level, format, and output target.
+///
+/// # Configuration via Environment Variables
+///
+/// The tracing level can be configured using the `RUST_LOG` environment variable. For example, to set
+/// the log level to `debug`, you can use:
+///
+/// ```sh
+/// RUST_LOG=debug
+/// ```
+///
+/// You can also set the log level for specific modules:
+///
+/// ```sh
+/// RUST_LOG=my_app=debug,foxtive=info
+/// ```
+///
+/// # Examples
+///
+/// ```rust
+/// use foxtive::setup::trace::{init_tracing, Tracing, OutputFormat, OutputTarget};
+/// use tracing::Level;
+///
+/// // Initialize tracing with a custom configuration
+/// let config = Tracing {
+///     level: Level::DEBUG,
+///     format: OutputFormat::Json,
+///     target: OutputTarget::Stdout,
+///     ..Default::default()
+/// };
+///
+/// // init_tracing(config).expect("Failed to initialize tracing");
+/// ```
 pub fn init_tracing(config: Tracing) -> AppResult<()> {
     macro_rules! init_subscriber {
         ($fmt_layer:expr) => {
@@ -459,6 +495,7 @@ mod tests {
     }
 
     #[test]
+
     fn test_verbose_config() {
         let config = Tracing::verbose();
         assert!(config.include_file);
