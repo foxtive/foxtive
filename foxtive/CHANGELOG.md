@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.25.4 (2026-03-14)
+* Added optional `openapi` feature flag enabling `IntoParams` derivation for `QueryParams`
+
 ### 0.25.3 (2026-03-14)
 * Added optional `openapi` feature flag enabling `ToSchema` derivation for `QueryParams`
 
