@@ -25,6 +25,7 @@ pub enum OrderingFormat {
 
 /// Represents common query parameters used for filtering, pagination, and sorting in API requests.
 #[derive(Deserialize, Serialize, Clone, Default)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct QueryParams {
     /// Search term for filtering results based on relevant text.
     ///
