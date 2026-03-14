@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.25.3 (2026-03-14)
+* Added optional `openapi` feature flag enabling `ToSchema` derivation for `QueryParams`
+
 ### 0.25.2 (2026-03-12)
 * feat(regex): add Digits, AlphaNumericLoose, and Email variants to RegexType
 * refactor(regex): update TextCleaner and Tester to support new regex variants
