@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.25.5 (2026-03-21)
+* fix(template): .render now accepts Into<String> & &Context
+
 ### 0.25.4 (2026-03-14)
 * Added optional `openapi` feature flag enabling `IntoParams` derivation for `QueryParams`
 
