@@ -2,7 +2,6 @@ use std::fmt::{Debug, Formatter};
 #[allow(unused_imports)]
 use std::sync::Arc;
 
-use crate::Environment;
 #[cfg(feature = "jwt")]
 use crate::helpers::jwt::Jwt;
 #[cfg(feature = "crypto")]
@@ -11,6 +10,7 @@ use crate::helpers::password::Password;
 use crate::rabbitmq::RabbitMQ;
 #[cfg(feature = "redis")]
 use crate::redis::Redis;
+use crate::Environment;
 #[cfg(feature = "templating")]
 use tera::{Context, Tera};
 
@@ -102,12 +102,17 @@ impl FoxtiveState {
     }
 
     #[cfg(feature = "templating")]
-    pub fn render(&self, mut file: String, context: Context) -> crate::results::AppResult<String> {
+    pub fn render(
+        &self,
+        file: impl Into<String>,
+        context: &Context,
+    ) -> crate::results::AppResult<String> {
+        let mut file = file.into();
         if !file.ends_with(".tera.html") {
             file.push_str(".tera.html");
         }
 
-        self.tera.render(&file, &context).map_err(crate::Error::msg)
+        self.tera.render(&file, context).map_err(crate::Error::msg)
     }
 }
 
