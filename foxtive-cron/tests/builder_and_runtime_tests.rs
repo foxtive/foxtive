@@ -21,8 +21,8 @@ mod cron_builder {
 
     #[test]
     fn with_listener_adds_listener() {
-        use foxtive_cron::contracts::{JobEventListener, JobEvent};
         use async_trait::async_trait;
+        use foxtive_cron::contracts::{JobEvent, JobEventListener};
 
         struct TestListener;
 
@@ -60,8 +60,8 @@ mod cron_builder {
 
     #[test]
     fn with_job_store_sets_store() {
-        use foxtive_cron::contracts::{JobStore, JobState};
         use async_trait::async_trait;
+        use foxtive_cron::contracts::{JobState, JobStore};
 
         struct TestStore;
 
@@ -83,8 +83,10 @@ mod cron_builder {
 
     #[test]
     fn builder_with_all_options() {
-        use foxtive_cron::contracts::{JobEventListener, JobEvent, MetricsExporter, JobStore, JobState};
         use async_trait::async_trait;
+        use foxtive_cron::contracts::{
+            JobEvent, JobEventListener, JobState, JobStore, MetricsExporter,
+        };
         use std::time::Duration;
 
         struct TestListener;
@@ -105,8 +107,12 @@ mod cron_builder {
         struct TestStore;
         #[async_trait]
         impl JobStore for TestStore {
-            async fn save_state(&self, _id: &str, _state: &JobState) -> Result<(), CronError> { Ok(()) }
-            async fn get_state(&self, _id: &str) -> Result<Option<JobState>, CronError> { Ok(None) }
+            async fn save_state(&self, _id: &str, _state: &JobState) -> Result<(), CronError> {
+                Ok(())
+            }
+            async fn get_state(&self, _id: &str) -> Result<Option<JobState>, CronError> {
+                Ok(None)
+            }
         }
 
         let builder = CronBuilder::new()
@@ -123,7 +129,7 @@ mod cron_builder {
     fn builder_chaining_is_fluent() {
         let cron = CronBuilder::new()
             .with_global_concurrency_limit(5)
-            .with_global_concurrency_limit(10)  // Can override
+            .with_global_concurrency_limit(10) // Can override
             .build();
         let _ = cron;
     }
@@ -142,7 +148,7 @@ mod trigger_job_edge_cases {
     #[tokio::test]
     async fn trigger_job_executes_removed_job() {
         use std::sync::atomic::{AtomicUsize, Ordering};
-        
+
         let run_count = Arc::new(AtomicUsize::new(0));
         let run_count_clone = run_count.clone();
 
@@ -153,7 +159,8 @@ mod trigger_job_edge_cases {
                 count.fetch_add(1, Ordering::SeqCst);
                 Ok(())
             }
-        }).unwrap();
+        })
+        .unwrap();
 
         // Remove the job
         cron.remove_job("job-1");
@@ -167,7 +174,7 @@ mod trigger_job_edge_cases {
     async fn multiple_triggers_of_same_job() {
         use std::sync::atomic::{AtomicUsize, Ordering};
         use tokio::time::Duration;
-        
+
         let run_count = Arc::new(AtomicUsize::new(0));
         let run_count_clone = run_count.clone();
 
@@ -178,7 +185,8 @@ mod trigger_job_edge_cases {
                 count.fetch_add(1, Ordering::SeqCst);
                 Ok(())
             }
-        }).unwrap();
+        })
+        .unwrap();
 
         // Trigger multiple times
         cron.trigger_job("job-1").await.unwrap();
@@ -195,11 +203,10 @@ mod trigger_job_edge_cases {
 mod shutdown_behavior {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
-    use tokio::time::{timeout, Duration};
+    use tokio::time::{Duration, timeout};
 
     #[tokio::test]
     async fn trigger_job_during_shutdown_fails() {
-        
         let run_count = Arc::new(AtomicUsize::new(0));
         let run_count_clone = run_count.clone();
 
@@ -210,7 +217,8 @@ mod shutdown_behavior {
                 count.fetch_add(1, Ordering::SeqCst);
                 Ok(())
             }
-        }).unwrap();
+        })
+        .unwrap();
 
         // Start scheduler in background
         let handle = tokio::spawn(async move {
@@ -229,10 +237,11 @@ mod shutdown_behavior {
     #[tokio::test]
     async fn empty_scheduler_shutdown_is_immediate() {
         let mut cron = Cron::new();
-        
+
         let result = timeout(Duration::from_millis(100), async {
             cron.shutdown().await;
-        }).await;
+        })
+        .await;
 
         assert!(result.is_ok(), "Shutdown did not complete in time");
     }
@@ -250,7 +259,8 @@ mod shutdown_behavior {
                 count.fetch_add(1, Ordering::SeqCst);
                 Ok(())
             }
-        }).unwrap();
+        })
+        .unwrap();
 
         let handle = tokio::spawn(async move {
             cron.run().await;
@@ -263,7 +273,8 @@ mod shutdown_behavior {
         let shutdown_result = timeout(Duration::from_secs(2), async {
             // We need to get mutable access to call shutdown
             // This is a limitation - in real usage, you'd have a handle
-        }).await;
+        })
+        .await;
 
         handle.abort();
         assert!(shutdown_result.is_ok());
@@ -272,8 +283,8 @@ mod shutdown_behavior {
 
 mod add_listener_runtime {
     use super::*;
-    use foxtive_cron::contracts::{JobEventListener, JobEvent};
     use async_trait::async_trait;
+    use foxtive_cron::contracts::{JobEvent, JobEventListener};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     struct CountingListener {
@@ -301,7 +312,7 @@ mod add_listener_runtime {
     #[test]
     fn multiple_listeners_can_be_added() {
         let mut cron = Cron::new();
-        
+
         for _ in 0..5 {
             let listener = Arc::new(CountingListener {
                 count: Arc::new(AtomicUsize::new(0)),
@@ -343,8 +354,8 @@ mod set_metrics_exporter_runtime {
 
 mod set_job_store_runtime {
     use super::*;
-    use foxtive_cron::contracts::{JobStore, JobState};
     use async_trait::async_trait;
+    use foxtive_cron::contracts::{JobState, JobStore};
 
     struct TestStore;
 

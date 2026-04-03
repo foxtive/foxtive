@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use foxtive_cron::contracts::{JobContract, MisfirePolicy, RetryPolicy, ValidatedSchedule};
-use foxtive_cron::{CronResult, CronError};
+use foxtive_cron::{CronError, CronResult};
 use std::borrow::Cow;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
@@ -86,9 +86,12 @@ impl MockJob {
 #[async_trait]
 impl JobContract for MockJob {
     async fn run(&self) -> CronResult<()> {
-        self.run_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.run_count
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         if self.should_fail {
-            Err(CronError::ExecutionError(anyhow::anyhow!("intentional failure")))
+            Err(CronError::ExecutionError(anyhow::anyhow!(
+                "intentional failure"
+            )))
         } else {
             Ok(())
         }
@@ -127,14 +130,17 @@ impl JobContract for MockJob {
     }
 
     async fn on_start(&self) {
-        self.start_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.start_count
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     }
 
     async fn on_complete(&self) {
-        self.complete_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.complete_count
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     }
 
     async fn on_error(&self, _error: &CronError) {
-        self.error_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.error_count
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     }
 }

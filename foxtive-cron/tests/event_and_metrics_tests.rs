@@ -1,8 +1,8 @@
+use chrono::Utc;
 use foxtive_cron::contracts::{JobEvent, JobEventListener, MetricsExporter};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
-use chrono::Utc;
 
 mod job_event {
     use super::*;
@@ -13,7 +13,7 @@ mod job_event {
             id: "job-1".to_string(),
             name: "Test Job".to_string(),
         };
-        
+
         match event {
             JobEvent::Started { id, name } => {
                 assert_eq!(id, "job-1");
@@ -30,7 +30,7 @@ mod job_event {
             name: "Test Job".to_string(),
             duration: Duration::from_secs(5),
         };
-        
+
         match event {
             JobEvent::Completed { duration, .. } => {
                 assert_eq!(duration, Duration::from_secs(5));
@@ -46,7 +46,7 @@ mod job_event {
             name: "Test Job".to_string(),
             error: "Something went wrong".to_string(),
         };
-        
+
         match event {
             JobEvent::Failed { error, .. } => {
                 assert_eq!(error, "Something went wrong");
@@ -63,7 +63,7 @@ mod job_event {
             attempt: 3,
             delay: Duration::from_secs(10),
         };
-        
+
         match event {
             JobEvent::Retrying { attempt, delay, .. } => {
                 assert_eq!(attempt, 3);
@@ -76,16 +76,18 @@ mod job_event {
     #[test]
     fn misfired_variant_contains_scheduled_time() {
         use chrono::Duration as ChronoDuration;
-        
+
         let scheduled_time = Utc::now() - ChronoDuration::minutes(5);
         let event = JobEvent::Misfired {
             id: "job-1".to_string(),
             name: "Test Job".to_string(),
             scheduled_time,
         };
-        
+
         match event {
-            JobEvent::Misfired { scheduled_time: st, .. } => {
+            JobEvent::Misfired {
+                scheduled_time: st, ..
+            } => {
                 assert_eq!(st, scheduled_time);
             }
             _ => panic!("Wrong variant"),
@@ -98,9 +100,9 @@ mod job_event {
             id: "job-1".to_string(),
             name: "Test Job".to_string(),
         };
-        
+
         let event2 = event1.clone();
-        
+
         match (event1, event2) {
             (JobEvent::Started { id: id1, .. }, JobEvent::Started { id: id2, .. }) => {
                 assert_eq!(id1, id2);
@@ -156,9 +158,26 @@ mod mock_event_listener {
     async fn listener_tracks_multiple_events() {
         let listener = Arc::new(TestEventListener::new());
 
-        listener.on_event(JobEvent::Started { id: "job-1".to_string(), name: "Job".to_string() }).await;
-        listener.on_event(JobEvent::Completed { id: "job-1".to_string(), name: "Job".to_string(), duration: Duration::from_secs(1) }).await;
-        listener.on_event(JobEvent::Failed { id: "job-2".to_string(), name: "Job 2".to_string(), error: "error".to_string() }).await;
+        listener
+            .on_event(JobEvent::Started {
+                id: "job-1".to_string(),
+                name: "Job".to_string(),
+            })
+            .await;
+        listener
+            .on_event(JobEvent::Completed {
+                id: "job-1".to_string(),
+                name: "Job".to_string(),
+                duration: Duration::from_secs(1),
+            })
+            .await;
+        listener
+            .on_event(JobEvent::Failed {
+                id: "job-2".to_string(),
+                name: "Job 2".to_string(),
+                error: "error".to_string(),
+            })
+            .await;
 
         assert_eq!(listener.event_count.load(Ordering::SeqCst), 3);
     }
@@ -248,7 +267,7 @@ mod mock_metrics_exporter {
     #[test]
     fn exporter_tracks_multiple_metrics() {
         let exporter = TestMetricsExporter::new();
-        
+
         exporter.record_start("job-1", "Test Job");
         exporter.record_completion("job-1", "Test Job", Duration::from_secs(1));
         exporter.record_failure("job-2", "Test Job 2");

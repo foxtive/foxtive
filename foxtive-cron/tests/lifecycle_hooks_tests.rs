@@ -1,14 +1,14 @@
 mod common;
 use common::*;
 use foxtive_cron::contracts::{JobContract, ValidatedSchedule};
-use foxtive_cron::{JobItem, CronError};
+use foxtive_cron::{CronError, JobItem};
 use std::borrow::Cow;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
 mod lifecycle_hooks {
-    use foxtive_cron::CronResult;
     use super::*;
+    use foxtive_cron::CronResult;
 
     #[tokio::test]
     async fn on_start_called_before_run() {

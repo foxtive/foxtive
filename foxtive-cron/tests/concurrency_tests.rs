@@ -29,7 +29,11 @@ mod concurrency {
                     let current = active_count.fetch_add(1, Ordering::SeqCst) + 1;
                     loop {
                         let prev = max_active.load(Ordering::SeqCst);
-                        if current <= prev || max_active.compare_exchange(prev, current, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+                        if current <= prev
+                            || max_active
+                                .compare_exchange(prev, current, Ordering::SeqCst, Ordering::SeqCst)
+                                .is_ok()
+                        {
                             break;
                         }
                     }
@@ -39,7 +43,8 @@ mod concurrency {
                     active_count.fetch_sub(1, Ordering::SeqCst);
                     Ok(())
                 }
-            }).unwrap();
+            })
+            .unwrap();
         }
 
         let handle = tokio::spawn(async move {
@@ -49,7 +54,11 @@ mod concurrency {
         tokio::time::sleep(Duration::from_secs(2)).await;
         handle.abort();
 
-        assert!(max_active.load(Ordering::SeqCst) <= 2, "global concurrency limit exceeded: {}", max_active.load(Ordering::SeqCst));
+        assert!(
+            max_active.load(Ordering::SeqCst) <= 2,
+            "global concurrency limit exceeded: {}",
+            max_active.load(Ordering::SeqCst)
+        );
         assert!(run_count.load(Ordering::SeqCst) > 0);
     }
 
@@ -64,8 +73,7 @@ mod concurrency {
         let active_count_clone = active_count.clone();
         let max_active_clone = max_active.clone();
 
-        let job = Arc::new(MockJob::new("limited-job", "* * * * * * *")
-            .with_concurrency_limit(1));
+        let job = Arc::new(MockJob::new("limited-job", "* * * * * * *").with_concurrency_limit(1));
 
         // Using a custom wrapper to track concurrency for per-job limit
         struct LimitedJobWrapper {
@@ -81,7 +89,12 @@ mod concurrency {
                 let current = self.active_count.fetch_add(1, Ordering::SeqCst) + 1;
                 loop {
                     let prev = self.max_active.load(Ordering::SeqCst);
-                    if current <= prev || self.max_active.compare_exchange(prev, current, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+                    if current <= prev
+                        || self
+                            .max_active
+                            .compare_exchange(prev, current, Ordering::SeqCst, Ordering::SeqCst)
+                            .is_ok()
+                    {
                         break;
                     }
                 }
@@ -90,10 +103,18 @@ mod concurrency {
                 self.active_count.fetch_sub(1, Ordering::SeqCst);
                 Ok(())
             }
-            fn id(&self) -> std::borrow::Cow<'_, str> { self.inner.id() }
-            fn name(&self) -> std::borrow::Cow<'_, str> { self.inner.name() }
-            fn schedule(&self) -> &foxtive_cron::contracts::ValidatedSchedule { self.inner.schedule() }
-            fn concurrency_limit(&self) -> Option<usize> { self.inner.concurrency_limit() }
+            fn id(&self) -> std::borrow::Cow<'_, str> {
+                self.inner.id()
+            }
+            fn name(&self) -> std::borrow::Cow<'_, str> {
+                self.inner.name()
+            }
+            fn schedule(&self) -> &foxtive_cron::contracts::ValidatedSchedule {
+                self.inner.schedule()
+            }
+            fn concurrency_limit(&self) -> Option<usize> {
+                self.inner.concurrency_limit()
+            }
         }
 
         cron.add_job(LimitedJobWrapper {
@@ -101,7 +122,8 @@ mod concurrency {
             active_count: active_count_clone,
             max_active: max_active_clone,
             run_count: run_count_clone,
-        }).unwrap();
+        })
+        .unwrap();
 
         let handle = tokio::spawn(async move {
             cron.run().await;
@@ -110,6 +132,10 @@ mod concurrency {
         tokio::time::sleep(Duration::from_secs(2)).await;
         handle.abort();
 
-        assert_eq!(max_active.load(Ordering::SeqCst), 1, "per-job concurrency limit exceeded");
+        assert_eq!(
+            max_active.load(Ordering::SeqCst),
+            1,
+            "per-job concurrency limit exceeded"
+        );
     }
 }

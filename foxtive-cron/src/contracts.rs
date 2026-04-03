@@ -1,12 +1,12 @@
-use crate::{CronResult, CronError};
+use crate::{CronError, CronResult};
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::str::FromStr;
-use std::time::Duration;
-use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::RwLock;
 
 /// Policies for handling missed job executions.
@@ -28,7 +28,10 @@ pub enum RetryPolicy {
     #[default]
     None,
     /// Retry a fixed number of times with a specific interval.
-    Fixed { max_retries: usize, interval: Duration },
+    Fixed {
+        max_retries: usize,
+        interval: Duration,
+    },
     /// Exponential backoff retry strategy.
     Exponential {
         max_retries: usize,
@@ -43,13 +46,30 @@ pub enum JobEvent {
     /// Emitted when a job is about to start.
     Started { id: String, name: String },
     /// Emitted when a job completes successfully.
-    Completed { id: String, name: String, duration: Duration },
+    Completed {
+        id: String,
+        name: String,
+        duration: Duration,
+    },
     /// Emitted when a job fails.
-    Failed { id: String, name: String, error: String },
+    Failed {
+        id: String,
+        name: String,
+        error: String,
+    },
     /// Emitted when a job is scheduled for retry.
-    Retrying { id: String, name: String, attempt: usize, delay: Duration },
+    Retrying {
+        id: String,
+        name: String,
+        attempt: usize,
+        delay: Duration,
+    },
     /// Emitted when a scheduled job misfires.
-    Misfired { id: String, name: String, scheduled_time: DateTime<Utc> },
+    Misfired {
+        id: String,
+        name: String,
+        scheduled_time: DateTime<Utc>,
+    },
 }
 
 /// Trait for listening to scheduler events.
@@ -147,7 +167,10 @@ impl ValidatedSchedule {
     /// Returns the next occurrence after the given time, in the specified timezone.
     pub fn next_after(&self, after: &DateTime<Utc>, tz: Tz) -> Option<DateTime<Utc>> {
         let local_after = after.with_timezone(&tz);
-        self.0.after(&local_after).next().map(|dt| dt.with_timezone(&Utc))
+        self.0
+            .after(&local_after)
+            .next()
+            .map(|dt| dt.with_timezone(&Utc))
     }
 }
 
