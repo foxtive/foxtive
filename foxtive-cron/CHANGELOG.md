@@ -1,12 +1,53 @@
 # Foxtive Cron Changelog
 Foxtive Cron changelog file
 
+# Changelog
+
+All notable changes to **foxtive-cron** will be documented in this file.
+
+---
+
+## [0.4.0] – 2026-04-02
+
+* Introduced internal job registry using `HashMap<String, JobItem>` for O(1) lookup.
+* Ensured synchronization between execution queue (`BinaryHeap`) and registry.
+* Added job cancellation via `remove_job(id: &str)`.
+* Added introspection API `list_job_ids()` for querying scheduled jobs.
+* Added manual execution support with `trigger_job(id: &str)`.
+* Implemented global concurrency limits using `tokio::sync::Semaphore`.
+* Added per-job concurrency limits.
+* Introduced execution timeouts via `tokio::time::timeout`.
+* Implemented graceful shutdown for controlled scheduler termination.
+* Added job priority handling for deterministic execution ordering.
+* Added `MisfirePolicy` with support for:
+  * `Skip`
+  * `FireOnce`
+  * `FireAll`
+* Implemented retry strategies:
+  * Fixed interval retries
+  * Exponential backoff
+* Introduced persistence abstraction via `JobStore` trait.
+* Added `InMemoryJobStore` reference implementation.
+* Added time zone support via `chrono-tz`.
+* Introduced one-time job scheduling.
+* Added delayed start support for recurring jobs.
+* Implemented `CronBuilder` for flexible configuration.
+* Replaced `anyhow::Result` with domain-specific `CronError`.
+* Added event hooks for job lifecycle events:
+  * Started
+  * Finished
+  * Failed
+  * Retrying
+* Integrated metrics collection:
+  * Counters for executions
+  * Histograms for performance tracking
+
 ### 0.3.0 (2026-02-19)
-* feat(contracts): add `ValidatedSchedule` type — cron expressions are now parsed and validated eagerly at registration time, returning an error immediately on invalid input
+* feat(contracts): add `ValidatedSchedule` type - cron expressions are now parsed and validated eagerly at registration time, returning an error immediately on invalid input
 * feat(contracts): add `id()` method to `JobContract` for stable job identity, enabling future cancellation and deduplication
 * feat(contracts): `name()`, `id()`, and `description()` now return `Cow<'_, str>` instead of `String` to avoid unnecessary heap allocations
-* feat(contracts): add lifecycle hooks `on_start`, `on_complete`, and `on_error` to `JobContract` — all default to no-ops
-* feat(scheduler): fix job starvation bug — scheduler now peeks at the heap instead of popping, then drains all jobs due at the same tick before sleeping again
+* feat(contracts): add lifecycle hooks `on_start`, `on_complete`, and `on_error` to `JobContract` - all default to no-ops
+* feat(scheduler): fix job starvation bug - scheduler now peeks at the heap instead of popping, then drains all jobs due at the same tick before sleeping again
 * feat(scheduler): multiple jobs scheduled at the same tick now fire concurrently in the same iteration
 * feat(scheduler): emit a warning log when the cron queue is empty and the scheduler exits
 * feat(job): `JobItem::run` now invokes the full lifecycle sequence (`on_start` → `run` → `on_complete` / `on_error`)
