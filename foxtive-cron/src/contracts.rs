@@ -1,6 +1,121 @@
-use crate::CronResult;
+use crate::{CronResult, CronError};
+use chrono::{DateTime, Utc};
+use chrono_tz::Tz;
 use std::borrow::Cow;
 use std::str::FromStr;
+use std::time::Duration;
+use serde::{Serialize, Deserialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+/// Policies for handling missed job executions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum MisfirePolicy {
+    /// Skip all missed runs and wait for the next scheduled occurrence.
+    #[default]
+    Skip,
+    /// Execute a single missed run as soon as possible, then resume regular schedule.
+    FireOnce,
+    /// Execute all missed runs as soon as possible, one by one.
+    FireAll,
+}
+
+/// Policies for retrying failed job runs.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum RetryPolicy {
+    /// No retries.
+    #[default]
+    None,
+    /// Retry a fixed number of times with a specific interval.
+    Fixed { max_retries: usize, interval: Duration },
+    /// Exponential backoff retry strategy.
+    Exponential {
+        max_retries: usize,
+        initial_interval: Duration,
+        max_interval: Duration,
+    },
+}
+
+/// Events emitted by the scheduler during the job lifecycle.
+#[derive(Debug, Clone)]
+pub enum JobEvent {
+    /// Emitted when a job is about to start.
+    Started { id: String, name: String },
+    /// Emitted when a job completes successfully.
+    Completed { id: String, name: String, duration: Duration },
+    /// Emitted when a job fails.
+    Failed { id: String, name: String, error: String },
+    /// Emitted when a job is scheduled for retry.
+    Retrying { id: String, name: String, attempt: usize, delay: Duration },
+    /// Emitted when a scheduled job misfires.
+    Misfired { id: String, name: String, scheduled_time: DateTime<Utc> },
+}
+
+/// Trait for listening to scheduler events.
+#[async_trait::async_trait]
+pub trait JobEventListener: Send + Sync {
+    /// Called when an event occurs.
+    async fn on_event(&self, event: JobEvent);
+}
+
+/// Trait for exporting metrics.
+pub trait MetricsExporter: Send + Sync {
+    /// Record a job start.
+    fn record_start(&self, id: &str, name: &str);
+    /// Record a job completion.
+    fn record_completion(&self, id: &str, name: &str, duration: Duration);
+    /// Record a job failure.
+    fn record_failure(&self, id: &str, name: &str);
+    /// Record a job retry.
+    fn record_retry(&self, id: &str, name: &str);
+    /// Record a job misfire.
+    fn record_misfire(&self, id: &str, name: &str);
+}
+
+/// Information about a job's execution state for persistence.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct JobState {
+    pub last_run: Option<DateTime<Utc>>,
+    pub last_success: Option<DateTime<Utc>>,
+    pub last_failure: Option<DateTime<Utc>>,
+    pub consecutive_failures: usize,
+}
+
+/// Trait for persisting job definitions and states.
+#[async_trait::async_trait]
+pub trait JobStore: Send + Sync {
+    /// Save or update a job's state.
+    async fn save_state(&self, id: &str, state: &JobState) -> CronResult<()>;
+    /// Retrieve a job's state.
+    async fn get_state(&self, id: &str) -> CronResult<Option<JobState>>;
+}
+
+/// A simple in-memory implementation of [`JobStore`].
+#[derive(Default)]
+pub struct InMemoryJobStore {
+    states: Arc<RwLock<HashMap<String, JobState>>>,
+}
+
+impl InMemoryJobStore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[async_trait::async_trait]
+impl JobStore for InMemoryJobStore {
+    async fn save_state(&self, id: &str, state: &JobState) -> CronResult<()> {
+        let mut states = self.states.write().await;
+        states.insert(id.to_string(), state.clone());
+        Ok(())
+    }
+
+    async fn get_state(&self, id: &str) -> CronResult<Option<JobState>> {
+        let states = self.states.read().await;
+        Ok(states.get(id).cloned())
+    }
+}
 
 /// A validated cron schedule, parsed at construction time to prevent
 /// runtime errors from malformed expressions.
@@ -8,7 +123,7 @@ use std::str::FromStr;
 /// Wraps [`cron::Schedule`] and is the required return type of [`JobContract::schedule`].
 /// By accepting only `ValidatedSchedule` values, the scheduler guarantees that
 /// no job can be registered with an invalid cron expression.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ValidatedSchedule(pub(crate) cron::Schedule);
 
 impl ValidatedSchedule {
@@ -25,9 +140,24 @@ impl ValidatedSchedule {
     /// ```
     pub fn parse(expr: &str) -> CronResult<Self> {
         let schedule = cron::Schedule::from_str(expr)
-            .map_err(|e| anyhow::anyhow!("Invalid cron expression '{}': {}", expr, e))?;
+            .map_err(|e| CronError::InvalidSchedule(format!("{}: {}", expr, e)))?;
         Ok(Self(schedule))
     }
+
+    /// Returns the next occurrence after the given time, in the specified timezone.
+    pub fn next_after(&self, after: &DateTime<Utc>, tz: Tz) -> Option<DateTime<Utc>> {
+        let local_after = after.with_timezone(&tz);
+        self.0.after(&local_after).next().map(|dt| dt.with_timezone(&Utc))
+    }
+}
+
+/// A type of job.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum JobType {
+    /// A job that runs according to a cron schedule.
+    Recurring,
+    /// A job that runs once at a specific time.
+    Once,
 }
 
 /// A trait representing a schedulable job for the Cron system.
@@ -74,11 +204,67 @@ pub trait JobContract: Send + Sync {
     /// which ensures the expression is valid before the job is ever registered.
     fn schedule(&self) -> &ValidatedSchedule;
 
+    /// The type of job.
+    fn job_type(&self) -> JobType {
+        JobType::Recurring
+    }
+
+    /// The time at which the job should run if it is a one-time job.
+    ///
+    /// If `job_type()` returns `JobType::Once`, this must return `Some`.
+    fn run_at(&self) -> Option<DateTime<Utc>> {
+        None
+    }
+
+    /// The time after which the job should start running.
+    fn start_after(&self) -> Option<DateTime<Utc>> {
+        None
+    }
+
+    /// The timezone in which the cron schedule should be evaluated.
+    ///
+    /// Defaults to `UTC`.
+    fn timezone(&self) -> Tz {
+        chrono_tz::UTC
+    }
+
     /// A brief optional description of what this job does.
     ///
     /// Defaults to `None`.
     fn description(&self) -> Option<Cow<'_, str>> {
         None
+    }
+
+    /// The maximum duration a single job run should take.
+    ///
+    /// If `None`, the job has no timeout.
+    fn timeout(&self) -> Option<Duration> {
+        None
+    }
+
+    /// The priority of the job. Higher values represent higher priority.
+    ///
+    /// When multiple jobs are scheduled at the same time, higher priority
+    /// jobs will be triggered first.
+    fn priority(&self) -> i32 {
+        0
+    }
+
+    /// The maximum number of concurrent executions for this job.
+    ///
+    /// If `None`, there's no per-job concurrency limit.
+    fn concurrency_limit(&self) -> Option<usize> {
+        None
+    }
+
+    /// Defines how the scheduler behaves if a scheduled execution is missed.
+    fn misfire_policy(&self) -> MisfirePolicy {
+        MisfirePolicy::default()
+    }
+
+    /// Defines how the scheduler behaves if an execution fails.
+    fn retry_policy(&self) -> RetryPolicy {
+        RetryPolicy::default()
     }
 
     /// Called just before [`run`](Self::run) is invoked.
@@ -97,5 +283,5 @@ pub trait JobContract: Send + Sync {
     ///
     /// Useful for alerting, retry logic, or error reporting.
     /// Defaults to a no-op.
-    async fn on_error(&self, _error: &anyhow::Error) {}
+    async fn on_error(&self, _error: &CronError) {}
 }

@@ -1,4 +1,4 @@
-use crate::CronResult;
+use crate::{CronResult, CronError};
 use crate::contracts::{JobContract, ValidatedSchedule};
 use async_trait::async_trait;
 use std::borrow::Cow;
@@ -44,6 +44,17 @@ pub struct FnJob {
     name: String,
     schedule: ValidatedSchedule,
     func: RunnableFunc,
+}
+
+impl std::fmt::Debug for FnJob {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FnJob")
+            .field("id", &self.id)
+            .field("name", &self.name)
+            .field("schedule", &"<cron schedule>")
+            .field("func", &"<closure>")
+            .finish()
+    }
 }
 
 #[async_trait]
@@ -142,7 +153,11 @@ impl FnJob {
             schedule: ValidatedSchedule::parse(schedule_expr)?,
             func: Arc::new(move || {
                 let f = func.clone();
-                Box::pin(async move { tokio::task::spawn_blocking(f).await? })
+                Box::pin(async move {
+                    tokio::task::spawn_blocking(f)
+                        .await
+                        .map_err(CronError::JoinError)?
+                })
             }),
         })
     }
