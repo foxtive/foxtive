@@ -1,6 +1,7 @@
 use std::time::Duration;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SupervisionStatus {
     /// Task completed successfully (expected termination)
     CompletedNormally,
@@ -14,10 +15,12 @@ pub enum SupervisionStatus {
     SetupFailed,
     /// A declared dependency failed its setup phase
     DependencyFailed,
+    /// Task was stopped because the circuit breaker opened
+    CircuitBreakerOpened,
 }
 
 /// Defines when and how often a task should restart after failure
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum RestartPolicy {
     /// Always restart, no matter how many times it fails
     /// Use for: Critical services that must always run
@@ -33,7 +36,7 @@ pub enum RestartPolicy {
     Never,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TaskState {
     /// Task is running normally
     Running,
@@ -45,10 +48,80 @@ pub enum TaskState {
     ShuttingDown,
     /// Task has stopped
     Stopped,
+    /// Task's circuit breaker is open (no executions allowed)
+    CircuitBreakerOpen,
+}
+
+/// Control messages sent to supervised tasks
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum ControlMessage {
+    /// Pause the task (if supported)
+    Pause,
+    /// Resume a paused task
+    Resume,
+    /// Stop the task permanently
+    Stop,
+    /// Force an immediate restart
+    Restart,
+    /// Reset the task's circuit breaker
+    ResetCircuitBreaker,
+}
+
+/// Lifecycle events emitted by the supervisor
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SupervisorEvent {
+    /// A new task was registered
+    TaskRegistered { id: String, name: String },
+    /// A task started its setup phase
+    TaskSetupStarted { id: String, name: String },
+    /// A task completed its setup phase successfully
+    TaskSetupCompleted { id: String, name: String },
+    /// A task setup failed
+    TaskSetupFailed { id: String, name: String, error: String },
+    /// A task's execution started (or restarted)
+    TaskStarted { id: String, name: String, attempt: usize },
+    /// A task's execution finished successfully
+    TaskFinished { id: String, name: String, attempt: usize },
+    /// A task's execution failed with an error
+    TaskFailed { id: String, name: String, attempt: usize, error: String },
+    /// A task's execution panicked
+    TaskPanicked { id: String, name: String, attempt: usize, panic_info: String },
+    /// A task is entering backoff before restart
+    TaskBackoff { id: String, name: String, attempt: usize, delay: Duration },
+    /// A task was manually stopped
+    TaskStopped { id: String, name: String },
+    /// A task was paused
+    TaskPaused { id: String, name: String },
+    /// A task was resumed
+    TaskResumed { id: String, name: String },
+    /// A task reached its maximum restart attempts
+    TaskMaxAttemptsReached { id: String, name: String, attempts: usize },
+    /// A task restart was prevented by a hook
+    TaskRestartPrevented { id: String, name: String, attempt: usize },
+    /// A task was removed from the supervisor
+    TaskRemoved { id: String, name: String },
+    /// A task's circuit breaker tripped (opened)
+    CircuitBreakerTripped { id: String, name: String, consecutive_failures: usize },
+    /// A task's circuit breaker was reset (closed)
+    CircuitBreakerReset { id: String, name: String },
+    /// A task's circuit breaker entered half-open state
+    CircuitBreakerHalfOpen { id: String, name: String },
+    /// Supervisor is shutting down
+    SupervisorShutdownStarted,
+    /// Supervisor completed shutdown
+    SupervisorShutdownCompleted,
+    /// A task's configuration was updated at runtime
+    TaskConfigUpdated { 
+        id: String, 
+        name: String, 
+        field: String, 
+        old_value: String, 
+        new_value: String 
+    },
 }
 
 /// Health status for monitoring and observability
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum HealthStatus {
     /// Task is operating normally
     Healthy,
@@ -62,6 +135,61 @@ pub enum HealthStatus {
     /// Task is in unknown state (initialization, transition)
     #[default]
     Unknown,
+}
+
+/// Configuration for a task's circuit breaker
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircuitBreakerConfig {
+    /// Number of consecutive failures before the circuit opens
+    pub failure_threshold: usize,
+    /// How long the circuit stays open before transitioning to half-open
+    pub reset_timeout: Duration,
+}
+
+impl Default for CircuitBreakerConfig {
+    fn default() -> Self {
+        Self {
+            failure_threshold: 5,
+            reset_timeout: Duration::from_secs(60),
+        }
+    }
+}
+
+/// Runtime configuration for a supervised task that can be hot-reloaded
+#[derive(Debug, Clone)]
+pub struct TaskConfig {
+    /// Restart policy for the task
+    pub restart_policy: RestartPolicy,
+    /// Backoff strategy between restart attempts
+    pub backoff_strategy: BackoffStrategy,
+    /// Whether the task is enabled (can be disabled without removing)
+    pub enabled: bool,
+}
+
+impl TaskConfig {
+    /// Create a new TaskConfig from a SupervisedTask's current configuration
+    pub fn from_task(task: &dyn crate::contracts::SupervisedTask) -> Self {
+        Self {
+            restart_policy: task.restart_policy(),
+            backoff_strategy: task.backoff_strategy(),
+            enabled: true,
+        }
+    }
+
+    /// Create a TaskConfig with default values
+    pub fn new() -> Self {
+        Self {
+            restart_policy: RestartPolicy::default(),
+            backoff_strategy: BackoffStrategy::default(),
+            enabled: true,
+        }
+    }
+}
+
+impl Default for TaskConfig {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Defines the delay between restart attempts

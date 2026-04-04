@@ -1,58 +1,25 @@
-use crate::enums::{BackoffStrategy, HealthStatus, RestartPolicy, TaskState};
+use crate::enums::{BackoffStrategy, CircuitBreakerConfig, HealthStatus, RestartPolicy, SupervisorEvent, TaskState};
+use std::time::Duration;
 
 /// Core trait for any long-running task that needs supervision
-///
-/// This can be implemented for:
-/// - RabbitMQ/Kafka consumers
-/// - HTTP/WebSocket servers
-/// - Cron jobs
-/// - Background workers
-/// - Database connection pools
-/// - File watchers
-/// - Any async task that should run continuously
 #[async_trait::async_trait]
 pub trait SupervisedTask: Send + Sync {
     // REQUIRED METHODS
 
     /// Unique identifier for this task (used in logs, monitoring, and dependency resolution)
-    ///
-    /// Must be unique across all registered tasks in the same supervisor.
-    /// Defaults to the task name if not overridden.
     fn id(&self) -> &'static str;
 
     /// Human-readable name for this task (used in logs and monitoring)
-    ///
-    /// Defaults to task_id if not overridden.
     fn name(&self) -> String {
         self.id().to_string()
     }
 
     /// Main task execution - this should run until completion or error
-    ///
-    /// For long-running tasks (like consumers), this should block forever
-    /// and only return on error or explicit shutdown.
-    ///
-    /// For one-shot tasks, return Ok(()) when complete.
     async fn run(&self) -> anyhow::Result<()>;
 
     // DEPENDENCY MANAGEMENT
 
     /// Declare task IDs that must complete setup before this task starts
-    ///
-    /// The supervisor will wait for all listed dependencies to successfully
-    /// complete their `setup()` phase before calling `setup()` on this task.
-    ///
-    /// # Important
-    /// - Dependencies are resolved by `task_id`, not by name
-    /// - Circular dependencies will cause a startup error
-    /// - If a dependency's setup fails, this task will not start
-    ///
-    /// # Example
-    /// ```ignore
-    /// fn dependencies(&self) -> &'static [&'static str] {
-    ///     &["database", "redis"]
-    /// }
-    /// ```
     fn dependencies(&self) -> &'static [&'static str] {
         &[]
     }
@@ -60,43 +27,161 @@ pub trait SupervisedTask: Send + Sync {
     // OPTIONAL CONFIGURATION
 
     /// Restart policy when task fails or panics
-    ///
-    /// Default: Always restart
     fn restart_policy(&self) -> RestartPolicy {
         RestartPolicy::Always
     }
 
     /// Backoff strategy between restart attempts
-    ///
-    /// Default: Exponential backoff (2s -> 4s -> 8s -> ... max 60s)
     fn backoff_strategy(&self) -> BackoffStrategy {
         BackoffStrategy::default()
+    }
+
+    /// Priority of the task (higher values = higher priority)
+    /// Used when concurrency limits are reached to decide which tasks start first
+    fn priority(&self) -> i32 {
+        0
+    }
+
+    /// Optional concurrency limit for this specific task
+    /// This is useful if the task is part of a pool or if multiple instances exist
+    fn concurrency_limit(&self) -> Option<usize> {
+        None
+    }
+
+    /// Configuration for the task's circuit breaker
+    /// If `None`, the circuit breaker is disabled for this task
+    fn circuit_breaker(&self) -> Option<CircuitBreakerConfig> {
+        None
+    }
+
+    /// Maximum time to wait for the task to finish its `run()` and `on_shutdown()`
+    /// before forced termination during supervisor shutdown.
+    fn shutdown_timeout(&self) -> Duration {
+        Duration::from_secs(30)
+    }
+
+    /// Optional cron expression for scheduled execution
+    #[cfg(feature = "cron")]
+    fn cron_schedule(&self) -> Option<&'static str> {
+        None
+    }
+
+    /// Optional initial delay before the first execution
+    ///
+    /// This is useful for staggering task startup to prevent thundering herd problems
+    /// or for giving dependencies time to initialize.
+    fn initial_delay(&self) -> Option<Duration> {
+        None
+    }
+
+    /// Optional jitter to add randomness to the initial delay
+    ///
+    /// Returns a tuple of (min_jitter, max_jitter) that will be randomly added
+    /// to the initial delay. This helps prevent thundering herd problems in
+    /// distributed deployments where multiple instances start simultaneously.
+    ///
+    /// Example: If initial_delay is 5s and jitter is (0, 2s), the actual delay
+    /// will be between 5s and 7s.
+    fn jitter(&self) -> Option<(Duration, Duration)> {
+        None
+    }
+
+    /// Minimum time between restart attempts (rate limiting)
+    ///
+    /// This prevents tasks from restarting too frequently, which can overwhelm
+    /// external services or resources. If a task fails and wants to restart,
+    /// it will wait at least this duration before attempting again.
+    ///
+    /// This is applied in addition to the backoff strategy - the actual delay
+    /// will be the maximum of the backoff delay and this minimum restart interval.
+    fn min_restart_interval(&self) -> Option<Duration> {
+        None
+    }
+
+    /// Time window restrictions for task execution
+    ///
+    /// Returns optional start and end times (as hours in 24-hour format) during
+    /// which the task is allowed to run. Outside this window, the task will wait
+    /// until the next allowed time.
+    ///
+    /// Example: Some((9, 17)) means the task can only run between 9 AM and 5 PM.
+    /// Use None for either value to indicate no restriction on that boundary.
+    ///
+    /// Note: Times are evaluated in UTC by default.
+    fn execution_time_window(&self) -> Option<(Option<u8>, Option<u8>)> {
+        None
+    }
+
+    /// Task group identifier for atomic operations
+    ///
+    /// Tasks with the same group ID can be started, stopped, or managed together.
+    /// This is useful for related tasks that should be treated as a unit.
+    ///
+    /// Example: A database connection pool and its query processor might be in
+    /// the same group so they start and stop together.
+    fn group_id(&self) -> Option<&'static str> {
+        None
+    }
+
+    /// Conditional dependencies based on environment or runtime conditions
+    ///
+    /// Returns a list of dependencies that are only active when certain conditions are met.
+    /// Each tuple contains (dependency_id, condition_function).
+    /// The condition function receives the current environment context and returns true
+    /// if the dependency should be enforced.
+    ///
+    /// Example: Only depend on "cache-service" if USE_CACHE env var is set
+    /// ```ignore
+    /// vec![("cache-service", Box::new(|| std::env::var("USE_CACHE").is_ok()))]
+    /// ```
+    #[allow(clippy::type_complexity)]
+    fn conditional_dependencies(&self) -> Vec<(&'static str, Box<dyn Fn() -> bool + Send + Sync>)> {
+        Vec::new()
+    }
+
+    /// Get all active dependencies (regular + conditional that evaluate to true)
+    ///
+    /// This combines regular dependencies with conditional dependencies whose
+    /// conditions currently evaluate to true.
+    fn active_dependencies(&self) -> Vec<&'static str> {
+        let mut deps = self.dependencies().to_vec();
+        
+        // Add conditional dependencies whose conditions are met
+        for (dep_id, condition) in self.conditional_dependencies() {
+            if condition() {
+                deps.push(dep_id);
+            }
+        }
+        
+        deps
     }
 
     // LIFECYCLE HOOKS
 
     /// Called once before the first run() attempt
-    ///
-    /// Use for:
-    /// - Initializing connections
-    /// - Declaring queue topology
-    /// - Loading configuration
-    /// - Validating prerequisites
-    ///
-    /// If this fails, the task will not start
     async fn setup(&self) -> anyhow::Result<()> {
         Ok(())
     }
 
     /// Called after task stops (success, failure, or panic)
     ///
-    /// Guaranteed to run even if task panics.
+    /// **Purpose:** Internal resource cleanup and teardown.
+    /// 
+    /// This hook is called automatically by the supervision loop whenever a task's
+    /// `run()` method completes (successfully or with error) or panics. It's meant for:
+    /// - Closing database connections
+    /// - Releasing file handles
+    /// - Dropping temporary resources
+    /// - Any internal cleanup needed before restart or shutdown
     ///
-    /// Use for:
-    /// - Closing connections
-    /// - Flushing buffers
-    /// - Releasing resources
-    /// - Final cleanup
+    /// **When it's called:**
+    /// - After every `run()` completion (success or failure)
+    /// - After a panic is caught
+    /// - When task receives Stop command
+    /// - During supervisor shutdown
+    ///
+    /// **Important:** This is NOT for graceful shutdown logic. Use `on_shutdown()` instead
+    /// if you need to perform actions specifically during supervisor-initiated shutdown.
     async fn cleanup(&self) {
         // Default: no cleanup
     }
@@ -104,18 +189,6 @@ pub trait SupervisedTask: Send + Sync {
     // RESTART CONTROL
 
     /// Dynamic restart control - called before each restart
-    ///
-    /// Return false to prevent restart (overrides restart_policy)
-    ///
-    /// Use for:
-    /// - Preventing restart on specific error types
-    /// - Circuit breaker pattern
-    /// - Rate limiting restarts
-    /// - Configuration-based shutdown
-    ///
-    /// # Arguments
-    /// * `attempt` - The attempt number (1-indexed)
-    /// * `last_error` - String representation of the last error/panic
     async fn should_restart(&self, _attempt: usize, _last_error: &str) -> bool {
         true
     }
@@ -123,32 +196,16 @@ pub trait SupervisedTask: Send + Sync {
     // MONITORING & OBSERVABILITY
 
     /// Health check for monitoring endpoints
-    ///
-    /// Use for:
-    /// - Kubernetes liveness/readiness probes
-    /// - Load balancer health checks
-    /// - Monitoring dashboards
-    /// - Alerting systems
     async fn health_check(&self) -> HealthStatus {
         HealthStatus::Healthy
     }
 
     /// Return task-specific metrics (optional)
-    ///
-    /// Use for:
-    /// - Prometheus metrics
-    /// - Custom monitoring
-    /// - Performance tracking
     async fn metrics(&self) -> Option<TaskMetrics> {
         None
     }
 
     /// Called before each restart (not called on first attempt)
-    ///
-    /// Use for:
-    /// - Resetting state
-    /// - Re-establishing connections
-    /// - Logging restart events
     async fn on_restart(&self, _attempt: usize) {
         // Default: no action
     }
@@ -156,32 +213,45 @@ pub trait SupervisedTask: Send + Sync {
     // ERROR HANDLING HOOKS
 
     /// Called when run() returns an error
-    ///
-    /// Use for:
-    /// - Logging errors
-    /// - Sending alerts
-    /// - Recording metrics
-    /// - Custom error handling
     async fn on_error(&self, _error: &str, _attempt: usize) {
         // Default: no action (supervisor logs by default)
     }
 
     /// Called when run() panics
-    ///
-    /// Use for:
-    /// - Panic-specific alerting
-    /// - Critical error handling
-    /// - Dumping debug state
     async fn on_panic(&self, _panic_info: &str, _attempt: usize) {
         // Default: no action (supervisor logs by default)
     }
 
     /// Called when the service is shutting down
     ///
-    /// Use for:
-    /// - Cleanup tasks
-    /// - Releasing resources
-    /// - Graceful shutdown procedures
+    /// **Purpose:** Graceful shutdown hook for external/user-defined cleanup.
+    ///
+    /// This hook is called ONLY during supervisor-initiated graceful shutdown,
+    /// AFTER the supervision loop has terminated. It's meant for:
+    /// - Flushing buffers to disk/network
+    /// - Sending final notifications
+    /// - Performing graceful disconnections
+    /// - Any user-defined shutdown logic that should run once at the end
+    ///
+    /// **When it's called:**
+    /// - ONLY during `TaskRuntime::shutdown()` 
+    /// - AFTER the supervision loop ends
+    /// - AFTER `cleanup()` has been called
+    /// - Once per task, in dependency-aware order
+    ///
+    /// **Key difference from `cleanup()`:**
+    /// - `cleanup()` = Internal teardown, called after EVERY run() completion
+    /// - `on_shutdown()` = Graceful shutdown, called ONCE during supervisor shutdown
+    ///
+    /// **Example:**
+    /// ```ignore
+    /// async fn on_shutdown(&self) {
+    ///     // Flush pending messages
+    ///     self.message_queue.flush().await.ok();
+    ///     // Notify monitoring service
+    ///     self.notify_shutdown().await.ok();
+    /// }
+    /// ```
     async fn on_shutdown(&self) {
         // Default implementation does nothing
     }
@@ -192,6 +262,13 @@ pub trait SupervisedTask: Send + Sync {
 pub trait StatefulTask: SupervisedTask {
     /// Get the current state of the task
     async fn state(&self) -> TaskState;
+}
+
+/// Trait for components that listen to supervisor events
+#[async_trait::async_trait]
+pub trait SupervisorEventListener: Send + Sync {
+    /// Called when a supervisor event occurs
+    async fn on_event(&self, event: SupervisorEvent);
 }
 
 /// Optional metrics that tasks can expose

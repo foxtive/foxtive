@@ -15,6 +15,7 @@ mod helpers;
 mod supervision;
 mod types;
 mod validation;
+pub(crate) mod circuit_breaker;
 
 #[cfg(test)]
 mod tests {
