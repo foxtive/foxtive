@@ -1,6 +1,6 @@
 [package]
 name = "foxtive-supervisor"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 description = "Foxtive Supervisor - Advanced task supervision for Rust applications"
@@ -12,9 +12,80 @@ tracing = "0.1.41"
 async-trait = "0.1.88"
 anyhow = { version = "1.0.98", features = ["backtrace"] }
 thiserror = "2.0.18"
-tokio = { version = "1.45.1", features = ["rt-multi-thread", "time", "sync"] }
+tokio = { version = "1.51.0", features = ["rt-multi-thread", "time", "sync", "macros", "fs", "io-util"] }
+futures = "0.3.31"
 futures-util = "0.3.31"
+uuid = { version = "1.10.0", features = ["v4", "fast-rng", "macro-diagnostics"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rand = "0.10.0"
+foxtive-cron = { path = "../foxtive-cron", optional = true }
+chrono = { version = "0.4.41", optional = true }
+chrono-tz = { version = "0.10.1", optional = true }
+redis = { version = "0.27", features = ["tokio-comp"], optional = true }
+
+[features]
+default = []
+cron = ["foxtive-cron", "chrono", "chrono-tz"]
+distributed = ["redis", "chrono"]
 
 [dev-dependencies]
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.51.0", features = ["full", "test-util"] }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+tempfile = "3.27.0"
 
+[[test]]
+name = "lifecycle_tests"
+path = "tests/lifecycle_tests.rs"
+
+[[test]]
+name = "concurrency_tests"
+path = "tests/concurrency_tests.rs"
+
+[[test]]
+name = "persistence_tests"
+path = "tests/persistence_tests.rs"
+
+[[test]]
+name = "dynamic_management_tests"
+path = "tests/dynamic_management_tests.rs"
+
+[[test]]
+name = "event_tests"
+path = "tests/event_tests.rs"
+
+[[test]]
+name = "prerequisite_tests"
+path = "tests/prerequisite_tests.rs"
+
+[[test]]
+name = "error_handling_tests"
+path = "tests/error_handling_tests.rs"
+
+[[test]]
+name = "circuit_breaker_tests"
+path = "tests/circuit_breaker_tests.rs"
+
+[[test]]
+name = "persistence_benchmarks"
+path = "tests/persistence_benchmarks.rs"
+
+[[test]]
+name = "shutdown_tests"
+path = "tests/shutdown_tests.rs"
+
+[[test]]
+name = "testing_util_tests"
+path = "tests/testing_util_tests.rs"
+
+[[test]]
+name = "cron_tests"
+path = "tests/cron_tests.rs"
+
+[[test]]
+name = "distributed_coordination_tests"
+path = "tests/distributed_coordination_tests.rs"
+
+[[test]]
+name = "dependency_race_condition_tests"
+path = "tests/dependency_race_condition_tests.rs"

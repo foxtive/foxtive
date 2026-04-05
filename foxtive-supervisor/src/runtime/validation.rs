@@ -7,16 +7,16 @@ use std::collections::{HashMap, HashSet};
 /// Validate the dependency graph:
 /// - All declared dep IDs must correspond to a registered task
 /// - No circular dependencies
-pub fn validate_dependencies(tasks: &[TaskEntry]) -> Result<(), SupervisorError> {
+pub fn validate_dependencies(tasks: &[&TaskEntry]) -> Result<(), SupervisorError> {
     let known_ids: HashSet<&'static str> = tasks.iter().map(|e| e.task.id()).collect();
 
     // Check unknown IDs first
     for entry in tasks {
-        for dep in entry.task.dependencies() {
+        for dep in entry.task.active_dependencies() {
             if !known_ids.contains(dep) {
                 return Err(SupervisorError::dependency_validation(
                     entry.task.id(),
-                    *dep,
+                    dep,
                     ValidationError::UnknownTaskId,
                 ));
             }
@@ -24,6 +24,8 @@ pub fn validate_dependencies(tasks: &[TaskEntry]) -> Result<(), SupervisorError>
     }
 
     // Cycle detection via DFS
+    // Note: We only check regular dependencies for cycles during validation
+    // Conditional dependencies are evaluated at runtime
     let graph: HashMap<&'static str, &[&'static str]> = tasks
         .iter()
         .map(|e| (e.task.id(), e.task.dependencies()))
@@ -55,7 +57,7 @@ fn dfs_cycle_check<'a>(
             if !visited.contains(dep) {
                 dfs_cycle_check(dep, graph, visited, stack)?;
             } else if stack.contains(dep) {
-                return Err(SupervisorError::circular_dependency(node, *dep));
+                return Err(SupervisorError::circular_dependency(node, dep));
             }
         }
     }
