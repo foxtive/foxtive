@@ -1,6 +1,9 @@
 # Foxtive-Macros Changelog
 Foxtive macros lib changelog file
 
+### 0.4.3 (2026-04-06)
+* feat(enum): auto derive Debug to enums
+
 ### 0.4.2 (2025-01-11)
 * feat(diesel): 'generate_diesel_enum_with_optional_features' should be available without database feature enabled
 
