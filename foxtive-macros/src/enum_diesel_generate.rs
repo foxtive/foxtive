@@ -87,7 +87,7 @@ pub fn generate_diesel_enum_with_optional_features(input: TokenStream) -> TokenS
     let enum_definition = quote! {
         #[cfg_attr(feature = #feature, derive(diesel::AsExpression, diesel::FromSqlRow))]
         #[cfg_attr(feature = #feature, diesel(sql_type = diesel::sql_types::Text))]
-        #[derive(strum_macros::EnumString, strum_macros::Display, Copy, Clone, Eq, PartialEq)]
+        #[derive(strum_macros::EnumString, strum_macros::Display, Debug, Copy, Clone, Eq, PartialEq)]
         #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
         pub enum #enum_name {
             #variants
