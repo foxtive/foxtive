@@ -1,3 +1,4 @@
+use crate::internal_server_error;
 use crate::prelude::{AppMessage, AppResult};
 use crate::setup::trace_layers::EventCallbackLayer;
 use std::str::FromStr;
@@ -6,7 +7,6 @@ use tracing::Level;
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use crate::internal_server_error;
 
 pub type TracingEventHandler = Arc<dyn Fn(&tracing::Event<'_>) + Send + Sync + 'static>;
 
@@ -77,7 +77,9 @@ impl OutputFormat {
     /// Gets the output format from environment variable or returns default
     pub fn from_env(var_name: &str) -> AppResult<OutputFormat> {
         std::env::var(var_name)
-            .map_err(|e| AppMessage::missing_environment_variable(var_name.to_string(), e).into_anyhow())
+            .map_err(|e| {
+                AppMessage::missing_environment_variable(var_name.to_string(), e).into_anyhow()
+            })
             .and_then(|val| val.parse())
     }
 

@@ -1,10 +1,10 @@
-use foxtive_cron::{FnJob, CronError};
+use foxtive_cron::{CronError, FnJob};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 mod fn_job {
-    use foxtive_cron::contracts::JobContract;
     use super::*;
+    use foxtive_cron::contracts::JobContract;
 
     #[test]
     fn new_returns_ok_with_valid_schedule() {

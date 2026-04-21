@@ -64,8 +64,10 @@ mod cron_scheduler {
     #[test]
     fn list_job_ids_returns_correct_ids() {
         let mut cron = Cron::new();
-        cron.add_job_fn("job-1", "Job 1", "*/1 * * * * * *", || async { Ok(()) }).unwrap();
-        cron.add_job_fn("job-2", "Job 2", "*/1 * * * * * *", || async { Ok(()) }).unwrap();
+        cron.add_job_fn("job-1", "Job 1", "*/1 * * * * * *", || async { Ok(()) })
+            .unwrap();
+        cron.add_job_fn("job-2", "Job 2", "*/1 * * * * * *", || async { Ok(()) })
+            .unwrap();
 
         let ids = cron.list_job_ids();
         assert_eq!(ids.len(), 2);
@@ -76,7 +78,8 @@ mod cron_scheduler {
     #[tokio::test]
     async fn remove_job_removes_from_registry() {
         let mut cron = Cron::new();
-        cron.add_job_fn("job-1", "Job 1", "*/1 * * * * * *", || async { Ok(()) }).unwrap();
+        cron.add_job_fn("job-1", "Job 1", "*/1 * * * * * *", || async { Ok(()) })
+            .unwrap();
         assert!(cron.remove_job("job-1").is_some());
         assert_eq!(cron.list_job_ids().len(), 0);
     }
@@ -93,7 +96,8 @@ mod cron_scheduler {
                 count.fetch_add(1, Ordering::SeqCst);
                 Ok(())
             }
-        }).unwrap();
+        })
+        .unwrap();
 
         cron.trigger_job("job-1").await.unwrap();
 
@@ -104,7 +108,8 @@ mod cron_scheduler {
                 }
                 tokio::time::sleep(Duration::from_millis(50)).await;
             }
-        }).await;
+        })
+        .await;
 
         assert!(result.is_ok(), "manual trigger did not execute job");
     }
@@ -164,7 +169,8 @@ mod cron_scheduler {
                 count.fetch_add(1, Ordering::SeqCst);
                 Ok(())
             }
-        }).unwrap();
+        })
+        .unwrap();
 
         let run_count_for_loop = run_count.clone();
         let handle = tokio::spawn(async move {
@@ -197,6 +203,11 @@ mod cron_scheduler {
 
         handle.abort();
 
-        assert!(final_count <= count_after_removal + 1, "job continued to run after removal. count_after_removal: {}, final_count: {}", count_after_removal, final_count);
+        assert!(
+            final_count <= count_after_removal + 1,
+            "job continued to run after removal. count_after_removal: {}, final_count: {}",
+            count_after_removal,
+            final_count
+        );
     }
 }

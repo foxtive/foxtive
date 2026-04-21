@@ -215,9 +215,9 @@ macro_rules! ensure_found {
 
 #[cfg(test)]
 mod tests {
-    use http::StatusCode;
     use crate::enums::AppMessage;
     use crate::results::AppResult;
+    use http::StatusCode;
 
     fn downcast(err: &crate::Error) -> &AppMessage {
         err.downcast_ref::<AppMessage>().unwrap()
@@ -246,11 +246,17 @@ mod tests {
         assert_eq!(downcast(&err).status_code(), StatusCode::CONFLICT);
 
         let err = unprocessable_entity!("Cannot process request");
-        assert_eq!(downcast(&err).status_code(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(
+            downcast(&err).status_code(),
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
 
         let err = internal_server_error!("Crashed on line {}", 99);
         assert_eq!(err.to_string(), "Crashed on line 99");
-        assert_eq!(downcast(&err).status_code(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            downcast(&err).status_code(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
     }
 
     #[test]
@@ -273,7 +279,10 @@ mod tests {
         assert_eq!(msg.status_code(), StatusCode::UNPROCESSABLE_ENTITY);
 
         let errors = msg.validation_errors().unwrap();
-        assert_eq!(errors["email"], vec!["is required", "must be a valid email"]);
+        assert_eq!(
+            errors["email"],
+            vec!["is required", "must be a valid email"]
+        );
         assert_eq!(errors["name"], vec!["is too short"]);
     }
 
@@ -285,7 +294,10 @@ mod tests {
         let err = validation_error!("Validation failed", map);
         let msg = downcast(&err);
         assert_eq!(msg.status_code(), StatusCode::UNPROCESSABLE_ENTITY);
-        assert_eq!(msg.validation_errors().unwrap()["phone"], vec!["is invalid"]);
+        assert_eq!(
+            msg.validation_errors().unwrap()["phone"],
+            vec!["is invalid"]
+        );
     }
 
     #[test]

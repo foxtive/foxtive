@@ -1,3 +1,4 @@
+use crate::ValidationErrors;
 #[cfg(feature = "reqwest")]
 use crate::helpers::reqwest::ReqwestResponseError;
 use crate::results::AppResult;
@@ -7,7 +8,6 @@ use std::env::VarError;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 use tracing::{error, info, warn};
-use crate::ValidationErrors;
 
 #[derive(Error, Debug, Clone)]
 pub enum AppMessage {
@@ -87,10 +87,7 @@ impl AppMessage {
     /// errors.insert("email".into(), vec!["is required".into()]);
     /// let msg = AppMessage::validation_error("Validation failed", errors);
     /// ```
-    pub fn validation_error(
-        msg: impl Into<String>,
-        errors: impl Into<ValidationErrors>,
-    ) -> Self {
+    pub fn validation_error(msg: impl Into<String>, errors: impl Into<ValidationErrors>) -> Self {
         AppMessage::ValidationError(msg.into(), errors.into())
     }
 
@@ -366,7 +363,8 @@ mod tests {
 
     #[test]
     fn test_missing_environment_variable() {
-        let msg = AppMessage::missing_environment_variable("DATABASE_URL", env::VarError::NotPresent);
+        let msg =
+            AppMessage::missing_environment_variable("DATABASE_URL", env::VarError::NotPresent);
         assert_eq!(msg.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
         assert!(msg.is_server_error());
         assert_eq!(
@@ -377,7 +375,8 @@ mod tests {
 
     #[test]
     fn test_into_result() {
-        let result = AppMessage::error_message("Y2k huh?", StatusCode::BAD_REQUEST).into_result::<()>();
+        let result =
+            AppMessage::error_message("Y2k huh?", StatusCode::BAD_REQUEST).into_result::<()>();
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "Y2k huh?");
     }
@@ -397,12 +396,18 @@ mod tests {
         assert_eq!(AppMessage::forbidden("").kind_name(), "forbidden");
         assert_eq!(AppMessage::not_found("").kind_name(), "not_found");
         assert_eq!(AppMessage::conflict("").kind_name(), "conflict");
-        assert_eq!(AppMessage::unprocessable_entity("").kind_name(), "unprocessable_entity");
+        assert_eq!(
+            AppMessage::unprocessable_entity("").kind_name(),
+            "unprocessable_entity"
+        );
         assert_eq!(
             AppMessage::validation_error("", ValidationErrors::new()).kind_name(),
             "validation_error"
         );
-        assert_eq!(AppMessage::internal_server_error("").kind_name(), "internal_server_error");
+        assert_eq!(
+            AppMessage::internal_server_error("").kind_name(),
+            "internal_server_error"
+        );
         assert_eq!(
             AppMessage::missing_environment_variable("X", env::VarError::NotPresent).kind_name(),
             "missing_environment_variable"

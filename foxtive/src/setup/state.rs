@@ -2,6 +2,7 @@ use std::fmt::{Debug, Formatter};
 #[allow(unused_imports)]
 use std::sync::Arc;
 
+use crate::Environment;
 #[cfg(feature = "jwt")]
 use crate::helpers::jwt::Jwt;
 #[cfg(feature = "crypto")]
@@ -10,7 +11,6 @@ use crate::helpers::password::Password;
 use crate::rabbitmq::RabbitMQ;
 #[cfg(feature = "redis")]
 use crate::redis::Redis;
-use crate::Environment;
 #[cfg(feature = "templating")]
 use tera::{Context, Tera};
 

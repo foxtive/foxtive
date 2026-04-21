@@ -1,15 +1,17 @@
-use crate::contracts::{JobContract, MisfirePolicy, JobType, JobEventListener, JobEvent, MetricsExporter, JobStore};
+use crate::contracts::{
+    JobContract, JobEvent, JobEventListener, JobStore, JobType, MetricsExporter, MisfirePolicy,
+};
 pub use crate::job::JobItem;
 use chrono::{DateTime, Utc};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::sync::Arc;
-use tokio::sync::Semaphore;
-use tokio::time::{Instant, sleep_until};
 use thiserror::Error;
-use tokio_util::sync::CancellationToken;
+use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
-use tracing::{info, error, warn};
+use tokio::time::{Instant, sleep_until};
+use tokio_util::sync::CancellationToken;
+use tracing::{error, info, warn};
 
 pub mod contracts;
 mod fn_job;
@@ -121,12 +123,18 @@ impl std::fmt::Debug for Cron {
         f.debug_struct("Cron")
             .field("queue_len", &self.queue.len())
             .field("registry_len", &self.registry.len())
-            .field("global_concurrency_limit", &self.global_concurrency_limit.is_some())
+            .field(
+                "global_concurrency_limit",
+                &self.global_concurrency_limit.is_some(),
+            )
             .field("per_job_semaphores_len", &self.per_job_semaphores.len())
             .field("listeners_len", &self.listeners.len())
             .field("metrics_exporter", &self.metrics_exporter.is_some())
             .field("job_store", &self.job_store.is_some())
-            .field("shutdown_token_cancelled", &self.shutdown_token.is_cancelled())
+            .field(
+                "shutdown_token_cancelled",
+                &self.shutdown_token.is_cancelled(),
+            )
             .field("removed_jobs_count", &self.removed_jobs.len())
             .finish()
     }
@@ -245,7 +253,12 @@ impl Cron {
     /// # Errors
     /// Returns an error if the job's schedule expression is invalid.
     pub fn add_job(&mut self, job: impl JobContract + 'static) -> CronResult<()> {
-        let job_item = JobItem::new(Arc::new(job), self.listeners.clone(), self.metrics_exporter.clone(), self.job_store.clone())?;
+        let job_item = JobItem::new(
+            Arc::new(job),
+            self.listeners.clone(),
+            self.metrics_exporter.clone(),
+            self.job_store.clone(),
+        )?;
         let id = job_item.id().to_string();
 
         if let Some(limit) = job_item.concurrency_limit() {
@@ -304,7 +317,7 @@ impl Cron {
     pub fn remove_job(&mut self, id: &str) -> Option<JobItem> {
         // Mark as removed so we know not to reschedule it
         self.removed_jobs.insert(id.to_string());
-        
+
         // Remove from registry but keep semaphore for running instances
         self.registry.remove(id)
     }
@@ -397,7 +410,7 @@ impl Cron {
                     error!("Error in scheduled task: {:?}", err);
                 }
             }
-            
+
             // Clean up semaphores for removed jobs that are no longer running
             self.cleanup_removed_job_semaphores();
 
@@ -481,7 +494,7 @@ impl Cron {
                             Ok(()) => info!("[{name}] Job completed"),
                             Err(err) => error!("[{name}] Job failed: {err:?}"),
                         }
-                        
+
                         // Permits are automatically returned when dropped
                     });
 
@@ -500,7 +513,8 @@ impl Cron {
                             id: scheduled.id.clone(),
                             name: name_cloned.clone(),
                             scheduled_time,
-                        }).await;
+                        })
+                        .await;
 
                         if let Some(exporter) = &self.metrics_exporter {
                             exporter.record_misfire(&scheduled.id, &name_cloned);
@@ -543,7 +557,7 @@ impl Cron {
             }
         }
     }
-    
+
     /// Clean up semaphores for jobs that have been removed and are no longer running.
     fn cleanup_removed_job_semaphores(&mut self) {
         // Find jobs that are both removed AND no longer running
@@ -557,7 +571,7 @@ impl Cron {
                 }
             }
         }
-        
+
         // Clean up semaphores for fully completed removed jobs
         for job_id in to_cleanup {
             self.per_job_semaphores.remove(&job_id);
