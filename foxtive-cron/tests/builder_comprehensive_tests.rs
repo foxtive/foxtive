@@ -1,7 +1,7 @@
+use chrono::{Datelike, NaiveDate, TimeZone, Timelike, Utc};
+use chrono_tz::{Asia::Tokyo, Europe::London, US::Eastern, UTC};
 use foxtive_cron::builder::{CronExpression, Month, Weekday};
 use foxtive_cron::contracts::Schedule;
-use chrono::{NaiveDate, TimeZone, Utc, Datelike, Timelike};
-use chrono_tz::{UTC, US::Eastern, Europe::London, Asia::Tokyo};
 use std::time::Duration;
 
 mod jitter_tests {
@@ -16,7 +16,7 @@ mod jitter_tests {
 
         // Run multiple times to verify jitter is applied
         let start = Utc.with_ymd_and_hms(2024, 1, 1, 8, 0, 0).unwrap();
-        
+
         let mut times = Vec::new();
         for _ in 0..10 {
             if let Some(next) = cron.next_after(&start, UTC) {
@@ -27,7 +27,12 @@ mod jitter_tests {
         // With jitter, times should vary (not all identical)
         // Note: There's a small chance they could be the same, but very unlikely with 10 samples
         let unique_count = times.iter().collect::<std::collections::HashSet<_>>().len();
-        assert!(unique_count >= 2, "Expected varied times due to jitter, got {} unique out of {}", unique_count, times.len());
+        assert!(
+            unique_count >= 2,
+            "Expected varied times due to jitter, got {} unique out of {}",
+            unique_count,
+            times.len()
+        );
     }
 
     #[test]
@@ -38,13 +43,17 @@ mod jitter_tests {
             .with_jitter(max_jitter);
 
         let start = Utc::now();
-        
+
         for _ in 0..20 {
             if let Some(next) = cron.next_after(&start, UTC) {
                 let diff = (next - start).num_milliseconds();
                 // With every_second + jitter, should be within reasonable bounds
                 // The schedule itself advances by ~1 second, plus up to 30 seconds of jitter
-                assert!((0..=35000).contains(&diff), "Jitter exceeded bounds: {}ms", diff);
+                assert!(
+                    (0..=35000).contains(&diff),
+                    "Jitter exceeded bounds: {}ms",
+                    diff
+                );
             }
         }
     }
@@ -57,11 +66,14 @@ mod jitter_tests {
             .with_jitter(Duration::from_secs(0));
 
         let start = Utc.with_ymd_and_hms(2024, 1, 1, 8, 0, 0).unwrap();
-        
+
         let time1 = cron.next_after(&start, UTC).unwrap();
         let time2 = cron.next_after(&start, UTC).unwrap();
-        
-        assert_eq!(time1, time2, "Zero jitter should produce consistent results");
+
+        assert_eq!(
+            time1, time2,
+            "Zero jitter should produce consistent results"
+        );
     }
 
     #[test]
@@ -74,7 +86,7 @@ mod jitter_tests {
 
         let start = Utc.with_ymd_and_hms(2024, 1, 1, 8, 0, 0).unwrap();
         let next = cron.next_after(&start, London).unwrap();
-        
+
         // Should be around 9 AM London time (with jitter)
         let london_time = next.with_timezone(&London);
         assert_eq!(london_time.hour(), 9);
@@ -87,7 +99,7 @@ mod blackout_dates_tests {
     #[test]
     fn single_blackout_date_is_skipped() {
         let christmas = NaiveDate::from_ymd_opt(2024, 12, 25).unwrap();
-        
+
         let cron = CronExpression::builder()
             .daily()
             .hour(9)
@@ -96,7 +108,7 @@ mod blackout_dates_tests {
         // Start just before Christmas
         let start = Utc.with_ymd_and_hms(2024, 12, 24, 10, 0, 0).unwrap();
         let next = cron.next_after(&start, UTC).unwrap();
-        
+
         // Should skip Christmas and go to Dec 26
         assert_eq!(next.day(), 26);
         assert_eq!(next.month(), 12);
@@ -110,7 +122,7 @@ mod blackout_dates_tests {
             NaiveDate::from_ymd_opt(2024, 12, 31).unwrap(),
             NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
         ];
-        
+
         let cron = CronExpression::builder()
             .daily()
             .hour(9)
@@ -118,7 +130,7 @@ mod blackout_dates_tests {
 
         let start = Utc.with_ymd_and_hms(2024, 12, 24, 10, 0, 0).unwrap();
         let next = cron.next_after(&start, UTC).unwrap();
-        
+
         // Should skip Dec 25 and land on Dec 27 (since we started after 9 AM on Dec 24)
         assert_eq!(next.day(), 27);
     }
@@ -126,7 +138,7 @@ mod blackout_dates_tests {
     #[test]
     fn blackout_dates_with_weekday_schedule() {
         let holiday = NaiveDate::from_ymd_opt(2024, 7, 4).unwrap(); // Thursday
-        
+
         let cron = CronExpression::builder()
             .weekdays_only()
             .hour(9)
@@ -135,7 +147,7 @@ mod blackout_dates_tests {
         // Start before the holiday
         let start = Utc.with_ymd_and_hms(2024, 7, 3, 8, 0, 0).unwrap();
         let next = cron.next_after(&start, UTC).unwrap();
-        
+
         // Should run on July 3 at 9 AM (before the holiday)
         assert_eq!(next.day(), 3);
         assert_eq!(next.hour(), 9);
@@ -147,7 +159,7 @@ mod blackout_dates_tests {
         let blackouts: Vec<NaiveDate> = (1..=7)
             .map(|day| NaiveDate::from_ymd_opt(2024, 1, day).unwrap())
             .collect();
-        
+
         let cron = CronExpression::builder()
             .daily()
             .hour(9)
@@ -155,7 +167,7 @@ mod blackout_dates_tests {
 
         let start = Utc.with_ymd_and_hms(2024, 1, 1, 10, 0, 0).unwrap();
         let next = cron.next_after(&start, UTC);
-        
+
         // Should eventually find Jan 8
         assert!(next.is_some());
         assert_eq!(next.unwrap().day(), 8);
@@ -164,7 +176,7 @@ mod blackout_dates_tests {
     #[test]
     fn blackout_dates_with_jitter() {
         let holiday = NaiveDate::from_ymd_opt(2024, 12, 25).unwrap();
-        
+
         let cron = CronExpression::builder()
             .daily()
             .hour(9)
@@ -173,7 +185,7 @@ mod blackout_dates_tests {
 
         let start = Utc.with_ymd_and_hms(2024, 12, 24, 10, 0, 0).unwrap();
         let next = cron.next_after(&start, UTC).unwrap();
-        
+
         // Should still skip the holiday even with jitter
         assert_ne!(next.day(), 25);
     }
@@ -186,7 +198,7 @@ mod timezone_advanced_tests {
     fn dst_transition_spring_forward() {
         // In US Eastern, clocks spring forward on March 10, 2024 at 2 AM
         // 2 AM becomes 3 AM, so 2:30 AM doesn't exist
-        
+
         let cron = CronExpression::builder()
             .daily()
             .hour(2)
@@ -196,7 +208,7 @@ mod timezone_advanced_tests {
         // Start just before DST transition
         let start = Utc.with_ymd_and_hms(2024, 3, 9, 6, 0, 0).unwrap(); // 1 AM EST
         let next = cron.next_after(&start, Eastern);
-        
+
         // Should handle the transition gracefully
         assert!(next.is_some());
     }
@@ -205,7 +217,7 @@ mod timezone_advanced_tests {
     fn dst_transition_fall_back() {
         // In US Eastern, clocks fall back on November 3, 2024 at 2 AM
         // 2 AM becomes 1 AM again
-        
+
         let cron = CronExpression::builder()
             .daily()
             .hour(1)
@@ -214,14 +226,14 @@ mod timezone_advanced_tests {
 
         let start = Utc.with_ymd_and_hms(2024, 11, 2, 5, 0, 0).unwrap();
         let next = cron.next_after(&start, Eastern);
-        
+
         assert!(next.is_some());
     }
 
     #[test]
     fn cross_midnight_timezone_conversion() {
         // When it's 11 PM in Tokyo, it's earlier in London
-        
+
         let cron = CronExpression::builder()
             .daily()
             .hour(23)
@@ -229,7 +241,7 @@ mod timezone_advanced_tests {
 
         let start = Utc.with_ymd_and_hms(2024, 1, 1, 14, 0, 0).unwrap(); // 11 PM Tokyo = 2 PM UTC
         let next = cron.next_after(&start, Tokyo).unwrap();
-        
+
         let tokyo_time = next.with_timezone(&Tokyo);
         assert_eq!(tokyo_time.hour(), 23);
     }
@@ -244,7 +256,7 @@ mod timezone_advanced_tests {
 
         let start = Utc.with_ymd_and_hms(2024, 1, 1, 8, 0, 0).unwrap();
         let next = cron.next_after(&start, London).unwrap();
-        
+
         let london_time = next.with_timezone(&London);
         assert_eq!(london_time.hour(), 9);
     }
@@ -255,10 +267,7 @@ mod serialization_tests {
 
     #[test]
     fn serialize_deserialize_round_trip() {
-        let original = CronExpression::builder()
-            .daily()
-            .hour(9)
-            .minute(30);
+        let original = CronExpression::builder().daily().hour(9).minute(30);
 
         let serialized = serde_json::to_string(&original).unwrap();
         let deserialized: CronExpression = serde_json::from_str(&serialized).unwrap();
@@ -368,9 +377,7 @@ mod builder_composition_tests {
     #[test]
     fn monthly_report_schedule() {
         // First day of every month at midnight
-        let cron = CronExpression::builder()
-            .monthly()
-            .day_of_month(1);
+        let cron = CronExpression::builder().monthly().day_of_month(1);
 
         let expression = cron.build();
         assert_eq!(expression, "0 0 0 1 * * *");
@@ -406,10 +413,8 @@ mod builder_composition_tests {
     #[test]
     fn end_of_month_schedule() {
         // Last days of every month at 11 PM (using multiple specific days)
-        let cron = CronExpression::builder()
-            .daily()
-            .hour(23);
-            // Note: day_of_month only takes one value, so we'd need to add more API for lists
+        let cron = CronExpression::builder().daily().hour(23);
+        // Note: day_of_month only takes one value, so we'd need to add more API for lists
 
         let expression = cron.build();
         assert_eq!(expression, "0 0 23 * * * *");
@@ -418,10 +423,7 @@ mod builder_composition_tests {
     #[test]
     fn override_preset_values() {
         // Start with daily, then customize
-        let cron = CronExpression::builder()
-            .daily()
-            .hour(14)
-            .minute(30);
+        let cron = CronExpression::builder().daily().hour(14).minute(30);
 
         let expression = cron.build();
         assert_eq!(expression, "0 30 14 * * * *");
@@ -444,10 +446,8 @@ mod validation_edge_cases {
 
     #[test]
     fn invalid_day_of_month_rejected() {
-        let result = CronExpression::builder()
-            .day_of_month(32)
-            .to_validated();
-        
+        let result = CronExpression::builder().day_of_month(32).to_validated();
+
         assert!(result.is_err());
     }
 
@@ -457,7 +457,7 @@ mod validation_edge_cases {
         let result = CronExpression::builder()
             .month(Month::December) // This is valid
             .to_validated();
-        
+
         assert!(result.is_ok());
     }
 
@@ -469,12 +469,12 @@ mod validation_edge_cases {
             .day_of_week(Weekday::Monday)
             .to_validated();
         assert!(result_monday.is_ok());
-        
+
         let result_wednesday = CronExpression::builder()
             .day_of_week(Weekday::Wednesday)
             .to_validated();
         assert!(result_wednesday.is_ok());
-        
+
         let result_friday = CronExpression::builder()
             .day_of_week(Weekday::Friday)
             .to_validated();
@@ -488,7 +488,7 @@ mod validation_edge_cases {
         let result = CronExpression::builder()
             .hour(0) // Minimum valid
             .to_validated();
-        
+
         assert!(result.is_ok());
     }
 
@@ -502,7 +502,7 @@ mod validation_edge_cases {
             .month(Month::December)
             .day_of_week(Weekday::Saturday)
             .to_validated();
-        
+
         assert!(result.is_ok());
     }
 }
@@ -512,28 +512,24 @@ mod schedule_trait_integration {
 
     #[test]
     fn cron_expression_implements_schedule_trait() {
-        let cron = CronExpression::builder()
-            .daily()
-            .hour(9);
+        let cron = CronExpression::builder().daily().hour(9);
 
         // Verify it can be used as a Schedule trait object
         let schedule: &dyn Schedule = &cron;
-        
+
         let start = Utc.with_ymd_and_hms(2024, 1, 1, 8, 0, 0).unwrap();
         let next = schedule.next_after(&start, UTC);
-        
+
         assert!(next.is_some());
         assert_eq!(next.unwrap().hour(), 9);
     }
 
     #[test]
     fn multiple_next_calls_advance_correctly() {
-        let cron = CronExpression::builder()
-            .daily()
-            .hour(12);
+        let cron = CronExpression::builder().daily().hour(12);
 
         let start = Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap();
-        
+
         let next1 = cron.next_after(&start, UTC).unwrap();
         let next2 = cron.next_after(&next1, UTC).unwrap();
         let next3 = cron.next_after(&next2, UTC).unwrap();
@@ -562,10 +558,10 @@ mod schedule_trait_integration {
 
         // Should find a valid time that respects all constraints
         assert!(next.is_some());
-        
+
         let next_time = next.unwrap();
         let london_time = next_time.with_timezone(&London);
-        
+
         // Should be a weekday
         assert!(london_time.weekday().number_from_monday() <= 5);
         // Should be during business hours
@@ -582,9 +578,7 @@ mod real_world_expression_verification {
     #[test]
     fn database_backup_daily_2am() {
         // Real-world: Daily database backup at 2 AM
-        let cron = CronExpression::builder()
-            .daily()
-            .hour(2);
+        let cron = CronExpression::builder().daily().hour(2);
 
         let expression = cron.build();
         assert_eq!(expression, "0 0 2 * * * *");
@@ -593,8 +587,7 @@ mod real_world_expression_verification {
     #[test]
     fn health_check_every_30_seconds() {
         // Real-world: Health check every 30 seconds
-        let cron = CronExpression::builder()
-            .seconds_interval(30);
+        let cron = CronExpression::builder().seconds_interval(30);
 
         let expression = cron.build();
         assert_eq!(expression, "*/30 * * * * * *");
@@ -616,9 +609,7 @@ mod real_world_expression_verification {
     #[test]
     fn monthly_report_first_day() {
         // Real-world: Monthly report on 1st at 9 AM
-        let cron = CronExpression::builder()
-            .monthly()
-            .hour(9);
+        let cron = CronExpression::builder().monthly().hour(9);
 
         let expression = cron.build();
         assert_eq!(expression, "0 0 9 1 * * *");
@@ -627,8 +618,7 @@ mod real_world_expression_verification {
     #[test]
     fn cache_cleanup_every_6_hours() {
         // Real-world: Cache cleanup every 6 hours
-        let cron = CronExpression::builder()
-            .hours_list(&[0, 6, 12, 18]);
+        let cron = CronExpression::builder().hours_list(&[0, 6, 12, 18]);
 
         let expression = cron.build();
         assert_eq!(expression, "0 * 0,6,12,18 * * * *");
@@ -655,7 +645,7 @@ mod real_world_expression_verification {
             .minute(0)
             .day_of_month(1)
             .month(Month::January);
-        
+
         // Note: Builder API doesn't support month lists yet, so we test single month
         let expression = cron.build();
         assert_eq!(expression, "0 0 23 1 1 * *");
@@ -664,8 +654,7 @@ mod real_world_expression_verification {
     #[test]
     fn log_rotation_hourly() {
         // Real-world: Log rotation every hour at minute 0
-        let cron = CronExpression::builder()
-            .hourly();
+        let cron = CronExpression::builder().hourly();
 
         let expression = cron.build();
         assert_eq!(expression, "0 0 * * * * *");
@@ -674,9 +663,7 @@ mod real_world_expression_verification {
     #[test]
     fn api_rate_limit_reset() {
         // Real-world: API rate limit reset every hour
-        let cron = CronExpression::builder()
-            .every_hour()
-            .minute(0);
+        let cron = CronExpression::builder().every_hour().minute(0);
 
         let expression = cron.build();
         assert_eq!(expression, "0 0 * * * * *");
@@ -696,10 +683,7 @@ mod real_world_expression_verification {
     #[test]
     fn invoice_generation_monthly() {
         // Real-world: Invoice generation on 1st of every month at 9 AM
-        let cron = CronExpression::builder()
-            .monthly()
-            .hour(9)
-            .minute(0);
+        let cron = CronExpression::builder().monthly().hour(9).minute(0);
 
         let expression = cron.build();
         assert_eq!(expression, "0 0 9 1 * * *");
@@ -745,8 +729,7 @@ mod real_world_expression_verification {
     #[test]
     fn metrics_collection_every_5_minutes() {
         // Real-world: Metrics collection every 5 minutes
-        let cron = CronExpression::builder()
-            .minutes_interval(5);
+        let cron = CronExpression::builder().minutes_interval(5);
 
         let expression = cron.build();
         assert_eq!(expression, "0 */5 * * * * *");
@@ -767,9 +750,7 @@ mod real_world_expression_verification {
     #[test]
     fn session_cleanup_every_hour() {
         // Real-world: Session cleanup every hour at minute 30
-        let cron = CronExpression::builder()
-            .hourly()
-            .minute(30);
+        let cron = CronExpression::builder().hourly().minute(30);
 
         let expression = cron.build();
         assert_eq!(expression, "0 30 * * * * *");
@@ -791,9 +772,7 @@ mod real_world_expression_verification {
     #[test]
     fn certificate_renewal_check() {
         // Real-world: Certificate renewal check daily at noon
-        let cron = CronExpression::builder()
-            .daily()
-            .hour(12);
+        let cron = CronExpression::builder().daily().hour(12);
 
         let expression = cron.build();
         assert_eq!(expression, "0 0 12 * * * *");
@@ -802,8 +781,7 @@ mod real_world_expression_verification {
     #[test]
     fn data_sync_every_10_minutes() {
         // Real-world: Data synchronization every 10 minutes
-        let cron = CronExpression::builder()
-            .minutes_interval(10);
+        let cron = CronExpression::builder().minutes_interval(10);
 
         let expression = cron.build();
         assert_eq!(expression, "0 */10 * * * * *");
@@ -812,10 +790,7 @@ mod real_world_expression_verification {
     #[test]
     fn archive_old_records_monthly() {
         // Real-world: Archive old records on last day of month at 11 PM
-        let cron = CronExpression::builder()
-            .daily()
-            .hour(23)
-            .day_of_month(31);
+        let cron = CronExpression::builder().daily().hour(23).day_of_month(31);
 
         let expression = cron.build();
         assert_eq!(expression, "0 0 23 31 * * *");
@@ -824,8 +799,7 @@ mod real_world_expression_verification {
     #[test]
     fn monitoring_alert_check() {
         // Real-world: Monitoring alert check every 2 minutes
-        let cron = CronExpression::builder()
-            .minutes_interval(2);
+        let cron = CronExpression::builder().minutes_interval(2);
 
         let expression = cron.build();
         assert_eq!(expression, "0 */2 * * * * *");
@@ -847,9 +821,7 @@ mod real_world_expression_verification {
     #[test]
     fn temp_file_cleanup_daily() {
         // Real-world: Temporary file cleanup daily at 3 AM
-        let cron = CronExpression::builder()
-            .daily()
-            .hour(3);
+        let cron = CronExpression::builder().daily().hour(3);
 
         let expression = cron.build();
         assert_eq!(expression, "0 0 3 * * * *");
@@ -858,9 +830,7 @@ mod real_world_expression_verification {
     #[test]
     fn analytics_aggregation_hourly() {
         // Real-world: Analytics aggregation every hour at minute 15
-        let cron = CronExpression::builder()
-            .hourly()
-            .minute(15);
+        let cron = CronExpression::builder().hourly().minute(15);
 
         let expression = cron.build();
         assert_eq!(expression, "0 15 * * * * *");
@@ -869,9 +839,7 @@ mod real_world_expression_verification {
     #[test]
     fn security_scan_nightly() {
         // Real-world: Security scan nightly at 1 AM
-        let cron = CronExpression::builder()
-            .daily()
-            .hour(1);
+        let cron = CronExpression::builder().daily().hour(1);
 
         let expression = cron.build();
         assert_eq!(expression, "0 0 1 * * * *");
@@ -880,8 +848,7 @@ mod real_world_expression_verification {
     #[test]
     fn webhook_retry_every_minute() {
         // Real-world: Webhook retry queue processing every minute
-        let cron = CronExpression::builder()
-            .every_minute();
+        let cron = CronExpression::builder().every_minute();
 
         let expression = cron.build();
         assert_eq!(expression, "0 * * * * * *");
@@ -913,9 +880,7 @@ mod real_world_expression_verification {
     #[test]
     fn ssl_certificate_check() {
         // Real-world: SSL certificate expiry check twice daily
-        let cron = CronExpression::builder()
-            .daily()
-            .hours_list(&[6, 18]);
+        let cron = CronExpression::builder().daily().hours_list(&[6, 18]);
 
         let expression = cron.build();
         assert_eq!(expression, "0 0 6,18 * * * *");
@@ -924,8 +889,7 @@ mod real_world_expression_verification {
     #[test]
     fn load_balancer_health_check() {
         // Real-world: Load balancer health check every 10 seconds
-        let cron = CronExpression::builder()
-            .seconds_interval(10);
+        let cron = CronExpression::builder().seconds_interval(10);
 
         let expression = cron.build();
         assert_eq!(expression, "*/10 * * * * * *");
@@ -934,10 +898,7 @@ mod real_world_expression_verification {
     #[test]
     fn etl_pipeline_daily() {
         // Real-world: ETL pipeline daily at 2:30 AM
-        let cron = CronExpression::builder()
-            .daily()
-            .hour(2)
-            .minute(30);
+        let cron = CronExpression::builder().daily().hour(2).minute(30);
 
         let expression = cron.build();
         assert_eq!(expression, "0 30 2 * * * *");
@@ -946,9 +907,7 @@ mod real_world_expression_verification {
     #[test]
     fn notification_digest_hourly() {
         // Real-world: Notification digest every hour at minute 45
-        let cron = CronExpression::builder()
-            .hourly()
-            .minute(45);
+        let cron = CronExpression::builder().hourly().minute(45);
 
         let expression = cron.build();
         assert_eq!(expression, "0 45 * * * * *");

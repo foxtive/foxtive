@@ -3,8 +3,8 @@
 //! This module provides the ability to create parent-child relationships between supervisors,
 //! enabling hierarchical task management and organized supervision trees.
 
-use crate::runtime::TaskRuntime;
 use crate::Supervisor;
+use crate::runtime::TaskRuntime;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::info;
@@ -113,12 +113,16 @@ impl RuntimeNode {
         info!(node_id = %self.id, "Initiating shutdown");
 
         // Shutdown children in parallel
-        let shutdown_futures: Vec<_> = self.children.iter().map(|child| {
-            let child_clone = child.clone();
-            async move {
-                Box::pin(child_clone.shutdown_node()).await;
-            }
-        }).collect();
+        let shutdown_futures: Vec<_> = self
+            .children
+            .iter()
+            .map(|child| {
+                let child_clone = child.clone();
+                async move {
+                    Box::pin(child_clone.shutdown_node()).await;
+                }
+            })
+            .collect();
 
         futures::future::join_all(shutdown_futures).await;
 
@@ -138,9 +142,7 @@ impl RuntimeNode {
             None => 0,
         };
 
-        let child_count: usize = self.children.iter()
-            .map(|child| child.task_count())
-            .sum();
+        let child_count: usize = self.children.iter().map(|child| child.task_count()).sum();
 
         local_count + child_count
     }

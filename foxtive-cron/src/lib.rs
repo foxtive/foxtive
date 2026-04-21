@@ -13,13 +13,13 @@ use tokio::time::{Instant, sleep_until};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 
+pub mod builder;
 pub mod contracts;
 mod fn_job;
 mod job;
-pub mod builder;
 
-pub use fn_job::FnJob;
 pub use builder::CronExpression;
+pub use fn_job::FnJob;
 
 /// Custom error types for the `foxtive-cron` library.
 #[derive(Debug, Error)]

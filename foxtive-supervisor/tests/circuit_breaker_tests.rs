@@ -1,9 +1,9 @@
 mod common;
+use foxtive_supervisor::Supervisor;
 use foxtive_supervisor::contracts::SupervisorEventListener;
 use foxtive_supervisor::enums::{CircuitBreakerConfig, SupervisorEvent};
-use foxtive_supervisor::Supervisor;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use tokio::sync::Mutex;
 

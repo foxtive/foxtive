@@ -1,7 +1,7 @@
 mod common;
 use foxtive_supervisor::Supervisor;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 #[tokio::test]
@@ -14,30 +14,32 @@ async fn test_microservice_architecture() {
 
     #[async_trait::async_trait]
     impl foxtive_supervisor::contracts::SupervisedTask for DatabaseService {
-        fn id(&self) -> &'static str { self.id }
-        
+        fn id(&self) -> &'static str {
+            self.id
+        }
+
         fn group_id(&self) -> Option<&'static str> {
             Some("infrastructure")
         }
-        
+
         async fn setup(&self) -> anyhow::Result<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             self.initialized.store(true, Ordering::SeqCst);
             Ok(())
         }
-        
+
         async fn run(&self) -> anyhow::Result<()> {
             self.query_count.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(100)).await;
             Ok(())
         }
-        
+
         async fn health_check(&self) -> foxtive_supervisor::enums::HealthStatus {
             if self.initialized.load(Ordering::SeqCst) {
                 foxtive_supervisor::enums::HealthStatus::Healthy
             } else {
-                foxtive_supervisor::enums::HealthStatus::Unhealthy { 
-                    reason: "Database not initialized".to_string() 
+                foxtive_supervisor::enums::HealthStatus::Unhealthy {
+                    reason: "Database not initialized".to_string(),
                 }
             }
         }
@@ -51,16 +53,18 @@ async fn test_microservice_architecture() {
 
     #[async_trait::async_trait]
     impl foxtive_supervisor::contracts::SupervisedTask for CacheService {
-        fn id(&self) -> &'static str { self.id }
-        
+        fn id(&self) -> &'static str {
+            self.id
+        }
+
         fn group_id(&self) -> Option<&'static str> {
             Some("infrastructure")
         }
-        
+
         fn dependencies(&self) -> &'static [&'static str] {
             &["database"]
         }
-        
+
         async fn setup(&self) -> anyhow::Result<()> {
             while !self.db_initialized.load(Ordering::SeqCst) {
                 tokio::time::sleep(Duration::from_millis(10)).await;
@@ -68,7 +72,7 @@ async fn test_microservice_architecture() {
             tokio::time::sleep(Duration::from_millis(30)).await;
             Ok(())
         }
-        
+
         async fn run(&self) -> anyhow::Result<()> {
             self.cache_hits.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(80)).await;
@@ -85,24 +89,27 @@ async fn test_microservice_architecture() {
 
     #[async_trait::async_trait]
     impl foxtive_supervisor::contracts::SupervisedTask for ApiServer {
-        fn id(&self) -> &'static str { self.id }
-        
+        fn id(&self) -> &'static str {
+            self.id
+        }
+
         fn group_id(&self) -> Option<&'static str> {
             Some("application")
         }
-        
+
         fn dependencies(&self) -> &'static [&'static str] {
             &["database", "cache"]
         }
-        
+
         async fn setup(&self) -> anyhow::Result<()> {
-            while !self.db_ready.load(Ordering::SeqCst) || !self.cache_ready.load(Ordering::SeqCst) {
+            while !self.db_ready.load(Ordering::SeqCst) || !self.cache_ready.load(Ordering::SeqCst)
+            {
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
             Ok(())
         }
-        
+
         async fn run(&self) -> anyhow::Result<()> {
             self.requests_handled.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(50)).await;
@@ -112,7 +119,7 @@ async fn test_microservice_architecture() {
 
     let db_initialized = Arc::new(AtomicBool::new(false));
     let cache_ready = Arc::new(AtomicBool::new(false));
-    
+
     let db_queries = Arc::new(AtomicUsize::new(0));
     let cache_hits = Arc::new(AtomicUsize::new(0));
     let api_requests = Arc::new(AtomicUsize::new(0));
@@ -136,31 +143,31 @@ async fn test_microservice_architecture() {
         });
 
     let runtime = supervisor.start().await.unwrap();
-    
+
     // Mark services as ready immediately so API server can start
     tokio::time::sleep(Duration::from_millis(100)).await;
     db_initialized.store(true, Ordering::SeqCst);
     cache_ready.store(true, Ordering::SeqCst);
-    
+
     // Give API server time to complete setup and run
     tokio::time::sleep(Duration::from_millis(300)).await;
-    
+
     // Verify infrastructure health
     let infra_health = runtime.get_group_health("infrastructure").await;
     match infra_health {
-        foxtive_supervisor::enums::HealthStatus::Healthy => {},
+        foxtive_supervisor::enums::HealthStatus::Healthy => {}
         _ => panic!("Infrastructure should be healthy"),
     }
-    
+
     assert!(db_queries.load(Ordering::SeqCst) > 0);
     assert!(cache_hits.load(Ordering::SeqCst) > 0);
     assert!(api_requests.load(Ordering::SeqCst) > 0);
-    
+
     println!("✓ Microservice architecture passed");
     println!("  DB queries: {}", db_queries.load(Ordering::SeqCst));
     println!("  Cache hits: {}", cache_hits.load(Ordering::SeqCst));
     println!("  API requests: {}", api_requests.load(Ordering::SeqCst));
-    
+
     runtime.shutdown().await;
 }
 
@@ -175,16 +182,18 @@ async fn test_message_processing_pipeline() {
 
     #[async_trait::async_trait]
     impl foxtive_supervisor::contracts::SupervisedTask for PipelineStage {
-        fn id(&self) -> &'static str { self.id }
-        
+        fn id(&self) -> &'static str {
+            self.id
+        }
+
         fn dependencies(&self) -> &'static [&'static str] {
             self.deps
         }
-        
+
         fn group_id(&self) -> Option<&'static str> {
             Some("pipeline")
         }
-        
+
         async fn run(&self) -> anyhow::Result<()> {
             self.messages_processed.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(self.processing_time_ms)).await;
@@ -231,24 +240,26 @@ async fn test_message_processing_pipeline() {
         });
 
     let runtime = supervisor.start().await.unwrap();
-    
+
     tokio::time::sleep(Duration::from_millis(500)).await;
-    
+
     let ingested = ingest_count.load(Ordering::SeqCst);
     let validated = validate_count.load(Ordering::SeqCst);
     let transformed = transform_count.load(Ordering::SeqCst);
     let stored = store_count.load(Ordering::SeqCst);
     let notified = notify_count.load(Ordering::SeqCst);
-    
+
     assert!(ingested > 0);
     assert!(validated > 0);
     assert!(transformed > 0);
     assert!(stored > 0);
     assert!(notified > 0);
-    
+
     println!("✓ Message pipeline passed");
-    println!("  Ingested: {}, Validated: {}, Transformed: {}, Stored: {}, Notified: {}", 
-             ingested, validated, transformed, stored, notified);
-    
+    println!(
+        "  Ingested: {}, Validated: {}, Transformed: {}, Stored: {}, Notified: {}",
+        ingested, validated, transformed, stored, notified
+    );
+
     runtime.shutdown().await;
 }

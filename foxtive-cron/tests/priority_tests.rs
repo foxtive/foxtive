@@ -1,7 +1,7 @@
 mod common;
 use async_trait::async_trait;
-use foxtive_cron::contracts::{JobContract, ValidatedSchedule, Schedule};
 use foxtive_cron::Cron;
+use foxtive_cron::contracts::{JobContract, Schedule, ValidatedSchedule};
 use std::borrow::Cow;
 
 mod priority_tests {

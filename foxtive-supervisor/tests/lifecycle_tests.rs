@@ -40,7 +40,11 @@ async fn test_task_panic_recovery() {
         max_panics: 2,
     };
 
-    let result = Supervisor::new().add(task).start_and_wait_any().await.unwrap();
+    let result = Supervisor::new()
+        .add(task)
+        .start_and_wait_any()
+        .await
+        .unwrap();
 
     assert_eq!(result.final_status, SupervisionStatus::CompletedNormally);
     assert_eq!(result.total_attempts, 3);

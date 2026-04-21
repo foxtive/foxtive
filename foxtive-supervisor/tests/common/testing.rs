@@ -3,10 +3,10 @@
 //! This module provides tools to simplify testing supervised tasks,
 //! including mock implementations and assertion helpers.
 
+use foxtive_supervisor::Supervisor;
 use foxtive_supervisor::contracts::SupervisedTask;
 use foxtive_supervisor::enums::{BackoffStrategy, HealthStatus, RestartPolicy};
 use foxtive_supervisor::runtime::TaskRuntime;
-use foxtive_supervisor::Supervisor;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
@@ -40,7 +40,9 @@ impl MockTask {
             cleanup_called: Arc::new(AtomicBool::new(false)),
             shutdown_called: Arc::new(AtomicBool::new(false)),
             restart_policy: Arc::new(Mutex::new(RestartPolicy::Always)),
-            backoff: Arc::new(Mutex::new(BackoffStrategy::Fixed(Duration::from_millis(10)))),
+            backoff: Arc::new(Mutex::new(BackoffStrategy::Fixed(Duration::from_millis(
+                10,
+            )))),
             priority: 0,
             concurrency_limit: None,
         }
@@ -93,7 +95,9 @@ impl MockTask {
 
 #[async_trait::async_trait]
 impl SupervisedTask for MockTask {
-    fn id(&self) -> &'static str { self.id }
+    fn id(&self) -> &'static str {
+        self.id
+    }
 
     async fn setup(&self) -> anyhow::Result<()> {
         self.setup_called.store(true, Ordering::SeqCst);
@@ -217,7 +221,11 @@ impl<'a> TaskAssertions<'a> {
 
     /// Asserts that a task with the given ID exists and has the expected health status.
     pub async fn assert_health(&self, id: &str, expected: HealthStatus) {
-        let info = self.runtime.get_task_info(id).await.expect("Task not found");
+        let info = self
+            .runtime
+            .get_task_info(id)
+            .await
+            .expect("Task not found");
         assert_eq!(info.health, expected, "Task {} health mismatch", id);
     }
 }

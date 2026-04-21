@@ -10,12 +10,13 @@ use tokio::sync::Mutex;
 async fn test_global_concurrency_limit() {
     let _started_count = Arc::new(AtomicUsize::new(0));
 
-    let mut supervisor = Supervisor::new()
-        .with_global_concurrency_limit(2);
+    let mut supervisor = Supervisor::new().with_global_concurrency_limit(2);
 
     for i in 0..5 {
         let _count = _started_count.clone(); // Renamed to _count
-        supervisor = supervisor.add(MockTask::new(&format!("task_{}", i)).with_backoff(foxtive_supervisor::enums::BackoffStrategy::Fixed(Duration::from_millis(100))));
+        supervisor = supervisor.add(MockTask::new(&format!("task_{}", i)).with_backoff(
+            foxtive_supervisor::enums::BackoffStrategy::Fixed(Duration::from_millis(100)),
+        ));
     }
 
     // We need a custom task to track concurrent runs
@@ -27,7 +28,9 @@ async fn test_global_concurrency_limit() {
 
     #[async_trait::async_trait]
     impl foxtive_supervisor::contracts::SupervisedTask for ConcurrentTask {
-        fn id(&self) -> &'static str { self.id }
+        fn id(&self) -> &'static str {
+            self.id
+        }
         async fn run(&self) -> anyhow::Result<()> {
             self.counter.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -48,12 +51,17 @@ async fn test_global_concurrency_limit() {
 
     #[async_trait::async_trait]
     impl foxtive_supervisor::contracts::SupervisedTask for TrackingTask {
-        fn id(&self) -> &'static str { Box::leak(self.id.clone().into_boxed_str()) }
+        fn id(&self) -> &'static str {
+            Box::leak(self.id.clone().into_boxed_str())
+        }
         async fn run(&self) -> anyhow::Result<()> {
             let val = self.current.fetch_add(1, Ordering::SeqCst) + 1;
             let mut m = self.max.load(Ordering::SeqCst);
             while val > m {
-                match self.max.compare_exchange(m, val, Ordering::SeqCst, Ordering::SeqCst) {
+                match self
+                    .max
+                    .compare_exchange(m, val, Ordering::SeqCst, Ordering::SeqCst)
+                {
                     Ok(_) => break,
                     Err(actual) => m = actual,
                 }
@@ -83,8 +91,7 @@ async fn test_global_concurrency_limit() {
 async fn test_priority_scheduling() {
     let execution_order = Arc::new(Mutex::new(Vec::new()));
 
-    let mut supervisor = Supervisor::new()
-        .with_global_concurrency_limit(1);
+    let mut supervisor = Supervisor::new().with_global_concurrency_limit(1);
 
     struct PriorityTask {
         id: &'static str,
@@ -94,8 +101,12 @@ async fn test_priority_scheduling() {
 
     #[async_trait::async_trait]
     impl foxtive_supervisor::contracts::SupervisedTask for PriorityTask {
-        fn id(&self) -> &'static str { self.id }
-        fn priority(&self) -> i32 { self.priority }
+        fn id(&self) -> &'static str {
+            self.id
+        }
+        fn priority(&self) -> i32 {
+            self.priority
+        }
         async fn run(&self) -> anyhow::Result<()> {
             let mut o = self.order.lock().await;
             o.push(self.id);
@@ -106,9 +117,21 @@ async fn test_priority_scheduling() {
     }
 
     supervisor = supervisor
-        .add(PriorityTask { id: "low", priority: 0, order: execution_order.clone() })
-        .add(PriorityTask { id: "high", priority: 10, order: execution_order.clone() })
-        .add(PriorityTask { id: "medium", priority: 5, order: execution_order.clone() });
+        .add(PriorityTask {
+            id: "low",
+            priority: 0,
+            order: execution_order.clone(),
+        })
+        .add(PriorityTask {
+            id: "high",
+            priority: 10,
+            order: execution_order.clone(),
+        })
+        .add(PriorityTask {
+            id: "medium",
+            priority: 5,
+            order: execution_order.clone(),
+        });
 
     supervisor.start_and_wait_all().await.unwrap();
 

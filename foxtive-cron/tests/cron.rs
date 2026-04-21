@@ -1,11 +1,13 @@
 use async_trait::async_trait;
-use foxtive_cron::contracts::{JobContract, MisfirePolicy, RetryPolicy, ValidatedSchedule, Schedule};
-use foxtive_cron::{Cron, CronResult, FnJob, JobItem, CronError};
+use foxtive_cron::contracts::{
+    JobContract, MisfirePolicy, RetryPolicy, Schedule, ValidatedSchedule,
+};
+use foxtive_cron::{Cron, CronError, CronResult, FnJob, JobItem};
 use std::borrow::Cow;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
-use tokio::time::{timeout};
+use tokio::time::timeout;
 
 #[allow(dead_code)]
 /// Minimal hand-rolled `JobContract` used throughout the tests.
@@ -89,7 +91,9 @@ impl JobContract for MockJob {
     async fn run(&self) -> CronResult<()> {
         self.run_count.fetch_add(1, Ordering::SeqCst);
         if self.should_fail {
-            Err(CronError::ExecutionError(anyhow::anyhow!("intentional failure")))
+            Err(CronError::ExecutionError(anyhow::anyhow!(
+                "intentional failure"
+            )))
         } else {
             Ok(())
         }
@@ -464,8 +468,10 @@ mod cron_scheduler {
     #[test]
     fn list_job_ids_returns_correct_ids() {
         let mut cron = Cron::new();
-        cron.add_job_fn("job-1", "Job 1", "*/1 * * * * * *", || async { Ok(()) }).unwrap();
-        cron.add_job_fn("job-2", "Job 2", "*/1 * * * * * *", || async { Ok(()) }).unwrap();
+        cron.add_job_fn("job-1", "Job 1", "*/1 * * * * * *", || async { Ok(()) })
+            .unwrap();
+        cron.add_job_fn("job-2", "Job 2", "*/1 * * * * * *", || async { Ok(()) })
+            .unwrap();
 
         let ids = cron.list_job_ids();
         assert_eq!(ids.len(), 2);
@@ -476,7 +482,8 @@ mod cron_scheduler {
     #[tokio::test]
     async fn remove_job_removes_from_registry() {
         let mut cron = Cron::new();
-        cron.add_job_fn("job-1", "Job 1", "*/1 * * * * * *", || async { Ok(()) }).unwrap();
+        cron.add_job_fn("job-1", "Job 1", "*/1 * * * * * *", || async { Ok(()) })
+            .unwrap();
         assert!(cron.remove_job("job-1").is_some());
         assert_eq!(cron.list_job_ids().len(), 0);
     }
@@ -493,7 +500,8 @@ mod cron_scheduler {
                 count.fetch_add(1, Ordering::SeqCst);
                 Ok(())
             }
-        }).unwrap();
+        })
+        .unwrap();
 
         cron.trigger_job("job-1").await.unwrap();
 
@@ -505,7 +513,8 @@ mod cron_scheduler {
                 }
                 tokio::time::sleep(Duration::from_millis(50)).await;
             }
-        }).await;
+        })
+        .await;
 
         assert!(result.is_ok(), "manual trigger did not execute job");
     }
@@ -663,7 +672,8 @@ mod cron_scheduler {
                 count.fetch_add(1, Ordering::SeqCst);
                 Ok(())
             }
-        }).unwrap();
+        })
+        .unwrap();
 
         let run_count_for_loop = run_count.clone();
         let handle = tokio::spawn(async move {
@@ -702,7 +712,12 @@ mod cron_scheduler {
 
         handle.abort();
 
-        assert!(final_count <= count_after_removal + 1, "job continued to run after removal. count_after_removal: {}, final_count: {}", count_after_removal, final_count);
+        assert!(
+            final_count <= count_after_removal + 1,
+            "job continued to run after removal. count_after_removal: {}, final_count: {}",
+            count_after_removal,
+            final_count
+        );
     }
 
     #[tokio::test]
@@ -716,10 +731,18 @@ mod cron_scheduler {
                 tokio::time::sleep(Duration::from_secs(2)).await;
                 Ok(())
             }
-            fn id(&self) -> Cow<'_, str> { Cow::Borrowed("slow") }
-            fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Slow") }
-            fn schedule(&self) -> &dyn Schedule { &self.schedule }
-            fn timeout(&self) -> Option<Duration> { Some(Duration::from_secs(1)) }
+            fn id(&self) -> Cow<'_, str> {
+                Cow::Borrowed("slow")
+            }
+            fn name(&self) -> Cow<'_, str> {
+                Cow::Borrowed("Slow")
+            }
+            fn schedule(&self) -> &dyn Schedule {
+                &self.schedule
+            }
+            fn timeout(&self) -> Option<Duration> {
+                Some(Duration::from_secs(1))
+            }
             async fn on_error(&self, _error: &CronError) {}
         }
 
@@ -755,7 +778,11 @@ mod cron_scheduler {
                     let current = active_count.fetch_add(1, Ordering::SeqCst) + 1;
                     loop {
                         let prev = max_active.load(Ordering::SeqCst);
-                        if current <= prev || max_active.compare_exchange(prev, current, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+                        if current <= prev
+                            || max_active
+                                .compare_exchange(prev, current, Ordering::SeqCst, Ordering::SeqCst)
+                                .is_ok()
+                        {
                             break;
                         }
                     }
@@ -765,7 +792,8 @@ mod cron_scheduler {
                     active_count.fetch_sub(1, Ordering::SeqCst);
                     Ok(())
                 }
-            }).unwrap();
+            })
+            .unwrap();
         }
 
         let handle = tokio::spawn(async move {
@@ -776,7 +804,11 @@ mod cron_scheduler {
         tokio::time::sleep(Duration::from_secs(2)).await;
         handle.abort();
 
-        assert!(max_active.load(Ordering::SeqCst) <= 2, "global concurrency limit exceeded: {}", max_active.load(Ordering::SeqCst));
+        assert!(
+            max_active.load(Ordering::SeqCst) <= 2,
+            "global concurrency limit exceeded: {}",
+            max_active.load(Ordering::SeqCst)
+        );
         assert!(run_count.load(Ordering::SeqCst) > 0);
     }
 
@@ -803,7 +835,12 @@ mod cron_scheduler {
                 let current = self.active_count.fetch_add(1, Ordering::SeqCst) + 1;
                 loop {
                     let prev = self.max_active.load(Ordering::SeqCst);
-                    if current <= prev || self.max_active.compare_exchange(prev, current, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+                    if current <= prev
+                        || self
+                            .max_active
+                            .compare_exchange(prev, current, Ordering::SeqCst, Ordering::SeqCst)
+                            .is_ok()
+                    {
                         break;
                     }
                 }
@@ -812,10 +849,18 @@ mod cron_scheduler {
                 self.active_count.fetch_sub(1, Ordering::SeqCst);
                 Ok(())
             }
-            fn id(&self) -> Cow<'_, str> { Cow::Borrowed("limited-job") }
-            fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Limited") }
-            fn schedule(&self) -> &dyn Schedule { &self.schedule }
-            fn concurrency_limit(&self) -> Option<usize> { Some(1) }
+            fn id(&self) -> Cow<'_, str> {
+                Cow::Borrowed("limited-job")
+            }
+            fn name(&self) -> Cow<'_, str> {
+                Cow::Borrowed("Limited")
+            }
+            fn schedule(&self) -> &dyn Schedule {
+                &self.schedule
+            }
+            fn concurrency_limit(&self) -> Option<usize> {
+                Some(1)
+            }
             async fn on_error(&self, _error: &CronError) {}
         }
 
@@ -835,7 +880,11 @@ mod cron_scheduler {
         tokio::time::sleep(Duration::from_secs(2)).await;
         handle.abort();
 
-        assert_eq!(max_active.load(Ordering::SeqCst), 1, "per-job concurrency limit exceeded");
+        assert_eq!(
+            max_active.load(Ordering::SeqCst),
+            1,
+            "per-job concurrency limit exceeded"
+        );
     }
 
     #[tokio::test]
@@ -852,10 +901,18 @@ mod cron_scheduler {
             async fn run(&self) -> CronResult<()> {
                 Ok(())
             }
-            fn id(&self) -> Cow<'_, str> { Cow::Borrowed(&self.id) }
-            fn name(&self) -> Cow<'_, str> { Cow::Borrowed(&self.id) }
-            fn schedule(&self) -> &dyn Schedule { &self.schedule }
-            fn priority(&self) -> i32 { self.priority }
+            fn id(&self) -> Cow<'_, str> {
+                Cow::Borrowed(&self.id)
+            }
+            fn name(&self) -> Cow<'_, str> {
+                Cow::Borrowed(&self.id)
+            }
+            fn schedule(&self) -> &dyn Schedule {
+                &self.schedule
+            }
+            fn priority(&self) -> i32 {
+                self.priority
+            }
             async fn on_error(&self, _error: &CronError) {}
         }
 
@@ -867,7 +924,8 @@ mod cron_scheduler {
                 id: format!("p-{}", p),
                 priority: p,
                 schedule: schedule.clone(),
-            }).unwrap();
+            })
+            .unwrap();
         }
 
         assert_eq!(cron.queue_len(), 3);
@@ -876,11 +934,14 @@ mod cron_scheduler {
 
     #[tokio::test]
     async fn fixed_retry_policy_is_enforced() {
-        let job = Arc::new(MockJob::failing("retry-job", "*/1 * * * * * *")
-            .with_retry_policy(RetryPolicy::Fixed {
-                max_retries: 2,
-                interval: Duration::from_millis(10),
-            }));
+        let job = Arc::new(
+            MockJob::failing("retry-job", "*/1 * * * * * *").with_retry_policy(
+                RetryPolicy::Fixed {
+                    max_retries: 2,
+                    interval: Duration::from_millis(10),
+                },
+            ),
+        );
 
         let run_count_clone = job.run_count.clone();
         let item = JobItem::new(job, vec![], None, None).unwrap();
@@ -892,12 +953,15 @@ mod cron_scheduler {
 
     #[tokio::test]
     async fn exponential_retry_policy_is_enforced() {
-        let job = Arc::new(MockJob::failing("retry-job-exp", "*/1 * * * * * *")
-            .with_retry_policy(RetryPolicy::Exponential {
-                max_retries: 2,
-                initial_interval: Duration::from_millis(10),
-                max_interval: Duration::from_millis(100),
-            }));
+        let job = Arc::new(
+            MockJob::failing("retry-job-exp", "*/1 * * * * * *").with_retry_policy(
+                RetryPolicy::Exponential {
+                    max_retries: 2,
+                    initial_interval: Duration::from_millis(10),
+                    max_interval: Duration::from_millis(100),
+                },
+            ),
+        );
 
         let run_count_clone = job.run_count.clone();
         let item = JobItem::new(job, vec![], None, None).unwrap();

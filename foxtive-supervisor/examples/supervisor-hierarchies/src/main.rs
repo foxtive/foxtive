@@ -96,22 +96,16 @@ impl SupervisedTask for ReportWorker {
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_max_level(Level::INFO)
-        .init();
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
     info!("Starting supervisor hierarchies example");
     info!("This demonstrates nested supervisor trees with cascading shutdown");
 
     // Create API services supervisor
-    let api_supervisor = Supervisor::new()
-        .add(AuthService)
-        .add(UserService);
+    let api_supervisor = Supervisor::new().add(AuthService).add(UserService);
 
     // Create background workers supervisor
-    let worker_supervisor = Supervisor::new()
-        .add(EmailWorker)
-        .add(ReportWorker);
+    let worker_supervisor = Supervisor::new().add(EmailWorker).add(ReportWorker);
 
     info!("\n=== Building Hierarchy ===");
 
@@ -121,11 +115,14 @@ async fn main() -> Result<()> {
         .add_child("background-workers", worker_supervisor);
 
     info!("\nStarting all supervisors in hierarchy...");
-    
+
     // Start the entire hierarchy (bottom-up)
     let runtime = hierarchy.start_all().await?;
-    
-    info!("Hierarchy started with {} total tasks", runtime.total_task_count());
+
+    info!(
+        "Hierarchy started with {} total tasks",
+        runtime.total_task_count()
+    );
 
     // Let them run briefly
     info!("\nRunning for 5 seconds...");

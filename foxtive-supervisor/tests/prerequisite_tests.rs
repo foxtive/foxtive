@@ -1,8 +1,8 @@
 mod common;
 use common::*;
 use foxtive_supervisor::Supervisor;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 #[tokio::test]
@@ -25,9 +25,7 @@ async fn test_prerequisite_satisfaction() {
 #[tokio::test]
 async fn test_prerequisite_failure_prevents_startup() {
     let supervisor = Supervisor::new()
-        .require("gate", async move {
-            anyhow::bail!("Gate failed")
-        })
+        .require("gate", async move { anyhow::bail!("Gate failed") })
         .add(MockTask::new("task1"));
 
     let result = supervisor.start().await;

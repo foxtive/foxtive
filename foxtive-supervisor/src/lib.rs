@@ -14,9 +14,9 @@
 pub mod contracts;
 pub mod enums;
 pub mod error;
-pub mod runtime;
-pub mod persistence;
 pub mod hierarchy;
+pub mod persistence;
+pub mod runtime;
 pub mod task_pool;
 
 #[cfg(feature = "distributed")]

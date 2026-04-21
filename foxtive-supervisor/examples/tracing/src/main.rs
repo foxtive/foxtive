@@ -1,5 +1,5 @@
-use foxtive_supervisor::Supervisor;
 use foxtive_supervisor::contracts::SupervisedTask;
+use foxtive_supervisor::Supervisor;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use tracing::{info, info_span, Instrument};
@@ -32,7 +32,9 @@ impl SupervisedTask for TracedTask {
             info!("Business logic completed successfully");
             tokio::time::sleep(Duration::from_secs(1)).await;
             Ok(())
-        }.instrument(span).await
+        }
+        .instrument(span)
+        .await
     }
 }
 

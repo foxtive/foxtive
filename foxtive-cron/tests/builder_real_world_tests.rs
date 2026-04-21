@@ -1,6 +1,6 @@
+use chrono::{Datelike, TimeZone, Timelike, Utc};
+use chrono_tz::{Asia::Tokyo, Europe::London, US::Eastern, UTC};
 use foxtive_cron::contracts::ValidatedSchedule;
-use chrono::{TimeZone, Utc, Datelike, Timelike};
-use chrono_tz::{UTC, US::Eastern, Europe::London, Asia::Tokyo};
 
 mod real_world_expressions {
     use super::*;
@@ -38,7 +38,6 @@ mod real_world_expressions {
         assert_eq!(next.hour(), 9);
         assert_eq!(next.minute(), 30);
     }
-
 
     #[test]
     fn first_day_of_month() {
@@ -78,7 +77,9 @@ mod timezone_real_world {
         let next = schedule.next_after(&sunday_evening, Eastern).unwrap();
         let ny_time = next.with_timezone(&Eastern);
         // Should be Monday at 9:30 AM
-        assert!(ny_time.weekday() == chrono::Weekday::Mon || ny_time.weekday() == chrono::Weekday::Sun);
+        assert!(
+            ny_time.weekday() == chrono::Weekday::Mon || ny_time.weekday() == chrono::Weekday::Sun
+        );
         assert_eq!(ny_time.hour(), 9);
         assert_eq!(ny_time.minute(), 30);
     }
@@ -170,13 +171,13 @@ mod performance_tests {
     fn rapid_succession_calls() {
         let schedule = ValidatedSchedule::parse("0 * * * * *").unwrap();
         let mut current = Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap();
-        
+
         for _i in 0..100 {
             let next = schedule.next_after(&current, UTC).unwrap();
             assert!(next > current);
             current = next;
         }
-        
+
         assert_eq!(current.hour(), 1);
         assert_eq!(current.minute(), 40);
     }
@@ -203,7 +204,6 @@ mod real_world_use_cases {
         assert_eq!(next.hour(), 2);
         assert_eq!(next.day(), 16);
     }
-
 
     #[test]
     fn health_check_interval() {

@@ -10,12 +10,12 @@ pub use helpers::{spawn_supervised, spawn_supervised_many};
 pub use types::{PrerequisiteFuture, SupervisionResult, TaskEntry};
 
 // Internal modules
+pub(crate) mod circuit_breaker;
 mod core;
 mod helpers;
 mod supervision;
 mod types;
 mod validation;
-pub(crate) mod circuit_breaker;
 
 #[cfg(test)]
 mod tests {
