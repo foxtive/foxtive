@@ -1,37 +1,40 @@
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::{parse_macro_input, LitStr};
 
-/// A macro to validate a cron expression at compile time.
-///
-/// Returns the cron expression string if valid, or a compile error if invalid.
-///
-/// # Example
-/// ```rust
-/// let s = cron!("0 0 9 * * * *");
-/// ```
+mod enum_common;
+#[cfg(feature = "database")]
+mod enum_diesel;
+mod enum_diesel_generate;
+mod enum_generate;
+
 #[proc_macro]
-pub fn cron(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as LitStr);
-    let expr = input.value();
+pub fn generate_enum(input: TokenStream) -> TokenStream {
+    enum_generate::generate_enum(input)
+}
 
-    // We can't easily import the 'cron' crate logic here without complex workspace
-    // dependencies, but we can do basic validation of the number of fields.
-    let fields: Vec<&str> = expr.split_whitespace().collect();
-    if fields.len() != 7 {
-        return syn::Error::new(
-            input.span(),
-            format!("Invalid cron expression: expected 7 fields, found {}. Format: 'sec min hour day_of_month month day_of_week year'", fields.len())
-        )
-        .to_compile_error()
-        .into();
-    }
+#[proc_macro]
+pub fn impl_enum_common_traits(input: TokenStream) -> TokenStream {
+    enum_common::impl_enum_common_traits(input)
+}
 
-    // In a real implementation, we would include a full parser here.
+#[proc_macro]
+pub fn impl_enum_display_trait(input: TokenStream) -> TokenStream {
+    enum_common::impl_enum_display_trait(input)
+}
 
-    let expanded = quote! {
-        #expr
-    };
+#[cfg(feature = "database")]
+#[proc_macro]
+pub fn impl_enum_diesel_traits(input: TokenStream) -> TokenStream {
+    enum_diesel::impl_enum_diesel_traits(input)
+}
 
-    TokenStream::from(expanded)
+#[cfg(feature = "database")]
+#[proc_macro]
+pub fn generate_diesel_enum(input: TokenStream) -> TokenStream {
+    enum_diesel_generate::generate_diesel_enum(input)
+}
+
+#[proc_macro]
+/// Generate Diesel enum with optional features
+pub fn generate_diesel_enum_with_optional_features(input: TokenStream) -> TokenStream {
+    enum_diesel_generate::generate_diesel_enum_with_optional_features(input)
 }
