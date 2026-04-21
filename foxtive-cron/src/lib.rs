@@ -20,7 +20,6 @@ pub mod builder;
 
 pub use fn_job::FnJob;
 pub use builder::CronExpression;
-pub use foxtive_macros::cron;
 
 /// Custom error types for the `foxtive-cron` library.
 #[derive(Debug, Error)]
