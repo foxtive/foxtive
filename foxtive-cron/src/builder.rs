@@ -2,10 +2,10 @@ use crate::contracts::{Schedule, ValidatedSchedule};
 use crate::{CronError, CronResult};
 use chrono::{DateTime, NaiveDate, Utc};
 use chrono_tz::Tz;
+use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::time::Duration;
-use rand::RngExt;
 
 /// Represents the months of the year.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
