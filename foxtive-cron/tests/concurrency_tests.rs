@@ -92,7 +92,7 @@ mod concurrency {
             }
             fn id(&self) -> std::borrow::Cow<'_, str> { self.inner.id() }
             fn name(&self) -> std::borrow::Cow<'_, str> { self.inner.name() }
-            fn schedule(&self) -> &foxtive_cron::contracts::ValidatedSchedule { self.inner.schedule() }
+            fn schedule(&self) -> &dyn foxtive_cron::contracts::Schedule { self.inner.schedule() }
             fn concurrency_limit(&self) -> Option<usize> { self.inner.concurrency_limit() }
         }
 

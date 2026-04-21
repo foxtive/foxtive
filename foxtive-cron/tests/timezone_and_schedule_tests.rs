@@ -1,4 +1,4 @@
-use foxtive_cron::contracts::{JobContract, ValidatedSchedule};
+use foxtive_cron::contracts::{JobContract, ValidatedSchedule, Schedule};
 use foxtive_cron::{Cron, CronResult};
 use std::borrow::Cow;
 use async_trait::async_trait;
@@ -19,7 +19,7 @@ mod timezone {
             async fn run(&self) -> CronResult<()> { Ok(()) }
             fn id(&self) -> Cow<'_, str> { Cow::Borrowed("default") }
             fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Default") }
-            fn schedule(&self) -> &ValidatedSchedule { &self.schedule }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
         }
 
         let job = DefaultJob {
@@ -39,7 +39,7 @@ mod timezone {
             async fn run(&self) -> CronResult<()> { Ok(()) }
             fn id(&self) -> Cow<'_, str> { Cow::Borrowed("custom-tz") }
             fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Custom TZ") }
-            fn schedule(&self) -> &ValidatedSchedule { &self.schedule }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
             fn timezone(&self) -> Tz { Tz::America__New_York }
         }
 
@@ -73,7 +73,7 @@ mod timezone {
                 async fn run(&self) -> CronResult<()> { Ok(()) }
                 fn id(&self) -> Cow<'_, str> { Cow::Borrowed("tz-job") }
                 fn name(&self) -> Cow<'_, str> { Cow::Borrowed("TZ Job") }
-                fn schedule(&self) -> &ValidatedSchedule { &self.schedule }
+                fn schedule(&self) -> &dyn Schedule { &self.schedule }
                 fn timezone(&self) -> Tz { self.tz }
             }
 
@@ -96,7 +96,7 @@ mod timezone {
             async fn run(&self) -> CronResult<()> { Ok(()) }
             fn id(&self) -> Cow<'_, str> { Cow::Borrowed("tz-job") }
             fn name(&self) -> Cow<'_, str> { Cow::Borrowed("TZ Job") }
-            fn schedule(&self) -> &ValidatedSchedule { &self.schedule }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
             fn timezone(&self) -> Tz { Tz::America__New_York }
         }
 
@@ -120,7 +120,7 @@ mod timezone {
             async fn run(&self) -> CronResult<()> { Ok(()) }
             fn id(&self) -> Cow<'_, str> { Cow::Borrowed("tz-job") }
             fn name(&self) -> Cow<'_, str> { Cow::Borrowed("TZ Job") }
-            fn schedule(&self) -> &ValidatedSchedule { &self.schedule }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
             fn timezone(&self) -> Tz { Tz::America__New_York }
         }
 
@@ -260,7 +260,7 @@ mod retry_policy_none {
         }
         fn id(&self) -> Cow<'_, str> { Cow::Borrowed("no-retry") }
         fn name(&self) -> Cow<'_, str> { Cow::Borrowed("No Retry") }
-        fn schedule(&self) -> &ValidatedSchedule { &self.schedule }
+        fn schedule(&self) -> &dyn Schedule { &self.schedule }
         fn retry_policy(&self) -> RetryPolicy { RetryPolicy::None }
     }
 

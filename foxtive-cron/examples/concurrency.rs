@@ -1,4 +1,4 @@
-use foxtive_cron::contracts::{JobContract, ValidatedSchedule};
+use foxtive_cron::contracts::{JobContract, ValidatedSchedule, Schedule};
 use foxtive_cron::{Cron, CronResult};
 use std::borrow::Cow;
 use std::time::Duration;
@@ -26,7 +26,7 @@ impl JobContract for HighLatencyJob {
 
     fn id(&self) -> Cow<'_, str> { Cow::Borrowed(&self.id) }
     fn name(&self) -> Cow<'_, str> { Cow::Borrowed("High Latency Task") }
-    fn schedule(&self) -> &ValidatedSchedule { &self.schedule }
+    fn schedule(&self) -> &dyn Schedule { &self.schedule }
 
     // This method limits the number of concurrent runs for this specific job to 2.
     // If 2 instances are running and a new one is scheduled, it will wait

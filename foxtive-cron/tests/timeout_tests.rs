@@ -1,5 +1,5 @@
 mod common;
-use foxtive_cron::contracts::{JobContract, ValidatedSchedule};
+use foxtive_cron::contracts::{JobContract, ValidatedSchedule, Schedule};
 use foxtive_cron::{JobItem, CronError};
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -22,7 +22,7 @@ mod timeouts {
             }
             fn id(&self) -> Cow<'_, str> { Cow::Borrowed("slow") }
             fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Slow") }
-            fn schedule(&self) -> &ValidatedSchedule { &self.schedule }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
             fn timeout(&self) -> Option<Duration> { Some(Duration::from_secs(1)) }
             async fn on_error(&self, _error: &CronError) {}
         }

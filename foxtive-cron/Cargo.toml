@@ -14,7 +14,7 @@ tokio-macros = ["tokio/macros"]
 cron = "0.16.0"
 tracing = "0.1.41"
 chrono = { version = "0.4.41", features = ["serde"] }
-chrono-tz = "0.10.1"
+chrono-tz = { version = "0.10.1", features = ["serde"] }
 async-trait = "0.1.88"
 anyhow = { version = "1.0.98", features = ["backtrace"] }
 thiserror = "2.0.11"
@@ -22,6 +22,8 @@ tokio = { version = "1.45.1", features = ["rt-multi-thread", "time", "sync", "si
 tokio-util = { version = "0.7.13", features = ["rt"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+rand = "0.8"
+foxtive-macros = { path = "../foxtive-macros" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "time", "rt-multi-thread", "sync"] }

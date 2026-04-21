@@ -1,6 +1,6 @@
 mod common;
 use common::*;
-use foxtive_cron::contracts::{JobContract, ValidatedSchedule};
+use foxtive_cron::contracts::{JobContract, ValidatedSchedule, Schedule};
 use foxtive_cron::{JobItem, CronError};
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -94,7 +94,7 @@ mod lifecycle_hooks {
             fn name(&self) -> Cow<'_, str> {
                 Cow::Borrowed("Ordered")
             }
-            fn schedule(&self) -> &ValidatedSchedule {
+            fn schedule(&self) -> &dyn Schedule {
                 &self.schedule
             }
             async fn on_start(&self) {

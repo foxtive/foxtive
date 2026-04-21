@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use foxtive_cron::contracts::{
     JobContract, JobEvent, JobEventListener, MetricsExporter, MisfirePolicy, RetryPolicy,
-    ValidatedSchedule,
+    ValidatedSchedule, Schedule,
 };
 use foxtive_cron::{Cron, CronError, CronResult};
 use std::borrow::Cow;
@@ -43,7 +43,7 @@ impl JobContract for DatabaseBackupJob {
         Cow::Borrowed("Database Backup")
     }
 
-    fn schedule(&self) -> &ValidatedSchedule {
+    fn schedule(&self) -> &dyn Schedule {
         &self.schedule
     }
 

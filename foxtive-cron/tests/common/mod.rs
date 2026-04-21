@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use foxtive_cron::contracts::{JobContract, MisfirePolicy, RetryPolicy, ValidatedSchedule};
+use foxtive_cron::contracts::{JobContract, MisfirePolicy, RetryPolicy, ValidatedSchedule, Schedule};
 use foxtive_cron::{CronResult, CronError};
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -102,7 +102,7 @@ impl JobContract for MockJob {
         Cow::Borrowed(&self.name)
     }
 
-    fn schedule(&self) -> &ValidatedSchedule {
+    fn schedule(&self) -> &dyn Schedule {
         &self.schedule
     }
 

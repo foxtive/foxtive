@@ -6,6 +6,16 @@ Schedule async tasks with cron expressions, manage them dynamically at runtime, 
 
 ## Features
 
+### Cron Expression Builder (NEW in 0.5.0)
+- **Fluent builder API** - Build cron expressions programmatically with type safety
+- **Type-safe enums** - `Month` and `Weekday` enums prevent invalid values
+- **Field composition** - Intervals, ranges, lists, and single values for all fields
+- **Common presets** - `hourly()`, `daily()`, `weekly()`, `monthly()` shortcuts
+- **Timezone support** - Schedule jobs in any timezone via `chrono-tz`
+- **Blackout dates** - Exclude specific dates (holidays, maintenance windows)
+- **Execution jitter** - Add random delays to prevent thundering herd problems
+- **Compile-time validation** - Invalid expressions caught at build time
+
 ### Core Scheduling
 - Standard 7-field cron expressions (with seconds and year support)
 - **Validated at registration time** - no silent runtime failures
@@ -56,6 +66,26 @@ async-trait = "0.1"
 - `tokio-macros` - Enable tokio macros for examples
 
 ## Quick Start
+
+### Using the Cron Expression Builder (Recommended)
+
+```rust
+use foxtive_cron::builder::{CronExpression, Weekday};
+use chrono_tz::US::Eastern;
+use std::time::Duration;
+
+// Build a cron expression using the fluent API
+let schedule = CronExpression::builder()
+    .weekdays_only()
+    .hours_range(9, 17)
+    .minutes_interval(30)
+    .with_timezone(Eastern)
+    .with_jitter(Duration::from_secs(30))
+    .build();
+
+println!("Generated expression: {}", schedule);
+// Output: "0 */30 9-17 * * 1-5 *"
+```
 
 ### Basic async job
 
@@ -257,6 +287,57 @@ cron.add_job_fn(
 ).timezone(New_York)?;  // Runs at 9:30 AM Eastern Time
 ```
 
+### Builder API with Advanced Features
+
+```rust
+use foxtive_cron::builder::{CronExpression, Month, Weekday};
+use chrono::NaiveDate;
+use chrono_tz::Europe::London;
+use std::time::Duration;
+
+// Complex schedule with multiple features
+let schedule = CronExpression::builder()
+    .weekdays_only()                          // Monday-Friday only
+    .hours_range(9, 17)                      // Business hours
+    .minutes_interval(30)                    // Every 30 minutes
+    .with_timezone(London)                   // London timezone
+    .with_jitter(Duration::from_secs(60))   // ±60s random delay
+    .exclude_date(NaiveDate::from_ymd_opt(2024, 12, 25).unwrap()) // Christmas
+    .exclude_date(NaiveDate::from_ymd_opt(2024, 12, 26).unwrap()) // Boxing Day
+    .build();
+
+println!("Schedule: {}", schedule);
+```
+
+### Common Builder Patterns
+
+```rust
+// Daily backup at 2:30 AM
+let daily_backup = CronExpression::builder()
+    .daily()
+    .hour(2)
+    .minute(30)
+    .build();
+
+// Health check every 30 seconds
+let health_check = CronExpression::builder()
+    .seconds_interval(30)
+    .build();
+
+// Monthly report on 1st at 9 AM
+let monthly_report = CronExpression::builder()
+    .monthly()
+    .hour(9)
+    .build();
+
+// Multiple specific times per day
+let digest_emails = CronExpression::builder()
+    .daily()
+    .hours_list(&[8, 12, 18])  // 8 AM, 12 PM, 6 PM
+    .minute(0)
+    .build();
+```
+
 ### Graceful Shutdown
 
 ```rust
@@ -322,6 +403,16 @@ Implement `JobEventListener` to receive real-time notifications of all job lifec
 
 See the [`examples/`](examples/) directory for complete working examples:
 
+### Builder API Examples (NEW)
+- **builder_basic.rs** - Comprehensive cron expression builder demonstrations
+- **builder_real_world_scenarios.rs** - Production-ready scheduling patterns
+- **builder_timezone_advanced.rs** - Advanced timezone-aware scheduling
+- **builder_blackout_and_jitter.rs** - Blackout dates and jitter strategies
+- **builder_complex_composition.rs** - Complex field composition patterns
+- **builder_devops_automation.rs** - DevOps and infrastructure automation
+- **builder_edge_cases.rs** - Edge cases and validation scenarios
+
+### Core Features
 - **basic.rs** - Simple job scheduling
 - **advanced.rs** - Custom jobs with full lifecycle hooks
 - **concurrency.rs** - Managing concurrent job execution
@@ -332,6 +423,13 @@ See the [`examples/`](examples/) directory for complete working examples:
 Run examples with:
 
 ```bash
+cargo run --example builder_basic
+cargo run --example builder_real_world_scenarios --features tokio-macros
+cargo run --example builder_timezone_advanced
+cargo run --example builder_blackout_and_jitter
+cargo run --example builder_complex_composition
+cargo run --example builder_devops_automation
+cargo run --example builder_edge_cases
 cargo run --example basic --features tokio-macros
 cargo run --example advanced --features tokio-macros
 # ... etc

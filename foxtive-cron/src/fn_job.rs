@@ -1,5 +1,5 @@
 use crate::{CronResult, CronError};
-use crate::contracts::{JobContract, ValidatedSchedule};
+use crate::contracts::{JobContract, ValidatedSchedule, Schedule};
 use async_trait::async_trait;
 use std::borrow::Cow;
 use std::future::Future;
@@ -71,7 +71,7 @@ impl JobContract for FnJob {
         Cow::Borrowed(&self.name)
     }
 
-    fn schedule(&self) -> &ValidatedSchedule {
+    fn schedule(&self) -> &dyn Schedule {
         &self.schedule
     }
 }

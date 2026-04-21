@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use foxtive_cron::contracts::{JobContract, MisfirePolicy, RetryPolicy, ValidatedSchedule};
+use foxtive_cron::contracts::{JobContract, MisfirePolicy, RetryPolicy, ValidatedSchedule, Schedule};
 use foxtive_cron::{Cron, CronResult, FnJob, JobItem, CronError};
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -103,7 +103,7 @@ impl JobContract for MockJob {
         Cow::Borrowed(&self.name)
     }
 
-    fn schedule(&self) -> &ValidatedSchedule {
+    fn schedule(&self) -> &dyn Schedule {
         &self.schedule
     }
 
@@ -374,7 +374,7 @@ mod lifecycle_hooks {
             fn name(&self) -> Cow<'_, str> {
                 Cow::Borrowed("Ordered")
             }
-            fn schedule(&self) -> &ValidatedSchedule {
+            fn schedule(&self) -> &dyn Schedule {
                 &self.schedule
             }
             async fn on_start(&self) {
@@ -718,7 +718,7 @@ mod cron_scheduler {
             }
             fn id(&self) -> Cow<'_, str> { Cow::Borrowed("slow") }
             fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Slow") }
-            fn schedule(&self) -> &ValidatedSchedule { &self.schedule }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
             fn timeout(&self) -> Option<Duration> { Some(Duration::from_secs(1)) }
             async fn on_error(&self, _error: &CronError) {}
         }
@@ -814,7 +814,7 @@ mod cron_scheduler {
             }
             fn id(&self) -> Cow<'_, str> { Cow::Borrowed("limited-job") }
             fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Limited") }
-            fn schedule(&self) -> &ValidatedSchedule { &self.schedule }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
             fn concurrency_limit(&self) -> Option<usize> { Some(1) }
             async fn on_error(&self, _error: &CronError) {}
         }
@@ -854,7 +854,7 @@ mod cron_scheduler {
             }
             fn id(&self) -> Cow<'_, str> { Cow::Borrowed(&self.id) }
             fn name(&self) -> Cow<'_, str> { Cow::Borrowed(&self.id) }
-            fn schedule(&self) -> &ValidatedSchedule { &self.schedule }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
             fn priority(&self) -> i32 { self.priority }
             async fn on_error(&self, _error: &CronError) {}
         }
