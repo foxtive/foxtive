@@ -2,10 +2,10 @@ use crate::contracts::{Schedule, ValidatedSchedule};
 use crate::{CronError, CronResult};
 use chrono::{DateTime, NaiveDate, Utc};
 use chrono_tz::Tz;
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::time::Duration;
+use rand::RngExt;
 
 /// Represents the months of the year.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -129,10 +129,10 @@ impl Schedule for CronExpression {
 
             // Apply Jitter if specified
             if let Some(jitter_dur) = self.jitter {
-                let mut rng = rand::thread_rng();
+                let mut rng = rand::rng();
                 let millis = jitter_dur.as_millis();
                 if millis > 0 {
-                    let offset = rng.gen_range(0..millis);
+                    let offset = rng.random_range(0..millis);
                     next += Duration::from_millis(offset as u64);
                 }
             }
