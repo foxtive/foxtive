@@ -5,7 +5,7 @@
 //!
 //! Run with: cargo run --example distributed-coordination --features distributed
 
-use foxtive_supervisor::distributed::{CoordinationConfig, RedisCoordination};
+use foxtive_supervisor::distributed::{CoordinationBackend, CoordinationConfig, CoordinationManager, RedisCoordination};
 use foxtive_supervisor::{SupervisedTask, Supervisor};
 use std::sync::Arc;
 use std::time::Duration;
@@ -74,7 +74,7 @@ async fn main() -> anyhow::Result<()> {
     let coordination = Arc::new(RedisCoordination::new(config.clone()).await?);
 
     // Start coordination manager (handles leader election and heartbeats)
-    let manager = foxtive_supervisor::distributed::redis_impl::CoordinationManager::new(
+    let manager = CoordinationManager::new(
         coordination.clone(),
         config.clone(),
     );

@@ -207,10 +207,10 @@ mod tests {
         assert_eq!(leaders, 1, "Exactly one instance should become leader");
         
         // Verify all instances can send heartbeats
-        for i in 0..num_instances {
+        for (i, backend) in backends.iter().enumerate().take(num_instances) {
             let instance_id = format!("instance-{}", i);
-            backends[i].heartbeat(&instance_id, 10).await.unwrap();
-            assert!(backends[i].is_instance_alive(&instance_id).await.unwrap());
+            backend.heartbeat(&instance_id, 10).await.unwrap();
+            assert!(backend.is_instance_alive(&instance_id).await.unwrap());
         }
     }
 }

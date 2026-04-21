@@ -6,7 +6,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::time::{sleep, Duration};
 use tracing::{info, Level};
-use tracing_subscriber;
 
 /// A message processor that persists its state across restarts
 struct MessageProcessor {
@@ -41,7 +40,7 @@ impl SupervisedTask for MessageProcessor {
         info!(count, "Processed message");
         
         // Simulate occasional failures
-        if count % 5 == 0 {
+        if count.is_multiple_of(5) {
             anyhow::bail!("Simulated processing error at message {}", count);
         }
         

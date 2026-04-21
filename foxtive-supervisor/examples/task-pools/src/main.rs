@@ -6,7 +6,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::time::{sleep, Duration};
 use tracing::{info, Level};
-use tracing_subscriber;
 
 /// A worker that processes messages from a queue
 struct MessageWorker {
@@ -81,13 +80,16 @@ async fn main() -> Result<()> {
 
     info!("Started round-robin pool with 3 workers");
     
+    // Start the supervisor
+    let rr_runtime = rr_supervisor.start().await?;
+    
     // Let it run briefly
     sleep(Duration::from_secs(4)).await;
     
     let rr_count = total_processed.load(Ordering::SeqCst);
     info!(rr_count, "Messages processed by round-robin pool");
 
-    rr_supervisor.shutdown().await;
+    rr_runtime.shutdown().await;
     info!("Round-robin pool stopped");
 
     // Reset counter
@@ -107,12 +109,14 @@ async fn main() -> Result<()> {
 
     info!("Started random pool with 4 workers");
     
+    let random_runtime = random_supervisor.start().await?;
+    
     sleep(Duration::from_secs(4)).await;
     
     let random_count = total_processed.load(Ordering::SeqCst);
     info!(random_count, "Messages processed by random pool");
 
-    random_supervisor.shutdown().await;
+    random_runtime.shutdown().await;
     info!("Random pool stopped");
 
     // Reset counter
@@ -132,12 +136,14 @@ async fn main() -> Result<()> {
 
     info!("Started least-loaded pool with 3 workers");
     
+    let ll_runtime = ll_supervisor.start().await?;
+    
     sleep(Duration::from_secs(4)).await;
     
     let ll_count = total_processed.load(Ordering::SeqCst);
     info!(ll_count, "Messages processed by least-loaded pool");
 
-    ll_supervisor.shutdown().await;
+    ll_runtime.shutdown().await;
     info!("Least-loaded pool stopped");
 
     info!("\n=== Summary ===");

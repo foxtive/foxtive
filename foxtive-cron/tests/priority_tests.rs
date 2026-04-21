@@ -1,7 +1,7 @@
 mod common;
 use async_trait::async_trait;
+use foxtive_cron::contracts::{JobContract, ValidatedSchedule, Schedule};
 use foxtive_cron::Cron;
-use foxtive_cron::contracts::{JobContract, ValidatedSchedule};
 use std::borrow::Cow;
 
 mod priority_tests {
@@ -27,7 +27,7 @@ mod priority_tests {
             fn name(&self) -> Cow<'_, str> {
                 Cow::Borrowed(&self.id)
             }
-            fn schedule(&self) -> &ValidatedSchedule {
+            fn schedule(&self) -> &dyn Schedule {
                 &self.schedule
             }
             fn priority(&self) -> i32 {

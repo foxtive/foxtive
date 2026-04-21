@@ -7,7 +7,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::time::{sleep, Duration};
 use tracing::{info, Level};
-use tracing_subscriber;
 
 /// Task that runs every 2 seconds
 struct FrequentTask {
@@ -60,7 +59,7 @@ impl SupervisedTask for RateLimitedTask {
         info!(count, time = %now, "Rate-limited task executed");
         
         // Simulate occasional failures
-        if count % 4 == 0 {
+        if count.is_multiple_of(4) {
             anyhow::bail!("Simulated failure");
         }
         

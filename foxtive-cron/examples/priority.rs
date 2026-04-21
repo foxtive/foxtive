@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use foxtive_cron::contracts::{JobContract, ValidatedSchedule};
+use foxtive_cron::contracts::{JobContract, ValidatedSchedule, Schedule};
 use foxtive_cron::{Cron, CronResult};
 use std::borrow::Cow;
 use std::time::Duration;
@@ -31,7 +31,7 @@ impl JobContract for JobWithPriority {
     fn name(&self) -> Cow<'_, str> {
         Cow::Borrowed("Priority Job")
     }
-    fn schedule(&self) -> &ValidatedSchedule {
+    fn schedule(&self) -> &dyn Schedule {
         &self.schedule
     }
 

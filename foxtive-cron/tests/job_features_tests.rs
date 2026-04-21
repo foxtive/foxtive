@@ -1,11 +1,11 @@
-use async_trait::async_trait;
-use foxtive_cron::contracts::{JobContract, JobType, MisfirePolicy, ValidatedSchedule};
+use foxtive_cron::contracts::{JobContract, ValidatedSchedule, JobType, MisfirePolicy, Schedule};
 use foxtive_cron::{Cron, CronResult};
 use std::borrow::Cow;
+use async_trait::async_trait;
 
 mod job_type {
     use super::*;
-    use chrono::{Duration, Utc};
+    use chrono::{Utc, Duration};
 
     struct OnceJob {
         schedule: ValidatedSchedule,
@@ -17,21 +17,11 @@ mod job_type {
         async fn run(&self) -> CronResult<()> {
             Ok(())
         }
-        fn id(&self) -> Cow<'_, str> {
-            Cow::Borrowed("once-job")
-        }
-        fn name(&self) -> Cow<'_, str> {
-            Cow::Borrowed("Once Job")
-        }
-        fn schedule(&self) -> &ValidatedSchedule {
-            &self.schedule
-        }
-        fn job_type(&self) -> JobType {
-            JobType::Once
-        }
-        fn run_at(&self) -> Option<chrono::DateTime<Utc>> {
-            Some(self.run_at)
-        }
+        fn id(&self) -> Cow<'_, str> { Cow::Borrowed("once-job") }
+        fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Once Job") }
+        fn schedule(&self) -> &dyn Schedule { &self.schedule }
+        fn job_type(&self) -> JobType { JobType::Once }
+        fn run_at(&self) -> Option<chrono::DateTime<Utc>> { Some(self.run_at) }
     }
 
     #[test]
@@ -51,18 +41,10 @@ mod job_type {
 
         #[async_trait]
         impl JobContract for RecurringJob {
-            async fn run(&self) -> CronResult<()> {
-                Ok(())
-            }
-            fn id(&self) -> Cow<'_, str> {
-                Cow::Borrowed("recurring")
-            }
-            fn name(&self) -> Cow<'_, str> {
-                Cow::Borrowed("Recurring")
-            }
-            fn schedule(&self) -> &ValidatedSchedule {
-                &self.schedule
-            }
+            async fn run(&self) -> CronResult<()> { Ok(()) }
+            fn id(&self) -> Cow<'_, str> { Cow::Borrowed("recurring") }
+            fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Recurring") }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
         }
 
         let job = RecurringJob {
@@ -75,7 +57,7 @@ mod job_type {
     async fn once_job_with_future_run_at_is_scheduled() {
         let mut cron = Cron::new();
         let future_time = Utc::now() + Duration::seconds(30);
-
+        
         let job = OnceJob {
             schedule: ValidatedSchedule::parse("* * * * * * *").unwrap(),
             run_at: future_time,
@@ -89,7 +71,7 @@ mod job_type {
     async fn once_job_with_past_run_at_is_not_scheduled() {
         let mut cron = Cron::new();
         let past_time = Utc::now() - Duration::seconds(30);
-
+        
         let job = OnceJob {
             schedule: ValidatedSchedule::parse("* * * * * * *").unwrap(),
             run_at: past_time,
@@ -112,18 +94,10 @@ mod misfire_policy {
 
         #[async_trait]
         impl JobContract for TestJob {
-            async fn run(&self) -> CronResult<()> {
-                Ok(())
-            }
-            fn id(&self) -> Cow<'_, str> {
-                Cow::Borrowed("test")
-            }
-            fn name(&self) -> Cow<'_, str> {
-                Cow::Borrowed("Test")
-            }
-            fn schedule(&self) -> &ValidatedSchedule {
-                &self.schedule
-            }
+            async fn run(&self) -> CronResult<()> { Ok(()) }
+            fn id(&self) -> Cow<'_, str> { Cow::Borrowed("test") }
+            fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Test") }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
         }
 
         let job = TestJob {
@@ -140,21 +114,11 @@ mod misfire_policy {
 
         #[async_trait]
         impl JobContract for SkipJob {
-            async fn run(&self) -> CronResult<()> {
-                Ok(())
-            }
-            fn id(&self) -> Cow<'_, str> {
-                Cow::Borrowed("skip")
-            }
-            fn name(&self) -> Cow<'_, str> {
-                Cow::Borrowed("Skip")
-            }
-            fn schedule(&self) -> &ValidatedSchedule {
-                &self.schedule
-            }
-            fn misfire_policy(&self) -> MisfirePolicy {
-                MisfirePolicy::Skip
-            }
+            async fn run(&self) -> CronResult<()> { Ok(()) }
+            fn id(&self) -> Cow<'_, str> { Cow::Borrowed("skip") }
+            fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Skip") }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
+            fn misfire_policy(&self) -> MisfirePolicy { MisfirePolicy::Skip }
         }
 
         let job = SkipJob {
@@ -171,21 +135,11 @@ mod misfire_policy {
 
         #[async_trait]
         impl JobContract for FireOnceJob {
-            async fn run(&self) -> CronResult<()> {
-                Ok(())
-            }
-            fn id(&self) -> Cow<'_, str> {
-                Cow::Borrowed("fire-once")
-            }
-            fn name(&self) -> Cow<'_, str> {
-                Cow::Borrowed("Fire Once")
-            }
-            fn schedule(&self) -> &ValidatedSchedule {
-                &self.schedule
-            }
-            fn misfire_policy(&self) -> MisfirePolicy {
-                MisfirePolicy::FireOnce
-            }
+            async fn run(&self) -> CronResult<()> { Ok(()) }
+            fn id(&self) -> Cow<'_, str> { Cow::Borrowed("fire-once") }
+            fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Fire Once") }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
+            fn misfire_policy(&self) -> MisfirePolicy { MisfirePolicy::FireOnce }
         }
 
         let job = FireOnceJob {
@@ -202,21 +156,11 @@ mod misfire_policy {
 
         #[async_trait]
         impl JobContract for FireAllJob {
-            async fn run(&self) -> CronResult<()> {
-                Ok(())
-            }
-            fn id(&self) -> Cow<'_, str> {
-                Cow::Borrowed("fire-all")
-            }
-            fn name(&self) -> Cow<'_, str> {
-                Cow::Borrowed("Fire All")
-            }
-            fn schedule(&self) -> &ValidatedSchedule {
-                &self.schedule
-            }
-            fn misfire_policy(&self) -> MisfirePolicy {
-                MisfirePolicy::FireAll
-            }
+            async fn run(&self) -> CronResult<()> { Ok(()) }
+            fn id(&self) -> Cow<'_, str> { Cow::Borrowed("fire-all") }
+            fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Fire All") }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
+            fn misfire_policy(&self) -> MisfirePolicy { MisfirePolicy::FireAll }
         }
 
         let job = FireAllJob {
@@ -237,18 +181,10 @@ mod description {
 
         #[async_trait]
         impl JobContract for NoDescriptionJob {
-            async fn run(&self) -> CronResult<()> {
-                Ok(())
-            }
-            fn id(&self) -> Cow<'_, str> {
-                Cow::Borrowed("no-desc")
-            }
-            fn name(&self) -> Cow<'_, str> {
-                Cow::Borrowed("No Description")
-            }
-            fn schedule(&self) -> &ValidatedSchedule {
-                &self.schedule
-            }
+            async fn run(&self) -> CronResult<()> { Ok(()) }
+            fn id(&self) -> Cow<'_, str> { Cow::Borrowed("no-desc") }
+            fn name(&self) -> Cow<'_, str> { Cow::Borrowed("No Description") }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
         }
 
         let job = NoDescriptionJob {
@@ -265,19 +201,11 @@ mod description {
 
         #[async_trait]
         impl JobContract for DescribedJob {
-            async fn run(&self) -> CronResult<()> {
-                Ok(())
-            }
-            fn id(&self) -> Cow<'_, str> {
-                Cow::Borrowed("desc")
-            }
-            fn name(&self) -> Cow<'_, str> {
-                Cow::Borrowed("Described")
-            }
-            fn schedule(&self) -> &ValidatedSchedule {
-                &self.schedule
-            }
-            fn description(&self) -> Option<Cow<'_, str>> {
+            async fn run(&self) -> CronResult<()> { Ok(()) }
+            fn id(&self) -> Cow<'_, str> { Cow::Borrowed("desc") }
+            fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Described") }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
+            fn description(&self) -> Option<Cow<'_, str>> { 
                 Some(Cow::Borrowed("This is a test job"))
             }
         }
@@ -291,7 +219,7 @@ mod description {
 
 mod start_after {
     use super::*;
-    use chrono::{Duration, Utc};
+    use chrono::{Utc, Duration};
 
     #[test]
     fn start_after_defaults_to_none() {
@@ -301,18 +229,10 @@ mod start_after {
 
         #[async_trait]
         impl JobContract for DefaultJob {
-            async fn run(&self) -> CronResult<()> {
-                Ok(())
-            }
-            fn id(&self) -> Cow<'_, str> {
-                Cow::Borrowed("default")
-            }
-            fn name(&self) -> Cow<'_, str> {
-                Cow::Borrowed("Default")
-            }
-            fn schedule(&self) -> &ValidatedSchedule {
-                &self.schedule
-            }
+            async fn run(&self) -> CronResult<()> { Ok(()) }
+            fn id(&self) -> Cow<'_, str> { Cow::Borrowed("default") }
+            fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Default") }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
         }
 
         let job = DefaultJob {
@@ -330,21 +250,11 @@ mod start_after {
 
         #[async_trait]
         impl JobContract for DelayedJob {
-            async fn run(&self) -> CronResult<()> {
-                Ok(())
-            }
-            fn id(&self) -> Cow<'_, str> {
-                Cow::Borrowed("delayed")
-            }
-            fn name(&self) -> Cow<'_, str> {
-                Cow::Borrowed("Delayed")
-            }
-            fn schedule(&self) -> &ValidatedSchedule {
-                &self.schedule
-            }
-            fn start_after(&self) -> Option<chrono::DateTime<Utc>> {
-                Some(self.start_time)
-            }
+            async fn run(&self) -> CronResult<()> { Ok(()) }
+            fn id(&self) -> Cow<'_, str> { Cow::Borrowed("delayed") }
+            fn name(&self) -> Cow<'_, str> { Cow::Borrowed("Delayed") }
+            fn schedule(&self) -> &dyn Schedule { &self.schedule }
+            fn start_after(&self) -> Option<chrono::DateTime<Utc>> { Some(self.start_time) }
         }
 
         let future_time = Utc::now() + Duration::hours(1);

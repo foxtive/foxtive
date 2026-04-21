@@ -4,7 +4,6 @@ use foxtive_supervisor::hierarchy::SupervisorHierarchy;
 use foxtive_supervisor::{SupervisedTask, Supervisor};
 use tokio::time::{sleep, Duration};
 use tracing::{info, Level};
-use tracing_subscriber;
 
 /// Authentication service
 struct AuthService;

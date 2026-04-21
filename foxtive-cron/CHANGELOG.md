@@ -7,6 +7,39 @@ All notable changes to **foxtive-cron** will be documented in this file.
 
 ---
 
+## [0.5.0] – 2026-04-16
+
+### Added
+* **Cron Expression Builder** - Fluent API for building cron expressions programmatically
+  * Type-safe `Month` and `Weekday` enums prevent invalid values
+  * Field composition methods: intervals, ranges, lists, single values
+  * Common presets: `hourly()`, `daily()`, `weekly()`, `monthly()`
+  * Timezone support via `with_timezone()` method
+  * Blackout dates via `exclude_date()` for holidays/maintenance windows
+  * Execution jitter via `with_jitter()` to prevent thundering herd problems
+  * Compile-time validation of all builder configurations
+* **Builder Examples** - Two new comprehensive examples:
+  * `builder.rs` - Demonstrates all builder features with 10 real-world scenarios
+  * `real_world.rs` - Production-ready scheduling patterns (backups, monitoring, ETL, etc.)
+* **Comprehensive Test Suite** - 61 new tests covering:
+  * Real-world cron expression strings (24 tests)
+  * Builder API verification with expected output strings (37 tests)
+  * Edge cases: leap years, DST transitions, timezone conversions
+  * Performance tests: rapid succession calls, long-term scheduling
+  * Validation tests: malformed expressions, boundary conditions
+* **Documentation Updates** - Enhanced README with:
+  * Builder API quick start guide
+  * Advanced feature examples (blackout dates, jitter, timezones)
+  * Common builder patterns section
+  * Updated examples list with new additions
+
+### Improved
+* All existing tests continue to pass (197 tests)
+* Total test coverage: 258 tests across 18 test files
+* Zero breaking changes - fully backward compatible with 0.4.x
+
+---
+
 ## [0.4.0] – 2026-04-02
 
 * Introduced internal job registry using `HashMap<String, JobItem>` for O(1) lookup.

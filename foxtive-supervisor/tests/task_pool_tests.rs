@@ -287,7 +287,7 @@ async fn test_pool_with_failing_workers() {
         fn id(&self) -> &'static str { self.id }
         
         async fn run(&self) -> anyhow::Result<()> {
-            if self.worker_index % 2 == 0 {
+            if self.worker_index.is_multiple_of(2) {
                 // Even workers fail
                 self.failure_count.fetch_add(1, Ordering::SeqCst);
                 Err(anyhow::anyhow!("Worker {} intentionally failing", self.worker_index))
@@ -299,7 +299,7 @@ async fn test_pool_with_failing_workers() {
         }
         
         fn restart_policy(&self) -> foxtive_supervisor::enums::RestartPolicy {
-            if self.worker_index % 2 == 0 {
+            if self.worker_index.is_multiple_of(2) {
                 foxtive_supervisor::enums::RestartPolicy::MaxAttempts(2)
             } else {
                 foxtive_supervisor::enums::RestartPolicy::Always
@@ -362,7 +362,7 @@ async fn test_pool_dynamic_scaling_simulation() {
     let task_ids = ["scale-task-0", "scale-task-1", "scale-task-2"];
     for id in &task_ids {
         supervisor = supervisor.add(ScalableTask {
-            id: id,
+            id,
             active_tasks: active_tasks.clone(),
         });
     }

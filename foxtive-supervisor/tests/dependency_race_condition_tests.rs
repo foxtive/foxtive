@@ -163,11 +163,13 @@ async fn test_multiple_dependents_race_condition() {
     tokio::time::sleep(Duration::from_millis(500)).await;
     
     // All three workers should have started despite quick-service completing before they subscribed
-    let order = execution_order.lock().unwrap();
-    assert_eq!(order.len(), 3, "All three workers should have started");
-    
-    println!("✓ Multiple dependents race condition test passed");
-    println!("  Workers started in order: {:?}", *order);
+    {
+        let order = execution_order.lock().unwrap();
+        assert_eq!(order.len(), 3, "All three workers should have started");
+        
+        println!("✓ Multiple dependents race condition test passed");
+        println!("  Workers started in order: {:?}", *order);
+    }
     
     runtime.shutdown().await;
 }

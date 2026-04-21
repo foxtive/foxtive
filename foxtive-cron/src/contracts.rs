@@ -174,6 +174,18 @@ impl ValidatedSchedule {
     }
 }
 
+/// A trait that defines a schedule for a job.
+pub trait Schedule: Send + Sync {
+    /// Returns the next scheduled time after the given timestamp.
+    fn next_after(&self, after: &DateTime<Utc>, tz: Tz) -> Option<DateTime<Utc>>;
+}
+
+impl Schedule for ValidatedSchedule {
+    fn next_after(&self, after: &DateTime<Utc>, tz: Tz) -> Option<DateTime<Utc>> {
+        self.next_after(after, tz)
+    }
+}
+
 /// A type of job.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum JobType {
@@ -192,7 +204,7 @@ pub enum JobType {
 /// - `run`: The asynchronous execution logic of the job.
 /// - `id`: A stable unique identifier used for cancellation and deduplication.
 /// - `name`: A human-readable name for identification and logging.
-/// - `schedule`: A pre-validated [`ValidatedSchedule`] describing when the job runs.
+/// - `schedule`: A description of when the job runs.
 ///
 /// ## Optional Methods
 /// - `description`: An optional human-friendly description of the job's purpose.
@@ -221,11 +233,8 @@ pub trait JobContract: Send + Sync {
     /// Used in logs and debug output. Does not need to be globally unique.
     fn name(&self) -> Cow<'_, str>;
 
-    /// The validated cron schedule describing when this job should run.
-    ///
-    /// Return a [`ValidatedSchedule`] constructed via [`ValidatedSchedule::parse`],
-    /// which ensures the expression is valid before the job is ever registered.
-    fn schedule(&self) -> &ValidatedSchedule;
+    /// The schedule describing when this job should run.
+    fn schedule(&self) -> &dyn Schedule;
 
     /// The type of job.
     fn job_type(&self) -> JobType {
