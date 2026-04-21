@@ -1,8 +1,10 @@
-use foxtive_supervisor::persistence::{InMemoryStateStore, FsStateStore, PersistedTaskState, TaskStateStore};
 use foxtive_supervisor::enums::TaskState;
-use tempfile::tempdir;
-use std::time::Instant;
+use foxtive_supervisor::persistence::{
+    FsStateStore, InMemoryStateStore, PersistedTaskState, TaskStateStore,
+};
 use std::sync::Arc;
+use std::time::Instant;
+use tempfile::tempdir;
 
 #[tokio::test]
 async fn benchmark_persistence_impact() {
@@ -28,7 +30,10 @@ async fn benchmark_persistence_impact() {
         let _ = mem_store.load_state("bench_task").await.unwrap();
     }
     let mem_duration = start.elapsed();
-    println!("In-Memory Store: {} iterations took {:?}", iterations, mem_duration);
+    println!(
+        "In-Memory Store: {} iterations took {:?}",
+        iterations, mem_duration
+    );
 
     // Benchmark FS Store
     let start = Instant::now();

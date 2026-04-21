@@ -1,6 +1,6 @@
 [package]
 name = "foxtive-supervisor"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2024"
 license = "MIT"
 description = "Foxtive Supervisor - Advanced task supervision for Rust applications"
@@ -19,7 +19,7 @@ uuid = { version = "1.23.1", features = ["v4", "fast-rng", "macro-diagnostics"] 
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 rand = "0.10.1"
-foxtive-cron = { path = "../foxtive-cron", version = "0.4.0", optional = true }
+foxtive-cron = { path = "../foxtive-cron", version = "0.5.0", optional = true }
 chrono = { version = "0.4.44", optional = true }
 chrono-tz = { version = "0.10.4", optional = true }
 redis = { version = "1.2.0", features = ["tokio-comp"], optional = true }

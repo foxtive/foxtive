@@ -1,11 +1,11 @@
-use serde::{Deserialize, Serialize};
 use crate::enums::TaskState;
+use serde::{Deserialize, Serialize};
 
-mod memory;
 mod fs;
+mod memory;
 
-pub use memory::InMemoryStateStore;
 pub use fs::FsStateStore;
+pub use memory::InMemoryStateStore;
 
 /// State of a task that can be persisted across supervisor restarts
 #[derive(Debug, Clone, Serialize, Deserialize)]

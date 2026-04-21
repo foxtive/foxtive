@@ -1,10 +1,10 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::{Timelike, Utc};
-use foxtive_supervisor::Supervisor;
 use foxtive_supervisor::SupervisedTask;
-use std::sync::Arc;
+use foxtive_supervisor::Supervisor;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tracing::{info, Level};
 
@@ -57,12 +57,12 @@ impl SupervisedTask for RateLimitedTask {
         let count = self.execution_count.fetch_add(1, Ordering::SeqCst) + 1;
         let now = Utc::now().format("%H:%M:%S");
         info!(count, time = %now, "Rate-limited task executed");
-        
+
         // Simulate occasional failures
         if count.is_multiple_of(4) {
             anyhow::bail!("Simulated failure");
         }
-        
+
         Ok(())
     }
 }
@@ -135,9 +135,7 @@ impl SupervisedTask for BusinessHoursTask {
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_max_level(Level::INFO)
-        .init();
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
     info!("Starting cron scheduling example");
     info!("This demonstrates various scheduling features:");

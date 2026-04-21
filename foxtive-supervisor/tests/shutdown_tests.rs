@@ -17,8 +17,12 @@ async fn test_shutdown_order_respects_dependencies() {
 
     #[async_trait::async_trait]
     impl foxtive_supervisor::contracts::SupervisedTask for OrderedTask {
-        fn id(&self) -> &'static str { self.id }
-        fn dependencies(&self) -> &'static [&'static str] { self.deps }
+        fn id(&self) -> &'static str {
+            self.id
+        }
+        fn dependencies(&self) -> &'static [&'static str] {
+            self.deps
+        }
         async fn run(&self) -> anyhow::Result<()> {
             tokio::time::sleep(Duration::from_secs(3600)).await;
             Ok(())
@@ -30,9 +34,21 @@ async fn test_shutdown_order_respects_dependencies() {
     }
 
     let supervisor = Supervisor::new()
-        .add(OrderedTask { id: "db", deps: &[], sequence: shutdown_sequence.clone() })
-        .add(OrderedTask { id: "api", deps: &["db"], sequence: shutdown_sequence.clone() })
-        .add(OrderedTask { id: "worker", deps: &["db"], sequence: shutdown_sequence.clone() });
+        .add(OrderedTask {
+            id: "db",
+            deps: &[],
+            sequence: shutdown_sequence.clone(),
+        })
+        .add(OrderedTask {
+            id: "api",
+            deps: &["db"],
+            sequence: shutdown_sequence.clone(),
+        })
+        .add(OrderedTask {
+            id: "worker",
+            deps: &["db"],
+            sequence: shutdown_sequence.clone(),
+        });
 
     let runtime = supervisor.start().await.unwrap();
     tokio::time::sleep(Duration::from_millis(100)).await;
@@ -57,8 +73,12 @@ async fn test_shutdown_timeout_forces_termination() {
 
     #[async_trait::async_trait]
     impl foxtive_supervisor::contracts::SupervisedTask for StubbornTask {
-        fn id(&self) -> &'static str { "stubborn" }
-        fn shutdown_timeout(&self) -> Duration { Duration::from_millis(100) }
+        fn id(&self) -> &'static str {
+            "stubborn"
+        }
+        fn shutdown_timeout(&self) -> Duration {
+            Duration::from_millis(100)
+        }
         async fn run(&self) -> anyhow::Result<()> {
             // Ignore stop signal by sleeping in a way that doesn't check for cancellation
             // Actually, run() is aborted, but on_shutdown() is called.
@@ -73,7 +93,9 @@ async fn test_shutdown_timeout_forces_termination() {
     }
 
     let cleanup_started = Arc::new(AtomicBool::new(false));
-    let supervisor = Supervisor::new().add(StubbornTask { cleanup_started: cleanup_started.clone() });
+    let supervisor = Supervisor::new().add(StubbornTask {
+        cleanup_started: cleanup_started.clone(),
+    });
 
     let runtime = supervisor.start().await.unwrap();
     tokio::time::sleep(Duration::from_millis(50)).await;

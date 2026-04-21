@@ -1,5 +1,5 @@
 mod common;
-use common::testing::{TestHarness, TaskAssertions};
+use common::testing::{TaskAssertions, TestHarness};
 use foxtive_supervisor::enums::HealthStatus;
 use std::time::Duration;
 
@@ -12,7 +12,9 @@ async fn test_harness_and_assertions() {
     let runtime = harness.supervisor.take().unwrap().start().await.unwrap();
 
     let assertions = TaskAssertions::new(&runtime);
-    assertions.assert_health("test_task", HealthStatus::Healthy).await;
+    assertions
+        .assert_health("test_task", HealthStatus::Healthy)
+        .await;
 
     tokio::time::sleep(Duration::from_millis(50)).await;
     assert!(mock.run_count() >= 1);
@@ -23,5 +25,6 @@ async fn test_harness_and_assertions() {
 async fn test_fake_time_backoff() {
     TestHarness::run_with_fake_time(|| async {
         // Advanced time testing logic would go here
-    }).await;
+    })
+    .await;
 }

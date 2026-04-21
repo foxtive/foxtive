@@ -8,12 +8,12 @@
 //! - Dynamic Service Management (Adding a task at runtime)
 //! - Concurrency and Priority Control
 
-use foxtive_supervisor::{Supervisor, SupervisedTask};
-use foxtive_supervisor::enums::{BackoffStrategy, HealthStatus, RestartPolicy, SupervisorEvent};
 use foxtive_supervisor::contracts::SupervisorEventListener;
+use foxtive_supervisor::enums::{BackoffStrategy, HealthStatus, RestartPolicy, SupervisorEvent};
+use foxtive_supervisor::{SupervisedTask, Supervisor};
 use std::time::Duration;
 use tokio::signal;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 // --- 1. Database Service ---
 
@@ -21,8 +21,12 @@ struct DatabasePool;
 
 #[async_trait::async_trait]
 impl SupervisedTask for DatabasePool {
-    fn id(&self) -> &'static str { "database" }
-    fn priority(&self) -> i32 { 100 } // Start first
+    fn id(&self) -> &'static str {
+        "database"
+    }
+    fn priority(&self) -> i32 {
+        100
+    } // Start first
 
     async fn setup(&self) -> anyhow::Result<()> {
         info!("[Database] Establishing connection pool...");
@@ -50,8 +54,12 @@ struct CacheService;
 
 #[async_trait::async_trait]
 impl SupervisedTask for CacheService {
-    fn id(&self) -> &'static str { "cache" }
-    fn priority(&self) -> i32 { 90 }
+    fn id(&self) -> &'static str {
+        "cache"
+    }
+    fn priority(&self) -> i32 {
+        90
+    }
 
     async fn setup(&self) -> anyhow::Result<()> {
         info!("[Cache] Connecting to Redis...");
@@ -72,8 +80,12 @@ struct ApiGateway;
 
 #[async_trait::async_trait]
 impl SupervisedTask for ApiGateway {
-    fn id(&self) -> &'static str { "api-gateway" }
-    fn dependencies(&self) -> &'static [&'static str] { &["database", "cache"] }
+    fn id(&self) -> &'static str {
+        "api-gateway"
+    }
+    fn dependencies(&self) -> &'static [&'static str] {
+        &["database", "cache"]
+    }
 
     async fn run(&self) -> anyhow::Result<()> {
         info!("[API Gateway] Listening on :8080 (DB and Cache ready)");
@@ -99,8 +111,12 @@ struct OrderConsumer;
 
 #[async_trait::async_trait]
 impl SupervisedTask for OrderConsumer {
-    fn id(&self) -> &'static str { "order-consumer" }
-    fn dependencies(&self) -> &'static [&'static str] { &["database"] }
+    fn id(&self) -> &'static str {
+        "order-consumer"
+    }
+    fn dependencies(&self) -> &'static [&'static str] {
+        &["database"]
+    }
 
     async fn run(&self) -> anyhow::Result<()> {
         info!("[Order Consumer] Starting message processing...");
@@ -122,8 +138,13 @@ struct MetricsListener;
 impl SupervisorEventListener for MetricsListener {
     async fn on_event(&self, event: SupervisorEvent) {
         match event {
-            SupervisorEvent::TaskFailed { id, error, attempt, .. } => {
-                error!("CRITICAL: Task {} failed on attempt {} with error: {}", id, attempt, error);
+            SupervisorEvent::TaskFailed {
+                id, error, attempt, ..
+            } => {
+                error!(
+                    "CRITICAL: Task {} failed on attempt {} with error: {}",
+                    id, attempt, error
+                );
             }
             SupervisorEvent::TaskStarted { id, attempt, .. } if attempt > 1 => {
                 info!("Task {} restarted (attempt {})", id, attempt);
@@ -160,7 +181,9 @@ async fn main() -> anyhow::Result<()> {
         struct AnalyticsService;
         #[async_trait::async_trait]
         impl SupervisedTask for AnalyticsService {
-            fn id(&self) -> &'static str { "analytics" }
+            fn id(&self) -> &'static str {
+                "analytics"
+            }
             async fn run(&self) -> anyhow::Result<()> {
                 info!("[Analytics] Aggregating data...");
                 loop {

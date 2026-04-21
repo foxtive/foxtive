@@ -4,7 +4,7 @@
 //! for managing and orchestrating supervised tasks. It handles task registration,
 //! dependency resolution, prerequisite execution, and the spawning of supervision loops.
 
-use super::supervision::{supervise, SupervisionParams};
+use super::supervision::{SupervisionParams, supervise};
 use super::types::{DepSetupReceivers, PrerequisiteFuture, SupervisionResult, TaskEntry};
 use super::validation::validate_dependencies;
 use crate::contracts::{SupervisedTask, SupervisorEventListener};
@@ -16,7 +16,7 @@ use std::fmt;
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{broadcast, watch, RwLock, Semaphore};
+use tokio::sync::{RwLock, Semaphore, broadcast, watch};
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 
@@ -115,7 +115,8 @@ impl TaskRuntime {
 
         // Setup per-task concurrency limit if specified
         if let Some(limit) = task.concurrency_limit() {
-            self.task_concurrency_limits.insert(id, Arc::new(Semaphore::new(limit)));
+            self.task_concurrency_limits
+                .insert(id, Arc::new(Semaphore::new(limit)));
         }
 
         // Initialize hot-reloadable config from task's current configuration
@@ -152,7 +153,8 @@ impl TaskRuntime {
         let id = task.id();
 
         if let Some(limit) = task.concurrency_limit() {
-            self.task_concurrency_limits.insert(id, Arc::new(Semaphore::new(limit)));
+            self.task_concurrency_limits
+                .insert(id, Arc::new(Semaphore::new(limit)));
         }
 
         // Initialize hot-reloadable config from task's current configuration
@@ -181,7 +183,8 @@ impl TaskRuntime {
         let id = task.id();
 
         if let Some(limit) = task.concurrency_limit() {
-            self.task_concurrency_limits.insert(id, Arc::new(Semaphore::new(limit)));
+            self.task_concurrency_limits
+                .insert(id, Arc::new(Semaphore::new(limit)));
         }
 
         // Initialize hot-reloadable config from task's current configuration
@@ -210,10 +213,16 @@ impl TaskRuntime {
     /// # Errors
     /// Returns `SupervisorError::InternalError` if a task with the same ID already exists.
     /// Returns `SupervisorError::DependencyValidation` if a declared dependency is unknown.
-    pub fn add_task<T: SupervisedTask + 'static>(&mut self, task: T) -> Result<(), SupervisorError> {
+    pub fn add_task<T: SupervisedTask + 'static>(
+        &mut self,
+        task: T,
+    ) -> Result<(), SupervisorError> {
         let id = task.id();
         if self.tasks.contains_key(id) {
-            return Err(SupervisorError::InternalError(format!("Task {} already exists", id)));
+            return Err(SupervisorError::InternalError(format!(
+                "Task {} already exists",
+                id
+            )));
         }
 
         self.register(task);
@@ -259,7 +268,10 @@ impl TaskRuntime {
 
         // Send TaskRegistered event for dynamically added task
         let name = entry.task.name();
-        let _ = self.event_tx.send(SupervisorEvent::TaskRegistered { id: id.to_string(), name });
+        let _ = self.event_tx.send(SupervisorEvent::TaskRegistered {
+            id: id.to_string(),
+            name,
+        });
 
         Ok(())
     }
@@ -342,16 +354,18 @@ impl TaskRuntime {
         id: &str,
         new_policy: crate::enums::RestartPolicy,
     ) -> Result<(), SupervisorError> {
-        let config_lock = self.task_configs.get(id)
+        let config_lock = self
+            .task_configs
+            .get(id)
             .ok_or_else(|| SupervisorError::UnknownTask(id.to_string()))?;
-        
+
         // Validate the new policy
         Self::validate_restart_policy(&new_policy)?;
-        
+
         let mut config = config_lock.write().await;
         let old_policy = config.restart_policy.clone();
         config.restart_policy = new_policy.clone();
-        
+
         // Emit configuration change event
         if let Some(entry) = self.tasks.get(id) {
             let name = entry.task.name();
@@ -363,7 +377,7 @@ impl TaskRuntime {
                 new_value: format!("{:?}", new_policy),
             });
         }
-        
+
         info!(task_id = %id, ?old_policy, ?new_policy, "Updated restart policy");
         Ok(())
     }
@@ -384,16 +398,18 @@ impl TaskRuntime {
         id: &str,
         new_strategy: crate::enums::BackoffStrategy,
     ) -> Result<(), SupervisorError> {
-        let config_lock = self.task_configs.get(id)
+        let config_lock = self
+            .task_configs
+            .get(id)
             .ok_or_else(|| SupervisorError::UnknownTask(id.to_string()))?;
-        
+
         // Validate the new strategy
         Self::validate_backoff_strategy(&new_strategy)?;
-        
+
         let mut config = config_lock.write().await;
         let old_strategy = config.backoff_strategy.clone();
         config.backoff_strategy = new_strategy.clone();
-        
+
         // Emit configuration change event
         if let Some(entry) = self.tasks.get(id) {
             let name = entry.task.name();
@@ -405,7 +421,7 @@ impl TaskRuntime {
                 new_value: format!("{:?}", new_strategy),
             });
         }
-        
+
         info!(task_id = %id, ?old_strategy, ?new_strategy, "Updated backoff strategy");
         Ok(())
     }
@@ -421,18 +437,16 @@ impl TaskRuntime {
     ///
     /// # Errors
     /// Returns `SupervisorError::UnknownTask` if no task with the given ID is found.
-    pub async fn set_task_enabled(
-        &self,
-        id: &str,
-        enabled: bool,
-    ) -> Result<(), SupervisorError> {
-        let config_lock = self.task_configs.get(id)
+    pub async fn set_task_enabled(&self, id: &str, enabled: bool) -> Result<(), SupervisorError> {
+        let config_lock = self
+            .task_configs
+            .get(id)
             .ok_or_else(|| SupervisorError::UnknownTask(id.to_string()))?;
-        
+
         let mut config = config_lock.write().await;
         let old_enabled = config.enabled;
         config.enabled = enabled;
-        
+
         // Emit configuration change event
         if let Some(entry) = self.tasks.get(id) {
             let name = entry.task.name();
@@ -444,7 +458,7 @@ impl TaskRuntime {
                 new_value: enabled.to_string(),
             });
         }
-        
+
         info!(task_id = %id, old_enabled = old_enabled, new_enabled = enabled, "Updated task enabled status");
         Ok(())
     }
@@ -492,13 +506,15 @@ impl TaskRuntime {
     /// Number of tasks started
     pub fn start_group(&mut self, group_id: &str) -> usize {
         let mut started_count = 0;
-        
+
         // Collect task IDs that belong to this group
-        let group_task_ids: Vec<&'static str> = self.tasks.iter()
+        let group_task_ids: Vec<&'static str> = self
+            .tasks
+            .iter()
             .filter(|(_, entry)| entry.task.group_id() == Some(group_id))
             .map(|(id, _)| *id)
             .collect();
-        
+
         for task_id in group_task_ids {
             if !self.handles.contains_key(task_id) {
                 // Task is registered but not started, start it now
@@ -509,7 +525,7 @@ impl TaskRuntime {
                 }
             }
         }
-        
+
         info!(group_id = %group_id, started = started_count, "Started task group");
         started_count
     }
@@ -525,19 +541,21 @@ impl TaskRuntime {
     /// Number of tasks stopped
     pub async fn stop_group(&mut self, group_id: &str) -> usize {
         let mut stopped_count = 0;
-        
+
         // Collect task IDs that belong to this group
-        let group_task_ids: Vec<&'static str> = self.tasks.iter()
+        let group_task_ids: Vec<&'static str> = self
+            .tasks
+            .iter()
             .filter(|(_, entry)| entry.task.group_id() == Some(group_id))
             .map(|(id, _)| *id)
             .collect();
-        
+
         for task_id in group_task_ids {
             if let Some(handle) = self.handles.remove(task_id) {
                 if let Some(entry) = self.tasks.get(task_id) {
                     let _ = entry.control_tx.send(ControlMessage::Stop);
                 }
-                
+
                 // Wait briefly for graceful shutdown
                 match tokio::time::timeout(Duration::from_secs(5), handle).await {
                     Ok(_) => stopped_count += 1,
@@ -548,7 +566,7 @@ impl TaskRuntime {
                 }
             }
         }
-        
+
         info!(group_id = %group_id, stopped = stopped_count, "Stopped task group");
         stopped_count
     }
@@ -564,14 +582,14 @@ impl TaskRuntime {
     /// Number of tasks restarted
     pub fn restart_group(&self, group_id: &str) -> usize {
         let mut restarted_count = 0;
-        
+
         for (task_id, entry) in &self.tasks {
             if entry.task.group_id() == Some(group_id) && self.handles.contains_key(task_id) {
                 let _ = entry.control_tx.send(ControlMessage::Restart);
                 restarted_count += 1;
             }
         }
-        
+
         info!(group_id = %group_id, restarted = restarted_count, "Restarted task group");
         restarted_count
     }
@@ -584,7 +602,8 @@ impl TaskRuntime {
     /// # Returns
     /// Vector of task IDs belonging to the group
     pub fn list_group_tasks(&self, group_id: &str) -> Vec<String> {
-        self.tasks.iter()
+        self.tasks
+            .iter()
             .filter(|(_, entry)| entry.task.group_id() == Some(group_id))
             .map(|(id, _)| id.to_string())
             .collect()
@@ -617,7 +636,7 @@ impl TaskRuntime {
                     HealthStatus::Healthy => has_healthy = true,
                     HealthStatus::Degraded { .. } => has_degraded = true,
                     HealthStatus::Unhealthy { .. } => has_unhealthy = true,
-                    HealthStatus::Unknown => {}, // Don't affect aggregation
+                    HealthStatus::Unknown => {} // Don't affect aggregation
                 }
             }
         }
@@ -628,9 +647,13 @@ impl TaskRuntime {
 
         // Return worst status
         if has_unhealthy {
-            HealthStatus::Unhealthy { reason: "One or more tasks in group are unhealthy".to_string() }
+            HealthStatus::Unhealthy {
+                reason: "One or more tasks in group are unhealthy".to_string(),
+            }
         } else if has_degraded {
-            HealthStatus::Degraded { reason: "One or more tasks in group are degraded".to_string() }
+            HealthStatus::Degraded {
+                reason: "One or more tasks in group are degraded".to_string(),
+            }
         } else if has_healthy {
             HealthStatus::Healthy
         } else {
@@ -647,7 +670,7 @@ impl TaskRuntime {
     /// Vector of TaskSummary for each task in the group
     pub async fn get_group_health_details(&self, group_id: &str) -> Vec<TaskSummary> {
         let mut summaries = Vec::new();
-        
+
         for (task_id, entry) in &self.tasks {
             if entry.task.group_id() == Some(group_id) {
                 summaries.push(TaskSummary {
@@ -657,7 +680,7 @@ impl TaskRuntime {
                 });
             }
         }
-        
+
         summaries
     }
 
@@ -699,7 +722,10 @@ impl TaskRuntime {
         self.handles.insert(task_id, handle);
 
         let name = entry.task.name();
-        let _ = self.event_tx.send(SupervisorEvent::TaskRegistered { id: task_id.to_string(), name });
+        let _ = self.event_tx.send(SupervisorEvent::TaskRegistered {
+            id: task_id.to_string(),
+            name,
+        });
 
         Ok(())
     }
@@ -712,16 +738,25 @@ impl TaskRuntime {
     /// # Errors
     /// Returns `SupervisorError::UnknownTask` if no task with the given ID is found.
     /// Returns `SupervisorError::InternalError` if the task panicked during removal.
-    pub async fn remove_task(&mut self, id: &str) -> Result<Option<SupervisionResult>, SupervisorError> {
+    pub async fn remove_task(
+        &mut self,
+        id: &str,
+    ) -> Result<Option<SupervisionResult>, SupervisorError> {
         if let Some(entry) = self.tasks.remove(id) {
             let _ = entry.control_tx.send(ControlMessage::Stop);
             let name = entry.task.name();
             self.setup_signals.remove(id);
-            let _ = self.event_tx.send(SupervisorEvent::TaskRemoved { id: id.to_string(), name });
+            let _ = self.event_tx.send(SupervisorEvent::TaskRemoved {
+                id: id.to_string(),
+                name,
+            });
             if let Some(handle) = self.handles.remove(id) {
                 match handle.await {
                     Ok(res) => Ok(Some(res)),
-                    Err(_) => Err(SupervisorError::InternalError(format!("Task {} panicked during removal", id))),
+                    Err(_) => Err(SupervisorError::InternalError(format!(
+                        "Task {} panicked during removal",
+                        id
+                    ))),
                 }
             } else {
                 Ok(None)
@@ -834,7 +869,10 @@ impl TaskRuntime {
                         }
                     }
                     Err(broadcast::error::RecvError::Lagged(n)) => {
-                        warn!(missed_events = n, "Event channel lagged, skipping missed events to prevent listener backlog");
+                        warn!(
+                            missed_events = n,
+                            "Event channel lagged, skipping missed events to prevent listener backlog"
+                        );
                         // Continue listening for new events instead of terminating
                         continue;
                     }
@@ -848,18 +886,24 @@ impl TaskRuntime {
 
         // --- Phase 1: prerequisites (run in parallel) ---
         if !self.prerequisites.is_empty() {
-            info!("[Supervisor] Running {} prerequisites in parallel...", self.prerequisites.len());
-            
-            let prereq_futures: Vec<_> = self.prerequisites.drain(..)
+            info!(
+                "[Supervisor] Running {} prerequisites in parallel...",
+                self.prerequisites.len()
+            );
+
+            let prereq_futures: Vec<_> = self
+                .prerequisites
+                .drain(..)
                 .map(|(name, fut)| async move {
                     info!("[Supervisor] Awaiting prerequisite '{name}'...");
                     fut.await.map_err(|e| (name, e))
                 })
                 .collect();
-            
-            let results = futures_util::future::try_join_all(prereq_futures).await
+
+            let results = futures_util::future::try_join_all(prereq_futures)
+                .await
                 .map_err(|(name, e)| SupervisorError::prerequisite_failed(name, e))?;
-            
+
             info!("[Supervisor] All {} prerequisites satisfied", results.len());
         }
 
@@ -890,7 +934,10 @@ impl TaskRuntime {
             let entry = &self.tasks[id];
             // Emit TaskRegistered event during startup (all listeners are registered by now)
             let name = entry.task.name();
-            let _ = self.event_tx.send(SupervisorEvent::TaskRegistered { id: id.to_string(), name });
+            let _ = self.event_tx.send(SupervisorEvent::TaskRegistered {
+                id: id.to_string(),
+                name,
+            });
 
             // Collect receivers for each declared dependency
             let active_deps = entry.task.active_dependencies();
@@ -964,11 +1011,12 @@ impl TaskRuntime {
         }
 
         // Extract all handles from the HashMap to avoid borrow issues
-        let mut handle_vec: Vec<(&'static str, JoinHandle<SupervisionResult>)> = self.handles.drain().collect();
-        
+        let mut handle_vec: Vec<(&'static str, JoinHandle<SupervisionResult>)> =
+            self.handles.drain().collect();
+
         // Use select_all to wait for the first one to complete
         use futures_util::future::select_all;
-        
+
         let mut futures = Vec::new();
         for (id, handle) in handle_vec.iter_mut() {
             let id_clone = *id;
@@ -977,16 +1025,16 @@ impl TaskRuntime {
                 (id_clone, result)
             }));
         }
-        
+
         let ((finished_id, result), _idx, _remaining) = select_all(futures).await;
-        
+
         // Put remaining handles back into the HashMap
         for (i, (id, handle)) in handle_vec.into_iter().enumerate() {
             if i != _idx {
                 self.handles.insert(id, handle);
             }
         }
-        
+
         match result {
             Ok(supervision_result) => {
                 error!(
@@ -998,10 +1046,7 @@ impl TaskRuntime {
                 supervision_result
             }
             Err(join_err) => {
-                error!(
-                    "[Supervisor] Task {} panicked: {:?}",
-                    finished_id, join_err
-                );
+                error!("[Supervisor] Task {} panicked: {:?}", finished_id, join_err);
                 SupervisionResult {
                     task_name: "unknown".to_string(),
                     task_id: finished_id.to_string(),
@@ -1031,7 +1076,9 @@ impl TaskRuntime {
     /// Shutdown is performed in reverse dependency order (leaves first, then roots).
     pub async fn shutdown(mut self) {
         info!("[Supervisor] Shutting down {} tasks...", self.tasks.len());
-        let _ = self.event_tx.send(SupervisorEvent::SupervisorShutdownStarted);
+        let _ = self
+            .event_tx
+            .send(SupervisorEvent::SupervisorShutdownStarted);
 
         // Calculate shutdown order based on dependencies.
         // We want to shut down tasks that NO OTHER task depends on first.
@@ -1053,12 +1100,20 @@ impl TaskRuntime {
                                 Ok(_supervision_res) => {
                                     info!(task_id = %id, "Task '{}' supervision completed.", name);
                                     // Call on_shutdown hook - separate from cleanup(), this runs once during graceful shutdown
-                                    match tokio::time::timeout(timeout, entry.task.on_shutdown()).await {
-                                        Ok(_) => info!(task_id = %id, "Task '{}' on_shutdown completed.", name),
-                                        Err(_) => warn!(task_id = %id, "Task '{}' on_shutdown timed out after {:?}.", name, timeout),
+                                    match tokio::time::timeout(timeout, entry.task.on_shutdown())
+                                        .await
+                                    {
+                                        Ok(_) => {
+                                            info!(task_id = %id, "Task '{}' on_shutdown completed.", name)
+                                        }
+                                        Err(_) => {
+                                            warn!(task_id = %id, "Task '{}' on_shutdown timed out after {:?}.", name, timeout)
+                                        }
                                     }
                                 }
-                                Err(e) => error!(task_id = %id, "Task '{}' panicked during shutdown: {:?}", name, e),
+                                Err(e) => {
+                                    error!(task_id = %id, "Task '{}' panicked during shutdown: {:?}", name, e)
+                                }
                             }
                         }
                         Err(_) => {
@@ -1076,7 +1131,9 @@ impl TaskRuntime {
             handle.abort();
         }
 
-        let _ = self.event_tx.send(SupervisorEvent::SupervisorShutdownCompleted);
+        let _ = self
+            .event_tx
+            .send(SupervisorEvent::SupervisorShutdownCompleted);
         info!("[Supervisor] All tasks shut down");
     }
 
@@ -1132,7 +1189,9 @@ impl TaskRuntime {
     // CONFIGURATION VALIDATION
 
     /// Validates a restart policy before applying it
-    fn validate_restart_policy(_policy: &crate::enums::RestartPolicy) -> Result<(), SupervisorError> {
+    fn validate_restart_policy(
+        _policy: &crate::enums::RestartPolicy,
+    ) -> Result<(), SupervisorError> {
         // Currently all restart policies are valid
         // Future enhancements could add constraints like:
         // - MaxAttempts must be > 0
@@ -1141,49 +1200,55 @@ impl TaskRuntime {
     }
 
     /// Validates a backoff strategy before applying it
-    fn validate_backoff_strategy(strategy: &crate::enums::BackoffStrategy) -> Result<(), SupervisorError> {
+    fn validate_backoff_strategy(
+        strategy: &crate::enums::BackoffStrategy,
+    ) -> Result<(), SupervisorError> {
         // Validate that delays are reasonable (not too short, not too long)
         match strategy {
             crate::enums::BackoffStrategy::Fixed(duration) => {
                 if duration.as_secs() > 3600 {
                     return Err(SupervisorError::InternalError(
-                        "Fixed backoff delay cannot exceed 1 hour".to_string()
+                        "Fixed backoff delay cannot exceed 1 hour".to_string(),
                     ));
                 }
             }
             crate::enums::BackoffStrategy::Exponential { initial, max } => {
                 if initial.as_secs() > 3600 || max.as_secs() > 3600 {
                     return Err(SupervisorError::InternalError(
-                        "Exponential backoff delays cannot exceed 1 hour".to_string()
+                        "Exponential backoff delays cannot exceed 1 hour".to_string(),
                     ));
                 }
                 if initial > max {
                     return Err(SupervisorError::InternalError(
-                        "Initial backoff cannot be greater than max backoff".to_string()
+                        "Initial backoff cannot be greater than max backoff".to_string(),
                     ));
                 }
             }
-            crate::enums::BackoffStrategy::Linear { initial, increment: _, max } => {
+            crate::enums::BackoffStrategy::Linear {
+                initial,
+                increment: _,
+                max,
+            } => {
                 if initial.as_secs() > 3600 || max.as_secs() > 3600 {
                     return Err(SupervisorError::InternalError(
-                        "Linear backoff delays cannot exceed 1 hour".to_string()
+                        "Linear backoff delays cannot exceed 1 hour".to_string(),
                     ));
                 }
                 if initial > max {
                     return Err(SupervisorError::InternalError(
-                        "Initial backoff cannot be greater than max backoff".to_string()
+                        "Initial backoff cannot be greater than max backoff".to_string(),
                     ));
                 }
             }
             crate::enums::BackoffStrategy::Fibonacci { initial, max } => {
                 if initial.as_secs() > 3600 || max.as_secs() > 3600 {
                     return Err(SupervisorError::InternalError(
-                        "Fibonacci backoff delays cannot exceed 1 hour".to_string()
+                        "Fibonacci backoff delays cannot exceed 1 hour".to_string(),
                     ));
                 }
                 if initial > max {
                     return Err(SupervisorError::InternalError(
-                        "Initial backoff cannot be greater than max backoff".to_string()
+                        "Initial backoff cannot be greater than max backoff".to_string(),
                     ));
                 }
             }

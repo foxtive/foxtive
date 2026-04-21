@@ -1,5 +1,5 @@
-use std::time::Duration;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SupervisionStatus {
@@ -77,17 +77,44 @@ pub enum SupervisorEvent {
     /// A task completed its setup phase successfully
     TaskSetupCompleted { id: String, name: String },
     /// A task setup failed
-    TaskSetupFailed { id: String, name: String, error: String },
+    TaskSetupFailed {
+        id: String,
+        name: String,
+        error: String,
+    },
     /// A task's execution started (or restarted)
-    TaskStarted { id: String, name: String, attempt: usize },
+    TaskStarted {
+        id: String,
+        name: String,
+        attempt: usize,
+    },
     /// A task's execution finished successfully
-    TaskFinished { id: String, name: String, attempt: usize },
+    TaskFinished {
+        id: String,
+        name: String,
+        attempt: usize,
+    },
     /// A task's execution failed with an error
-    TaskFailed { id: String, name: String, attempt: usize, error: String },
+    TaskFailed {
+        id: String,
+        name: String,
+        attempt: usize,
+        error: String,
+    },
     /// A task's execution panicked
-    TaskPanicked { id: String, name: String, attempt: usize, panic_info: String },
+    TaskPanicked {
+        id: String,
+        name: String,
+        attempt: usize,
+        panic_info: String,
+    },
     /// A task is entering backoff before restart
-    TaskBackoff { id: String, name: String, attempt: usize, delay: Duration },
+    TaskBackoff {
+        id: String,
+        name: String,
+        attempt: usize,
+        delay: Duration,
+    },
     /// A task was manually stopped
     TaskStopped { id: String, name: String },
     /// A task was paused
@@ -95,13 +122,25 @@ pub enum SupervisorEvent {
     /// A task was resumed
     TaskResumed { id: String, name: String },
     /// A task reached its maximum restart attempts
-    TaskMaxAttemptsReached { id: String, name: String, attempts: usize },
+    TaskMaxAttemptsReached {
+        id: String,
+        name: String,
+        attempts: usize,
+    },
     /// A task restart was prevented by a hook
-    TaskRestartPrevented { id: String, name: String, attempt: usize },
+    TaskRestartPrevented {
+        id: String,
+        name: String,
+        attempt: usize,
+    },
     /// A task was removed from the supervisor
     TaskRemoved { id: String, name: String },
     /// A task's circuit breaker tripped (opened)
-    CircuitBreakerTripped { id: String, name: String, consecutive_failures: usize },
+    CircuitBreakerTripped {
+        id: String,
+        name: String,
+        consecutive_failures: usize,
+    },
     /// A task's circuit breaker was reset (closed)
     CircuitBreakerReset { id: String, name: String },
     /// A task's circuit breaker entered half-open state
@@ -111,12 +150,12 @@ pub enum SupervisorEvent {
     /// Supervisor completed shutdown
     SupervisorShutdownCompleted,
     /// A task's configuration was updated at runtime
-    TaskConfigUpdated { 
-        id: String, 
-        name: String, 
-        field: String, 
-        old_value: String, 
-        new_value: String 
+    TaskConfigUpdated {
+        id: String,
+        name: String,
+        field: String,
+        old_value: String,
+        new_value: String,
     },
 }
 

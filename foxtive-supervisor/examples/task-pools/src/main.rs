@@ -1,9 +1,9 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use foxtive_supervisor::task_pool::{LoadBalancingStrategy, TaskPool};
-use foxtive_supervisor::{SupervisedTask};
-use std::sync::Arc;
+use foxtive_supervisor::SupervisedTask;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tracing::{info, Level};
 
@@ -38,14 +38,10 @@ impl SupervisedTask for MessageWorker {
     async fn run(&self) -> Result<()> {
         // Simulate processing a message
         sleep(Duration::from_millis(500)).await;
-        
+
         let count = self.processed_count.fetch_add(1, Ordering::SeqCst) + 1;
-        info!(
-            worker = self.worker_id,
-            count,
-            "Processed message"
-        );
-        
+        info!(worker = self.worker_id, count, "Processed message");
+
         Ok(())
     }
 
@@ -57,9 +53,7 @@ impl SupervisedTask for MessageWorker {
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_max_level(Level::INFO)
-        .init();
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
     info!("Starting task pools example");
     info!("This demonstrates load-balanced worker pools");
@@ -74,18 +68,17 @@ async fn main() -> Result<()> {
         LoadBalancingStrategy::RoundRobin,
     );
 
-    let rr_supervisor = round_robin_pool.build_pool(|worker_id| {
-        MessageWorker::new(worker_id, total_processed.clone())
-    });
+    let rr_supervisor = round_robin_pool
+        .build_pool(|worker_id| MessageWorker::new(worker_id, total_processed.clone()));
 
     info!("Started round-robin pool with 3 workers");
-    
+
     // Start the supervisor
     let rr_runtime = rr_supervisor.start().await?;
-    
+
     // Let it run briefly
     sleep(Duration::from_secs(4)).await;
-    
+
     let rr_count = total_processed.load(Ordering::SeqCst);
     info!(rr_count, "Messages processed by round-robin pool");
 
@@ -103,16 +96,15 @@ async fn main() -> Result<()> {
         LoadBalancingStrategy::Random,
     );
 
-    let random_supervisor = random_pool.build_pool(|worker_id| {
-        MessageWorker::new(worker_id, total_processed.clone())
-    });
+    let random_supervisor =
+        random_pool.build_pool(|worker_id| MessageWorker::new(worker_id, total_processed.clone()));
 
     info!("Started random pool with 4 workers");
-    
+
     let random_runtime = random_supervisor.start().await?;
-    
+
     sleep(Duration::from_secs(4)).await;
-    
+
     let random_count = total_processed.load(Ordering::SeqCst);
     info!(random_count, "Messages processed by random pool");
 
@@ -130,16 +122,15 @@ async fn main() -> Result<()> {
         LoadBalancingStrategy::LeastLoaded,
     );
 
-    let ll_supervisor = least_loaded_pool.build_pool(|worker_id| {
-        MessageWorker::new(worker_id, total_processed.clone())
-    });
+    let ll_supervisor = least_loaded_pool
+        .build_pool(|worker_id| MessageWorker::new(worker_id, total_processed.clone()));
 
     info!("Started least-loaded pool with 3 workers");
-    
+
     let ll_runtime = ll_supervisor.start().await?;
-    
+
     sleep(Duration::from_secs(4)).await;
-    
+
     let ll_count = total_processed.load(Ordering::SeqCst);
     info!(ll_count, "Messages processed by least-loaded pool");
 

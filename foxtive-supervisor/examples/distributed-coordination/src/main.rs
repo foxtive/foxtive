@@ -5,7 +5,9 @@
 //!
 //! Run with: cargo run --example distributed-coordination --features distributed
 
-use foxtive_supervisor::distributed::{CoordinationBackend, CoordinationConfig, CoordinationManager, RedisCoordination};
+use foxtive_supervisor::distributed::{
+    CoordinationBackend, CoordinationConfig, CoordinationManager, RedisCoordination,
+};
 use foxtive_supervisor::{SupervisedTask, Supervisor};
 use std::sync::Arc;
 use std::time::Duration;
@@ -24,10 +26,10 @@ impl SupervisedTask for LeaderOnlyTask {
 
     async fn run(&self) -> anyhow::Result<()> {
         info!("Leader-only task '{}' is running", self.name);
-        
+
         // Simulate work
         tokio::time::sleep(Duration::from_secs(5)).await;
-        
+
         info!("Leader task '{}' completed", self.name);
         Ok(())
     }
@@ -46,7 +48,7 @@ impl SupervisedTask for BackgroundWorker {
 
     async fn run(&self) -> anyhow::Result<()> {
         info!("Background worker {} running on this instance", self.id);
-        
+
         loop {
             // Do some background work
             tokio::time::sleep(Duration::from_secs(2)).await;
@@ -57,9 +59,7 @@ impl SupervisedTask for BackgroundWorker {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter("info")
-        .init();
+    tracing_subscriber::fmt().with_env_filter("info").init();
 
     let instance_id = format!("instance-{}", std::process::id());
     info!("Starting supervisor instance: {}", instance_id);
@@ -74,10 +74,7 @@ async fn main() -> anyhow::Result<()> {
     let coordination = Arc::new(RedisCoordination::new(config.clone()).await?);
 
     // Start coordination manager (handles leader election and heartbeats)
-    let manager = CoordinationManager::new(
-        coordination.clone(),
-        config.clone(),
-    );
+    let manager = CoordinationManager::new(coordination.clone(), config.clone());
     manager.start().await?;
 
     info!("Coordination started. Waiting to see if we become leader...");
@@ -95,7 +92,7 @@ async fn main() -> anyhow::Result<()> {
     // Check if we're the leader
     if manager.is_leader() {
         info!("✓ We are the LEADER - adding leader-only tasks");
-        
+
         // Add tasks that should only run on the leader
         supervisor = supervisor.add(LeaderOnlyTask {
             name: "leader-report-generator",
@@ -105,7 +102,7 @@ async fn main() -> anyhow::Result<()> {
         });
     } else {
         info!("✗ We are a FOLLOWER - running only background tasks");
-        
+
         if let Ok(Some(leader)) = coordination.get_current_leader().await {
             info!("Current leader is: {}", leader);
         }
@@ -117,15 +114,15 @@ async fn main() -> anyhow::Result<()> {
 
     // Let it run for a while
     info!("Supervisor running. Press Ctrl+C to stop.");
-    
+
     // Monitor leadership changes
     let coord_clone = coordination.clone();
     let instance_clone = instance_id.clone();
-    
+
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(Duration::from_secs(10)).await;
-            
+
             match coord_clone.is_leader(&instance_clone).await {
                 Ok(true) => info!("Still the leader"),
                 Ok(false) => warn!("No longer the leader!"),

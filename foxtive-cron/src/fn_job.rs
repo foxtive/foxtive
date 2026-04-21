@@ -1,5 +1,5 @@
-use crate::{CronResult, CronError};
-use crate::contracts::{JobContract, ValidatedSchedule, Schedule};
+use crate::contracts::{JobContract, Schedule, ValidatedSchedule};
+use crate::{CronError, CronResult};
 use async_trait::async_trait;
 use std::borrow::Cow;
 use std::future::Future;

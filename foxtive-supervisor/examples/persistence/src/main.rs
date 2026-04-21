@@ -1,9 +1,9 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use foxtive_supervisor::{persistence::FsStateStore, Supervisor, SupervisedTask};
+use foxtive_supervisor::{persistence::FsStateStore, SupervisedTask, Supervisor};
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tracing::{info, Level};
 
@@ -35,15 +35,15 @@ impl SupervisedTask for MessageProcessor {
     async fn run(&self) -> Result<()> {
         // Simulate processing a message
         sleep(Duration::from_millis(200)).await;
-        
+
         let count = self.processed_count.fetch_add(1, Ordering::SeqCst) + 1;
         info!(count, "Processed message");
-        
+
         // Simulate occasional failures
         if count.is_multiple_of(5) {
             anyhow::bail!("Simulated processing error at message {}", count);
         }
-        
+
         Ok(())
     }
 
@@ -55,9 +55,7 @@ impl SupervisedTask for MessageProcessor {
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_max_level(Level::INFO)
-        .init();
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
     info!("Starting persistence example");
     info!("Task state will be persisted to ./task-state directory");
@@ -66,12 +64,12 @@ async fn main() -> Result<()> {
 
     // Create filesystem-based state store
     let state_dir = PathBuf::from("./task-state");
-    
+
     // Clean up previous state for demo purposes
     if state_dir.exists() {
         std::fs::remove_dir_all(&state_dir).ok();
     }
-    
+
     let store = FsStateStore::new(state_dir).await?;
 
     // Create supervisor with persistence

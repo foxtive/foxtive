@@ -3,8 +3,8 @@
 //! This module provides the ability to create pools of worker tasks that can
 //! distribute workload across multiple instances for better performance and reliability.
 
-use crate::contracts::SupervisedTask;
 use crate::Supervisor;
+use crate::contracts::SupervisedTask;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::info;
@@ -76,12 +76,12 @@ impl TaskPool {
         F: Fn(usize) -> T,
     {
         let mut supervisor = Supervisor::new();
-        
+
         for i in 0..self.pool_size {
             let task = task_factory(i);
             supervisor = supervisor.add(task);
         }
-        
+
         info!(pool_id = %self.id, size = self.pool_size, "Created task pool");
         supervisor
     }
@@ -156,7 +156,7 @@ mod tests {
     #[tokio::test]
     async fn test_round_robin_distribution() {
         let pool = TaskPool::new("test-pool", 3, LoadBalancingStrategy::RoundRobin);
-        
+
         // Should cycle through 0, 1, 2, 0, 1, 2...
         assert_eq!(pool.get_next_worker().await, 0);
         assert_eq!(pool.get_next_worker().await, 1);
@@ -168,7 +168,7 @@ mod tests {
     #[tokio::test]
     async fn test_random_distribution() {
         let pool = TaskPool::new("test-pool", 5, LoadBalancingStrategy::Random);
-        
+
         // All results should be within bounds
         for _ in 0..20 {
             let worker = pool.get_next_worker().await;
@@ -182,7 +182,7 @@ mod tests {
             .with_size(4)
             .with_strategy(LoadBalancingStrategy::RoundRobin)
             .build();
-        
+
         assert_eq!(pool.id, "worker-pool");
         assert_eq!(pool.pool_size, 4);
         assert!(matches!(pool.strategy, LoadBalancingStrategy::RoundRobin));
@@ -192,7 +192,7 @@ mod tests {
     async fn test_pool_info() {
         let pool = TaskPool::new("info-test", 3, LoadBalancingStrategy::Random);
         let info = pool.info();
-        
+
         assert_eq!(info.id, "info-test");
         assert_eq!(info.pool_size, 3);
         assert!(matches!(info.strategy, LoadBalancingStrategy::Random));

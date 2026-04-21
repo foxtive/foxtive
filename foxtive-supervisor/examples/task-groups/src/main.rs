@@ -1,8 +1,8 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use foxtive_supervisor::{enums::HealthStatus, Supervisor, SupervisedTask};
-use std::sync::Arc;
+use foxtive_supervisor::{enums::HealthStatus, SupervisedTask, Supervisor};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tracing::{info, Level};
 
@@ -32,11 +32,11 @@ impl SupervisedTask for DatabaseService {
     async fn run(&self) -> Result<()> {
         // Simulate database health checks
         sleep(Duration::from_secs(2)).await;
-        
+
         if !self.ready.load(Ordering::SeqCst) {
             anyhow::bail!("Database not ready");
         }
-        
+
         info!("Database health check passed");
         Ok(())
     }
@@ -84,11 +84,11 @@ impl SupervisedTask for CacheService {
     async fn run(&self) -> Result<()> {
         // Simulate cache operations
         sleep(Duration::from_secs(2)).await;
-        
+
         if !self.cache_ready.load(Ordering::SeqCst) {
             anyhow::bail!("Cache not ready");
         }
-        
+
         info!("Cache health check passed");
         Ok(())
     }
@@ -147,9 +147,7 @@ impl SupervisedTask for ApiServer {
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_max_level(Level::INFO)
-        .init();
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
     info!("Starting task groups example");
     info!("Demonstrates atomic group operations and health monitoring");
@@ -196,10 +194,7 @@ async fn main() -> Result<()> {
     let details = runtime.get_group_health_details("infrastructure").await;
     info!("\nInfrastructure group details:");
     for task in details {
-        info!(
-            "  - {}: {:?}",
-            task.id, task.health
-        );
+        info!("  - {}: {:?}", task.id, task.health);
     }
 
     info!("\n=== Starting Application Group ===");

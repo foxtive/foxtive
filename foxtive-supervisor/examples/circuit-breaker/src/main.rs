@@ -4,8 +4,8 @@
 //! a failing task from constantly retrying and potentially overwhelming
 //! external resources.
 
-use foxtive_supervisor::{Supervisor, SupervisedTask};
 use foxtive_supervisor::enums::{BackoffStrategy, CircuitBreakerConfig, HealthStatus};
+use foxtive_supervisor::{SupervisedTask, Supervisor};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use tracing::{info, warn};
@@ -16,7 +16,9 @@ struct ExternalServiceConsumer {
 
 #[async_trait::async_trait]
 impl SupervisedTask for ExternalServiceConsumer {
-    fn id(&self) -> &'static str { "external-consumer" }
+    fn id(&self) -> &'static str {
+        "external-consumer"
+    }
 
     fn circuit_breaker(&self) -> Option<CircuitBreakerConfig> {
         Some(CircuitBreakerConfig {
@@ -33,7 +35,10 @@ impl SupervisedTask for ExternalServiceConsumer {
         let count = self.fail_count.fetch_add(1, Ordering::SeqCst);
 
         if count < 10 {
-            warn!("[Consumer] Attempt {}: Simulated service failure", count + 1);
+            warn!(
+                "[Consumer] Attempt {}: Simulated service failure",
+                count + 1
+            );
             anyhow::bail!("Service unavailable");
         }
 
@@ -53,10 +58,9 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Starting Circuit Breaker Example...");
 
-    let supervisor = Supervisor::new()
-        .add(ExternalServiceConsumer {
-            fail_count: AtomicUsize::new(0),
-        });
+    let supervisor = Supervisor::new().add(ExternalServiceConsumer {
+        fail_count: AtomicUsize::new(0),
+    });
 
     let runtime = supervisor.start().await?;
 

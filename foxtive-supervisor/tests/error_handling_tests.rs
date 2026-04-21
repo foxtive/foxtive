@@ -1,7 +1,7 @@
 mod common;
 use common::*;
-use foxtive_supervisor::enums::SupervisionStatus;
 use foxtive_supervisor::Supervisor;
+use foxtive_supervisor::enums::SupervisionStatus;
 
 #[tokio::test]
 async fn test_max_attempts_exceeded() {

@@ -1,4 +1,6 @@
-use crate::enums::{BackoffStrategy, CircuitBreakerConfig, HealthStatus, RestartPolicy, SupervisorEvent, TaskState};
+use crate::enums::{
+    BackoffStrategy, CircuitBreakerConfig, HealthStatus, RestartPolicy, SupervisorEvent, TaskState,
+};
 use std::time::Duration;
 
 /// Core trait for any long-running task that needs supervision
@@ -145,14 +147,14 @@ pub trait SupervisedTask: Send + Sync {
     /// conditions currently evaluate to true.
     fn active_dependencies(&self) -> Vec<&'static str> {
         let mut deps = self.dependencies().to_vec();
-        
+
         // Add conditional dependencies whose conditions are met
         for (dep_id, condition) in self.conditional_dependencies() {
             if condition() {
                 deps.push(dep_id);
             }
         }
-        
+
         deps
     }
 
@@ -166,7 +168,7 @@ pub trait SupervisedTask: Send + Sync {
     /// Called after task stops (success, failure, or panic)
     ///
     /// **Purpose:** Internal resource cleanup and teardown.
-    /// 
+    ///
     /// This hook is called automatically by the supervision loop whenever a task's
     /// `run()` method completes (successfully or with error) or panics. It's meant for:
     /// - Closing database connections
@@ -234,7 +236,7 @@ pub trait SupervisedTask: Send + Sync {
     /// - Any user-defined shutdown logic that should run once at the end
     ///
     /// **When it's called:**
-    /// - ONLY during `TaskRuntime::shutdown()` 
+    /// - ONLY during `TaskRuntime::shutdown()`
     /// - AFTER the supervision loop ends
     /// - AFTER `cleanup()` has been called
     /// - Once per task, in dependency-aware order

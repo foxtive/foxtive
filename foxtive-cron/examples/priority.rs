@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use foxtive_cron::contracts::{JobContract, ValidatedSchedule, Schedule};
+use foxtive_cron::contracts::{JobContract, Schedule, ValidatedSchedule};
 use foxtive_cron::{Cron, CronResult};
 use std::borrow::Cow;
 use std::time::Duration;

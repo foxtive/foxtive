@@ -1,5 +1,7 @@
-use foxtive_supervisor::persistence::{InMemoryStateStore, FsStateStore, PersistedTaskState, TaskStateStore};
 use foxtive_supervisor::enums::TaskState;
+use foxtive_supervisor::persistence::{
+    FsStateStore, InMemoryStateStore, PersistedTaskState, TaskStateStore,
+};
 use tempfile::tempdir;
 
 #[tokio::test]

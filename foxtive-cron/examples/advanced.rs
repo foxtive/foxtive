@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use chrono::Utc;
 use foxtive_cron::contracts::{
-    JobContract, JobEvent, JobEventListener, MetricsExporter, MisfirePolicy, RetryPolicy,
-    ValidatedSchedule, Schedule,
+    JobContract, JobEvent, JobEventListener, MetricsExporter, MisfirePolicy, RetryPolicy, Schedule,
+    ValidatedSchedule,
 };
 use foxtive_cron::{Cron, CronError, CronResult};
 use std::borrow::Cow;

@@ -5,8 +5,8 @@
 //! 2. Multiple consumers that process different message queues, all dependent on the DB.
 //! 3. Use of persistence to track consumer progress (simulated by failure counts).
 
-use foxtive_supervisor::{Supervisor, SupervisedTask};
 use foxtive_supervisor::persistence::FsStateStore;
+use foxtive_supervisor::{SupervisedTask, Supervisor};
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::info;
@@ -15,7 +15,9 @@ struct DbPool;
 
 #[async_trait::async_trait]
 impl SupervisedTask for DbPool {
-    fn id(&self) -> &'static str { "db-pool" }
+    fn id(&self) -> &'static str {
+        "db-pool"
+    }
     async fn setup(&self) -> anyhow::Result<()> {
         info!("Connecting to the database...");
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -32,8 +34,12 @@ struct EmailConsumer;
 
 #[async_trait::async_trait]
 impl SupervisedTask for EmailConsumer {
-    fn id(&self) -> &'static str { "email-consumer" }
-    fn dependencies(&self) -> &'static [&'static str] { &["db-pool"] }
+    fn id(&self) -> &'static str {
+        "email-consumer"
+    }
+    fn dependencies(&self) -> &'static [&'static str] {
+        &["db-pool"]
+    }
 
     async fn run(&self) -> anyhow::Result<()> {
         info!("Email consumer starting...");
@@ -48,8 +54,12 @@ struct BillingConsumer;
 
 #[async_trait::async_trait]
 impl SupervisedTask for BillingConsumer {
-    fn id(&self) -> &'static str { "billing-consumer" }
-    fn dependencies(&self) -> &'static [&'static str] { &["db-pool"] }
+    fn id(&self) -> &'static str {
+        "billing-consumer"
+    }
+    fn dependencies(&self) -> &'static [&'static str] {
+        &["db-pool"]
+    }
 
     async fn run(&self) -> anyhow::Result<()> {
         info!("Billing consumer starting...");

@@ -2,14 +2,16 @@
 
 use super::types::{DepSetupReceivers, SupervisionResult};
 use crate::contracts::SupervisedTask;
-use crate::enums::{ControlMessage, RestartPolicy, SupervisionStatus, SupervisorEvent, TaskConfig, TaskState};
+use crate::enums::{
+    ControlMessage, RestartPolicy, SupervisionStatus, SupervisorEvent, TaskConfig, TaskState,
+};
 use crate::persistence::{PersistedTaskState, TaskStateStore};
 use crate::runtime::circuit_breaker::{CircuitBreaker, CircuitState};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::{broadcast, watch, RwLock, Semaphore};
+use tokio::sync::{RwLock, Semaphore, broadcast, watch};
 use tokio::task::JoinHandle;
-use tracing::{error, info, info_span, warn, Instrument};
+use tracing::{Instrument, error, info, info_span, warn};
 
 /// Parameters for the supervision loop
 pub struct SupervisionParams {
@@ -131,21 +133,21 @@ pub fn supervise(params: SupervisionParams) -> JoinHandle<SupervisionResult> {
             // Calculate actual delay with optional jitter
             #[allow(unused_mut)]
             let mut actual_delay = delay;
-            
+
             #[cfg(feature = "cron")]
             if let Some((min_jitter, max_jitter)) = task.jitter() {
                 use std::time::Duration;
-                
+
                 let min_ms = min_jitter.as_millis();
                 let max_ms = max_jitter.as_millis();
-                
+
                 if max_ms > min_ms {
                     let jitter_ms = rand::random_range(min_ms as u64..=max_ms as u64);
                     actual_delay += Duration::from_millis(jitter_ms);
                     info!(base_delay_ms = delay.as_millis(), jitter_ms, total_delay_ms = actual_delay.as_millis(), "Applied jitter to initial delay");
                 }
             }
-            
+
             info!(delay_ms = actual_delay.as_millis(), "Applying initial delay before first execution");
             tokio::select! {
                 _ = tokio::time::sleep(actual_delay) => {
@@ -218,7 +220,7 @@ pub fn supervise(params: SupervisionParams) -> JoinHandle<SupervisionResult> {
                 // Use circuit breaker's configured reset_timeout instead of hardcoded delay
                 let reset_timeout = cb.reset_timeout();
                 info!(timeout_ms = reset_timeout.as_millis(), "Circuit breaker is open, waiting for reset timeout");
-                
+
                 // Wait for reset timeout while remaining responsive to control messages
                 tokio::select! {
                     _ = tokio::time::sleep(reset_timeout) => {
@@ -228,9 +230,9 @@ pub fn supervise(params: SupervisionParams) -> JoinHandle<SupervisionResult> {
                         match msg {
                             Ok(ControlMessage::Stop) => {
                                 info!("Received Stop command during circuit breaker wait");
-                                let _ = event_tx.send(SupervisorEvent::TaskStopped { 
-                                    id: id.to_string(), 
-                                    name: name.clone() 
+                                let _ = event_tx.send(SupervisorEvent::TaskStopped {
+                                    id: id.to_string(),
+                                    name: name.clone()
                                 });
                                 task.cleanup().await;
                                 return SupervisionResult {
@@ -266,7 +268,7 @@ pub fn supervise(params: SupervisionParams) -> JoinHandle<SupervisionResult> {
             } else {
                 task.restart_policy()
             };
-            
+
             match restart_policy {
                 RestartPolicy::Never if attempt > 0 => {
                     info!("Restart policy is Never, stopping");
@@ -396,7 +398,7 @@ pub fn supervise(params: SupervisionParams) -> JoinHandle<SupervisionResult> {
             if let Some(schedule_str) = task.cron_schedule() {
                 use foxtive_cron::contracts::ValidatedSchedule;
                 use chrono::Utc;
-                
+
                 match ValidatedSchedule::parse(schedule_str) {
                     Ok(schedule) => {
                         let now = Utc::now();
@@ -408,9 +410,9 @@ pub fn supervise(params: SupervisionParams) -> JoinHandle<SupervisionResult> {
                                     delay_ms = duration.num_milliseconds(),
                                     "Waiting for next cron scheduled execution"
                                 );
-                                
+
                                 let sleep_duration = std::time::Duration::from_millis(duration.num_milliseconds() as u64);
-                                
+
                                 // Sleep but remain responsive to control messages
                                 tokio::select! {
                                     _ = tokio::time::sleep(sleep_duration) => {
@@ -420,9 +422,9 @@ pub fn supervise(params: SupervisionParams) -> JoinHandle<SupervisionResult> {
                                         match msg {
                                             Ok(ControlMessage::Stop) => {
                                                 info!("Received Stop command while waiting for cron schedule");
-                                                let _ = event_tx.send(SupervisorEvent::TaskStopped { 
-                                                    id: id.to_string(), 
-                                                    name: name.clone() 
+                                                let _ = event_tx.send(SupervisorEvent::TaskStopped {
+                                                    id: id.to_string(),
+                                                    name: name.clone()
                                                 });
                                                 task.cleanup().await;
                                                 return SupervisionResult {
@@ -434,9 +436,9 @@ pub fn supervise(params: SupervisionParams) -> JoinHandle<SupervisionResult> {
                                             }
                                             Ok(ControlMessage::Pause) => {
                                                 info!("Received Pause command during cron wait");
-                                                let _ = event_tx.send(SupervisorEvent::TaskPaused { 
-                                                    id: id.to_string(), 
-                                                    name: name.clone() 
+                                                let _ = event_tx.send(SupervisorEvent::TaskPaused {
+                                                    id: id.to_string(),
+                                                    name: name.clone()
                                                 });
                                                 is_paused = true;
                                                 // Continue waiting - don't execute task yet
@@ -461,7 +463,7 @@ pub fn supervise(params: SupervisionParams) -> JoinHandle<SupervisionResult> {
                         error!(error = %e, schedule = schedule_str, "Invalid cron expression");
                     }
                 }
-                
+
                 // Skip normal backoff for cron tasks - they follow their schedule
                 continue;
             }
@@ -502,9 +504,9 @@ pub fn supervise(params: SupervisionParams) -> JoinHandle<SupervisionResult> {
             } else {
                 task.backoff_strategy()
             };
-            
+
             let mut delay = backoff_strategy.calculate_delay(attempt);
-            
+
             // Enforce minimum restart interval to prevent resource exhaustion
             if let Some(min_interval) = task.min_restart_interval()
                 && delay < min_interval {
@@ -515,13 +517,13 @@ pub fn supervise(params: SupervisionParams) -> JoinHandle<SupervisionResult> {
                 );
                 delay = min_interval;
             }
-            
+
             warn!(delay_ms = delay.as_millis(), attempt, "Scheduling restart after backoff");
-            let _ = event_tx.send(SupervisorEvent::TaskBackoff { 
-                id: id.to_string(), 
-                name: name.clone(), 
-                attempt, 
-                delay 
+            let _ = event_tx.send(SupervisorEvent::TaskBackoff {
+                id: id.to_string(),
+                name: name.clone(),
+                attempt,
+                delay
             });
 
             // Sleep for backoff duration, but remain responsive to control messages
@@ -568,7 +570,7 @@ async fn wait_for_dependency(
     _task_id: &str,
 ) -> Result<(), String> {
     info!(dependency = dep_id, "Waiting for dependency setup");
-    
+
     // Wait for the dependency to signal completion
     // watch::changed() waits for a new value, but we also need to check current value
     loop {
@@ -579,7 +581,7 @@ async fn wait_for_dependency(
                 Err(e) => Err(format!("Dependency '{dep_id}' failed: {e}")),
             };
         }
-        
+
         // Wait for a change
         if rx.changed().await.is_err() {
             return Err(format!("Dependency '{dep_id}' channel closed unexpectedly"));
@@ -604,9 +606,9 @@ async fn process_control_messages(
         match msg {
             ControlMessage::Stop => {
                 info!("Received Stop command");
-                let _ = event_tx.send(SupervisorEvent::TaskStopped { 
-                    id: task_id.to_string(), 
-                    name: task_name.to_string() 
+                let _ = event_tx.send(SupervisorEvent::TaskStopped {
+                    id: task_id.to_string(),
+                    name: task_name.to_string(),
                 });
                 task.cleanup().await;
                 return Some(SupervisionResult {
@@ -618,17 +620,17 @@ async fn process_control_messages(
             }
             ControlMessage::Pause => {
                 info!("Received Pause command");
-                let _ = event_tx.send(SupervisorEvent::TaskPaused { 
-                    id: task_id.to_string(), 
-                    name: task_name.to_string() 
+                let _ = event_tx.send(SupervisorEvent::TaskPaused {
+                    id: task_id.to_string(),
+                    name: task_name.to_string(),
                 });
                 *is_paused = true;
             }
             ControlMessage::Resume => {
                 info!("Received Resume command");
-                let _ = event_tx.send(SupervisorEvent::TaskResumed { 
-                    id: task_id.to_string(), 
-                    name: task_name.to_string() 
+                let _ = event_tx.send(SupervisorEvent::TaskResumed {
+                    id: task_id.to_string(),
+                    name: task_name.to_string(),
                 });
                 *is_paused = false;
             }
@@ -672,25 +674,25 @@ async fn handle_task_result(
         // Task completed successfully
         Ok(Ok(())) => {
             info!("Task completed successfully");
-            
+
             // Update success timestamp
             let now = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs();
             *last_success_timestamp_secs = Some(now);
-            
+
             // Record success in circuit breaker
             if let Some(cb) = circuit_breaker {
                 cb.record_success();
             }
-            
-            let _ = event_tx.send(SupervisorEvent::TaskFinished { 
-                id: task_id.to_string(), 
-                name: task_name.to_string(), 
-                attempt 
+
+            let _ = event_tx.send(SupervisorEvent::TaskFinished {
+                id: task_id.to_string(),
+                name: task_name.to_string(),
+                attempt,
             });
-            
+
             task.cleanup().await;
             TaskResultAction::Complete(SupervisionResult {
                 task_name: task_name.to_string(),
@@ -699,42 +701,42 @@ async fn handle_task_result(
                 final_status: SupervisionStatus::CompletedNormally,
             })
         }
-        
+
         // Task returned an error
         Ok(Err(e)) => {
             let error_msg = format!("{e:?}");
             error!(error = %error_msg, "Task execution failed");
             *failure_count += 1;
-            
+
             // Record failure in circuit breaker
             if let Some(cb) = circuit_breaker {
                 cb.record_failure();
             }
-            
-            let _ = event_tx.send(SupervisorEvent::TaskFailed { 
-                id: task_id.to_string(), 
-                name: task_name.to_string(), 
-                attempt, 
-                error: error_msg.clone() 
+
+            let _ = event_tx.send(SupervisorEvent::TaskFailed {
+                id: task_id.to_string(),
+                name: task_name.to_string(),
+                attempt,
+                error: error_msg.clone(),
             });
-            
+
             // Call error hook
             task.on_error(&error_msg, attempt).await;
-            
+
             // Check if we should restart
             if !task.should_restart(attempt, &error_msg).await {
                 warn!("Restart prevented by should_restart hook");
-                let _ = event_tx.send(SupervisorEvent::TaskRestartPrevented { 
-                    id: task_id.to_string(), 
-                    name: task_name.to_string(), 
-                    attempt 
+                let _ = event_tx.send(SupervisorEvent::TaskRestartPrevented {
+                    id: task_id.to_string(),
+                    name: task_name.to_string(),
+                    attempt,
                 });
                 TaskResultAction::RestartPrevented
             } else {
                 TaskResultAction::Continue
             }
         }
-        
+
         // Task panicked or was cancelled
         Err(join_err) => {
             let panic_msg = if join_err.is_panic() {
@@ -742,32 +744,32 @@ async fn handle_task_result(
             } else {
                 "Task was cancelled".to_string()
             };
-            
+
             error!(error = %panic_msg, "Task execution failed");
             *failure_count += 1;
-            
+
             // Record failure in circuit breaker
             if let Some(cb) = circuit_breaker {
                 cb.record_failure();
             }
-            
-            let _ = event_tx.send(SupervisorEvent::TaskPanicked { 
-                id: task_id.to_string(), 
-                name: task_name.to_string(), 
-                attempt, 
-                panic_info: panic_msg.clone() 
+
+            let _ = event_tx.send(SupervisorEvent::TaskPanicked {
+                id: task_id.to_string(),
+                name: task_name.to_string(),
+                attempt,
+                panic_info: panic_msg.clone(),
             });
-            
+
             // Call panic hook
             task.on_panic(&panic_msg, attempt).await;
-            
+
             // Check if we should restart
             if !task.should_restart(attempt, &panic_msg).await {
                 warn!("Restart prevented by should_restart hook");
-                let _ = event_tx.send(SupervisorEvent::TaskRestartPrevented { 
-                    id: task_id.to_string(), 
-                    name: task_name.to_string(), 
-                    attempt 
+                let _ = event_tx.send(SupervisorEvent::TaskRestartPrevented {
+                    id: task_id.to_string(),
+                    name: task_name.to_string(),
+                    attempt,
                 });
                 TaskResultAction::RestartPrevented
             } else {
@@ -793,9 +795,9 @@ async fn handle_control_message_during_execution(
     match msg {
         Ok(ControlMessage::Stop) => {
             info!("Received Stop command during execution");
-            let _ = event_tx.send(SupervisorEvent::TaskStopped { 
-                id: task_id.to_string(), 
-                name: task_name.to_string() 
+            let _ = event_tx.send(SupervisorEvent::TaskStopped {
+                id: task_id.to_string(),
+                name: task_name.to_string(),
             });
             run_handle.abort();
             task.cleanup().await;
@@ -813,18 +815,18 @@ async fn handle_control_message_during_execution(
         }
         Ok(ControlMessage::Pause) => {
             info!("Received Pause command during execution");
-            let _ = event_tx.send(SupervisorEvent::TaskPaused { 
-                id: task_id.to_string(), 
-                name: task_name.to_string() 
+            let _ = event_tx.send(SupervisorEvent::TaskPaused {
+                id: task_id.to_string(),
+                name: task_name.to_string(),
             });
             *is_paused = true;
             None
         }
         Ok(ControlMessage::Resume) => {
             info!("Received Resume command");
-            let _ = event_tx.send(SupervisorEvent::TaskResumed { 
-                id: task_id.to_string(), 
-                name: task_name.to_string() 
+            let _ = event_tx.send(SupervisorEvent::TaskResumed {
+                id: task_id.to_string(),
+                name: task_name.to_string(),
             });
             *is_paused = false;
             None
@@ -836,7 +838,11 @@ async fn handle_control_message_during_execution(
             None
         }
         Err(broadcast::error::RecvError::Lagged(n)) => {
-            warn!(task_id, missed_messages = n, "Control channel lagged, messages skipped");
+            warn!(
+                task_id,
+                missed_messages = n,
+                "Control channel lagged, messages skipped"
+            );
             None
         }
         Err(broadcast::error::RecvError::Closed) => {

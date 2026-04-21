@@ -1,8 +1,8 @@
 use foxtive_supervisor::Supervisor;
 use foxtive_supervisor::contracts::{SupervisedTask, SupervisorEventListener};
 use foxtive_supervisor::enums::SupervisorEvent;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing::info;
 
 pub struct BasicTask {
@@ -73,9 +73,7 @@ async fn main() -> anyhow::Result<()> {
             max_fails: 0,
         });
 
-    let results = supervisor
-        .start_and_wait_all()
-        .await?;
+    let results = supervisor.start_and_wait_all().await?;
 
     for result in results {
         info!(

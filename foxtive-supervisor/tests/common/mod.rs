@@ -1,4 +1,5 @@
-#[allow(dead_code)] // This module contains testing utilities that are used across multiple test files.
+#[allow(dead_code)]
+// This module contains testing utilities that are used across multiple test files.
 pub mod testing;
 
 use foxtive_supervisor::contracts::SupervisedTask;

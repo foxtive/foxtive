@@ -7,7 +7,7 @@
 mod redis_impl;
 
 #[cfg(feature = "distributed")]
-pub use redis_impl::{RedisCoordination, CoordinationManager};
+pub use redis_impl::{CoordinationManager, RedisCoordination};
 
 /// Trait for distributed coordination backends
 #[async_trait::async_trait]

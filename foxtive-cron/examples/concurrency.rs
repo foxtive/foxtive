@@ -1,8 +1,8 @@
-use foxtive_cron::contracts::{JobContract, ValidatedSchedule, Schedule};
+use async_trait::async_trait;
+use foxtive_cron::contracts::{JobContract, Schedule, ValidatedSchedule};
 use foxtive_cron::{Cron, CronResult};
 use std::borrow::Cow;
 use std::time::Duration;
-use async_trait::async_trait;
 
 /// A job that has its own per-job concurrency limit.
 /// This prevents too many instances of the same job from running
@@ -24,9 +24,15 @@ impl JobContract for HighLatencyJob {
         Ok(())
     }
 
-    fn id(&self) -> Cow<'_, str> { Cow::Borrowed(&self.id) }
-    fn name(&self) -> Cow<'_, str> { Cow::Borrowed("High Latency Task") }
-    fn schedule(&self) -> &dyn Schedule { &self.schedule }
+    fn id(&self) -> Cow<'_, str> {
+        Cow::Borrowed(&self.id)
+    }
+    fn name(&self) -> Cow<'_, str> {
+        Cow::Borrowed("High Latency Task")
+    }
+    fn schedule(&self) -> &dyn Schedule {
+        &self.schedule
+    }
 
     // This method limits the number of concurrent runs for this specific job to 2.
     // If 2 instances are running and a new one is scheduled, it will wait
@@ -40,9 +46,7 @@ impl JobContract for HighLatencyJob {
 async fn main() {
     // Start with a global concurrency limit of 10.
     // This allows up to 10 jobs of any type to run at once.
-    let mut cron = Cron::builder()
-        .with_global_concurrency_limit(10)
-        .build();
+    let mut cron = Cron::builder().with_global_concurrency_limit(10).build();
 
     // Schedule a job every 1 second, but with a per-job limit of 2.
     // Since each job takes 5 seconds, we'll see 2 instances running
@@ -57,7 +61,8 @@ async fn main() {
     cron.add_job_fn("fast-job", "Fast Job", "*/2 * * * * * *", || async {
         println!("  Fast job: Tick-tock at {}", chrono::Utc::now());
         Ok(())
-    }).unwrap();
+    })
+    .unwrap();
 
     println!("Scheduler starting with concurrency limits...");
     cron.run().await;

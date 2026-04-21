@@ -1,10 +1,10 @@
-use crate::contracts::{ValidatedSchedule, Schedule};
+use crate::contracts::{Schedule, ValidatedSchedule};
 use crate::{CronError, CronResult};
-use chrono::{DateTime, Utc, NaiveDate};
+use chrono::{DateTime, NaiveDate, Utc};
 use chrono_tz::Tz;
-use std::fmt;
-use serde::{Serialize, Deserialize};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::time::Duration;
 
 /// Represents the months of the year.
@@ -117,7 +117,8 @@ impl Schedule for CronExpression {
         // Loop to handle blackout dates (if next time is blacked out, find the one after)
         let mut current_after = *after;
 
-        for _ in 0..100 { // Safety limit to prevent infinite loops
+        for _ in 0..100 {
+            // Safety limit to prevent infinite loops
             let mut next = if let Some(v) = &self.validated {
                 v.next_after(&current_after, active_tz)
             } else if let Ok(v) = self.to_validated() {
@@ -281,7 +282,10 @@ impl CronExpression {
         self.validate_range(start, 0, 23, "hours range start");
         self.validate_range(end, 0, 23, "hours range end");
         if start >= end {
-            self.error = Some(format!("Hours range start ({}) must be less than end ({})", start, end));
+            self.error = Some(format!(
+                "Hours range start ({}) must be less than end ({})",
+                start, end
+            ));
         }
         self.hours = CronField::Range(start, end);
         self

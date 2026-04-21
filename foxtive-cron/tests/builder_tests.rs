@@ -1,6 +1,6 @@
-use foxtive_cron::builder::{CronExpression, Month, Weekday};
 use chrono::{Datelike, TimeZone, Timelike, Utc};
 use chrono_tz::UTC;
+use foxtive_cron::builder::{CronExpression, Month, Weekday};
 
 #[test]
 fn test_basic_presets() {
@@ -17,7 +17,11 @@ fn test_custom_time_daily() {
     assert_eq!(cron, "0 0 9 * * * *");
 
     // 10:30 PM Daily
-    let cron = CronExpression::builder().daily().hour(22).minute(30).build();
+    let cron = CronExpression::builder()
+        .daily()
+        .hour(22)
+        .minute(30)
+        .build();
     assert_eq!(cron, "0 30 22 * * * *");
 }
 
@@ -46,7 +50,9 @@ fn test_ranges() {
 #[test]
 fn test_lists() {
     // Specific hours
-    let cron = CronExpression::builder().hours_list(&[9, 12, 18, 21]).build();
+    let cron = CronExpression::builder()
+        .hours_list(&[9, 12, 18, 21])
+        .build();
     assert_eq!(cron, "0 * 9,12,18,21 * * * *");
 
     // Weekends (explicit list check)

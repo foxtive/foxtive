@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::Utc;
 use chrono_tz::Tz;
-use foxtive_cron::contracts::{JobContract, ValidatedSchedule, Schedule};
+use foxtive_cron::contracts::{JobContract, Schedule, ValidatedSchedule};
 use foxtive_cron::{Cron, CronResult};
 use std::borrow::Cow;
 
