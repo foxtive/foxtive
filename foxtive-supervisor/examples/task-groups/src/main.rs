@@ -5,7 +5,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::time::{sleep, Duration};
 use tracing::{info, Level};
-use tracing_subscriber;
 
 /// Database service - part of infrastructure group
 struct DatabaseService {

@@ -178,23 +178,18 @@ async fn test_config_change_events() {
     
     // Check that we received the event
     let mut received_event = false;
-    if let Ok(event) = event_rx.recv().await {
-        match event {
-            SupervisorEvent::TaskConfigUpdated { 
-                id: evt_id, 
-                field, 
-                old_value, 
-                new_value, 
-                .. 
-            } => {
-                assert_eq!(evt_id, id);
-                assert_eq!(field, "restart_policy");
-                assert!(old_value.contains("MaxAttempts"));
-                assert!(new_value.contains("Always"));
-                received_event = true;
-            }
-            _ => {}
-        }
+    if let Ok(SupervisorEvent::TaskConfigUpdated { 
+        id: evt_id, 
+        field, 
+        old_value, 
+        new_value, 
+        .. 
+    }) = event_rx.recv().await {
+        assert_eq!(evt_id, id);
+        assert_eq!(field, "restart_policy");
+        assert!(old_value.contains("MaxAttempts"));
+        assert!(new_value.contains("Always"));
+        received_event = true;
     }
     
     assert!(received_event, "Should have received TaskConfigUpdated event");
@@ -207,17 +202,12 @@ async fn test_config_change_events() {
     
     // Check for second event
     let mut received_second_event = false;
-    if let Ok(event) = event_rx.try_recv() {
-        match event {
-            SupervisorEvent::TaskConfigUpdated { 
-                field, 
-                .. 
-            } => {
-                assert_eq!(field, "backoff_strategy");
-                received_second_event = true;
-            }
-            _ => {}
-        }
+    if let Ok(SupervisorEvent::TaskConfigUpdated { 
+        field, 
+        .. 
+    }) = event_rx.try_recv() {
+        assert_eq!(field, "backoff_strategy");
+        received_second_event = true;
     }
     
     assert!(received_second_event, "Should have received second TaskConfigUpdated event");

@@ -1,6 +1,6 @@
 [package]
 name = "foxtive-supervisor"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2024"
 license = "MIT"
 description = "Foxtive Supervisor - Advanced task supervision for Rust applications"
@@ -12,13 +12,13 @@ tracing = "0.1.44"
 async-trait = "0.1.89"
 anyhow = { version = "1.0.102", features = ["backtrace"] }
 thiserror = "2.0.18"
-tokio = { version = "1.51.0", features = ["rt-multi-thread", "time", "sync", "macros", "fs", "io-util"] }
+tokio = { version = "1.52.1", features = ["rt-multi-thread", "time", "sync", "macros", "fs", "io-util"] }
 futures = "0.3.31"
 futures-util = "0.3.32"
-uuid = { version = "1.23.0", features = ["v4", "fast-rng", "macro-diagnostics"] }
+uuid = { version = "1.23.1", features = ["v4", "fast-rng", "macro-diagnostics"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-rand = "0.10.0"
+rand = "0.10.1"
 foxtive-cron = { path = "../foxtive-cron", version = "0.4.0", optional = true }
 chrono = { version = "0.4.44", optional = true }
 chrono-tz = { version = "0.10.4", optional = true }
@@ -30,7 +30,7 @@ cron = ["foxtive-cron", "chrono", "chrono-tz"]
 distributed = ["redis", "chrono"]
 
 [dev-dependencies]
-tokio = { version = "1.51.0", features = ["full", "test-util"] }
+tokio = { version = "1.52.1", features = ["full", "test-util"] }
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 tempfile = "3.27.0"
 

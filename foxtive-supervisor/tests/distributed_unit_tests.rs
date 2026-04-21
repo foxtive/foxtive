@@ -34,10 +34,9 @@ mod tests {
             let now = Instant::now();
             
             // Check if lock exists and hasn't expired
-            if let Some((_owner, acquired_at)) = locks.get(key) {
-                if acquired_at.elapsed() < Duration::from_secs(ttl_secs) {
-                    return Ok(false); // Lock still held
-                }
+            if let Some((_owner, acquired_at)) = locks.get(key)
+                && acquired_at.elapsed() < Duration::from_secs(ttl_secs) {
+                return Ok(false); // Lock still held
             }
             
             // Acquire lock

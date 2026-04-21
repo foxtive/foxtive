@@ -58,7 +58,7 @@ async fn main() -> anyhow::Result<()> {
             fail_count: AtomicUsize::new(0),
         });
 
-    let mut runtime = supervisor.start().await?;
+    let runtime = supervisor.start().await?;
 
     // Observe the circuit breaker in action
     for i in 0..20 {
