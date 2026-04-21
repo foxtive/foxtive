@@ -6,7 +6,7 @@
 
 use crate::results::AppResult;
 use chrono::Utc;
-use hmac::{Hmac as HHmac, Mac};
+use hmac::{Hmac as HHmac, Mac, KeyInit};
 use sha2::{Sha224, Sha256, Sha384, Sha512, Sha512_224, Sha512_256};
 
 /// Supported hash functions for HMAC generation and verification.

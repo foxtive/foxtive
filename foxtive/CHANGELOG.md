@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.25.6 (2026-04-22)
+* feat(foxtive): added .tera() method to return Tera templating engine
+
 ### 0.25.5 (2026-03-21)
 * fix(template): .render now accepts Into<String> & &Context
 
