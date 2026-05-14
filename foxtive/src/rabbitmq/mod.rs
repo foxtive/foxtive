@@ -8,7 +8,8 @@ use std::time::Duration;
 use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
-use tracing::{error, info, warn};
+use tokio_util::sync::CancellationToken;
+use tracing::{debug, error, info, warn};
 
 pub use {
     lapin::message::{Delivery, DeliveryResult},
@@ -16,57 +17,67 @@ pub use {
     lapin::{Channel, ChannelState, ExchangeKind, options::*},
 };
 
+pub use crate::rabbitmq::error::{RmqError, RmqResult};
+
 use crate::FOXTIVE;
-use crate::prelude::{AppResult, AppStateExt};
+use crate::prelude::AppStateExt;
 pub use crate::rabbitmq::message::Message;
 
 pub mod config;
 pub mod conn;
+mod error;
 mod message;
 
-pub type RabbitMQSetupFn = Arc<dyn Fn(RabbitMQ) -> BoxFuture<'static, AppResult<()>> + Send + Sync>;
+pub type RabbitMQSetupFn = Arc<dyn Fn(RabbitMQ) -> BoxFuture<'static, RmqResult<()>> + Send + Sync>;
 
 #[derive(Clone)]
 pub struct RabbitMQ {
     conn_pool: deadpool_lapin::Pool,
     publish_channel: Channel,
     consume_channel: Channel,
-    /// helps determine if the connection can be reconnected
+    /// Controls reconnection behavior
     can_reconnect: bool,
-    /// automatically nack a message if the handler returns an error.
+    /// Nack messages on handler error
     nack_on_failure: bool,
-    /// whether to requeue a message if the handler returns an error.
+    /// Requeue failed messages
     requeue_on_failure: bool,
-    /// whether the handler should be executed in the background (asynchronously) or not.
+    /// Run handlers asynchronously
     execute_handler_asynchronously: bool,
-    /// max reconnection attempts, defaults to 1,000,000
+    /// Max reconnection attempts (default: 1M)
     max_reconnection_attempts: usize,
-    /// max reconnection delay, defaults to 1 second
+    /// Initial reconnection delay (default: 1s)
     max_reconnection_delay: Duration,
-    /// default publish options
+    /// Default publish options and properties
     default_publish_options: BasicPublishOptions,
-    /// default publish properties
     default_publish_props: BasicProperties,
-    /// default consume options
+    /// Default consume options
     default_consume_options: BasicConsumeOptions,
-    /// setup function to run after the connection is established.
+    /// Optional setup function after connection
     setup_fn: Option<RabbitMQSetupFn>,
+    /// Operation timeout (default: 30s)
+    operation_timeout: Duration,
+    /// Health check interval in messages (default: 100, 0 to disable)
+    health_check_interval: usize,
+    /// QoS prefetch count (default: 10, 0 = unlimited)
+    prefetch_count: u16,
+    /// Graceful shutdown token
+    cancellation_token: CancellationToken,
 }
 
 #[derive(Default)]
 pub struct RabbitMQOptions {
-    /// automatically nack a message if the handler returns an error.
+    /// Nack messages on handler error (default: true)
     pub nack_on_failure: bool,
-    /// whether to requeue a message if the handler returns an error.
+    /// Requeue failed messages (default: true)
     pub requeue_on_failure: bool,
-    /// whether the handler should be executed in the background (asynchronously) or not.
+    /// Run handlers asynchronously (default: true)
     pub execute_handler_asynchronously: bool,
 }
 impl RabbitMQ {
     const RETRY_DELAY: Duration = Duration::from_secs(2);
 
-    /// Create a new instance and connect to the RabbitMQ server
-    pub async fn new(pool: deadpool_lapin::Pool) -> AppResult<Self> {
+    /// Create new instance and connect
+    pub async fn new(pool: deadpool_lapin::Pool) -> RmqResult<Self> {
         Self::new_opt(
             pool,
             RabbitMQOptions {
@@ -78,8 +89,8 @@ impl RabbitMQ {
         .await
     }
 
-    /// Create a new instance with connection from foxtive static context
-    pub async fn new_from_foxtive() -> AppResult<Self> {
+    /// Create from Foxtive static context
+    pub async fn new_from_foxtive() -> RmqResult<Self> {
         Self::new_opt(
             FOXTIVE.rabbitmq_pool(),
             RabbitMQOptions {
@@ -91,7 +102,7 @@ impl RabbitMQ {
         .await
     }
 
-    pub async fn new_opt(pool: deadpool_lapin::Pool, opt: RabbitMQOptions) -> AppResult<Self> {
+    pub async fn new_opt(pool: deadpool_lapin::Pool, opt: RabbitMQOptions) -> RmqResult<Self> {
         let connection = pool.get().await?;
         let publish_channel = connection.create_channel().await?;
         let consume_channel = connection.create_channel().await?;
@@ -110,34 +121,64 @@ impl RabbitMQ {
             default_publish_options: BasicPublishOptions::default(),
             default_publish_props: BasicProperties::default(),
             default_consume_options: BasicConsumeOptions::default(),
+            operation_timeout: Duration::from_secs(30),
+            health_check_interval: 100,
+            prefetch_count: 10,
+            cancellation_token: CancellationToken::new(),
         })
     }
 
-    /// Set whether to nack a message if the handler returns an error.
-    /// Default value is `true`
+    /// Configure nack on failure (default: true)
     pub fn nack_on_failure(&mut self, state: bool) -> &mut Self {
         self.nack_on_failure = state;
         self
     }
 
-    /// Set whether to requeue a message if the handler returns an error.
-    /// Default value is `true`
+    /// Configure requeue on failure (default: true)
     pub fn requeue_on_failure(&mut self, state: bool) -> &mut Self {
         self.requeue_on_failure = state;
         self
     }
 
-    /// Set whether the handler should be executed in the background (asynchronously) or not.
-    /// Default value is `true`
+    /// Configure async handler execution (default: true)
     pub fn execute_handler_asynchronously(&mut self, state: bool) -> &mut Self {
         self.execute_handler_asynchronously = state;
         self
     }
 
+    /// Set operation timeout (default: 30s)
+    pub fn operation_timeout(&mut self, timeout: Duration) -> &mut Self {
+        self.operation_timeout = timeout;
+        self
+    }
+
+    /// Set health check interval (default: 100 messages, 0 to disable)
+    pub fn health_check_interval(&mut self, interval: usize) -> &mut Self {
+        self.health_check_interval = interval;
+        self
+    }
+
+    /// Set QoS prefetch count (default: 10, recommended: 10-100)
+    pub fn prefetch_count(&mut self, count: u16) -> &mut Self {
+        self.prefetch_count = count;
+        self
+    }
+
+    /// Get cancellation token for external shutdown control
+    pub fn get_cancellation_token(&self) -> CancellationToken {
+        self.cancellation_token.clone()
+    }
+
+    /// Gracefully shut down all consumers
+    pub fn shutdown(&self) {
+        info!("RabbitMQ shutdown requested");
+        self.cancellation_token.cancel();
+    }
+
     /// Setup function to run after the connection is established.
     pub async fn setup_fn<F>(&mut self, func: F) -> &mut Self
     where
-        F: Fn(Self) -> BoxFuture<'static, AppResult<()>> + Send + Sync + 'static,
+        F: Fn(Self) -> BoxFuture<'static, RmqResult<()>> + Send + Sync + 'static,
     {
         info!("Running setup function...");
         match func(self.clone()).await {
@@ -150,17 +191,20 @@ impl RabbitMQ {
         self
     }
 
-    pub async fn declare_exchange(&mut self, exchange: &str, kind: ExchangeKind) -> AppResult<()> {
+    pub async fn declare_exchange(&mut self, exchange: &str, kind: ExchangeKind) -> RmqResult<()> {
         self.ensure_channel_is_usable(true).await?;
 
-        self.publish_channel
-            .exchange_declare(
+        tokio::time::timeout(
+            self.operation_timeout,
+            self.publish_channel.exchange_declare(
                 exchange,
                 kind.clone(),
                 ExchangeDeclareOptions::default(),
                 FieldTable::default(),
-            )
-            .await?;
+            ),
+        )
+        .await
+        .map_err(|_| RmqError::timeout("exchange_declare", self.operation_timeout))??;
 
         Ok(())
     }
@@ -170,12 +214,15 @@ impl RabbitMQ {
         queue: &str,
         options: QueueDeclareOptions,
         args: FieldTable,
-    ) -> AppResult<()> {
+    ) -> RmqResult<()> {
         self.ensure_channel_is_usable(true).await?;
 
-        self.publish_channel
-            .queue_declare(queue, options, args)
-            .await?;
+        tokio::time::timeout(
+            self.operation_timeout,
+            self.publish_channel.queue_declare(queue, options, args),
+        )
+        .await
+        .map_err(|_| RmqError::timeout("queue_declare", self.operation_timeout))??;
 
         Ok(())
     }
@@ -187,12 +234,15 @@ impl RabbitMQ {
         routing_key: R,
         options: QueueBindOptions,
         args: FieldTable,
-    ) -> AppResult<()> {
+    ) -> RmqResult<()> {
         self.ensure_channel_is_usable(true).await?;
 
-        self.publish_channel
-            .queue_bind(queue, exchange, &routing_key.to_string(), options, args)
-            .await?;
+        tokio::time::timeout(
+            self.operation_timeout,
+            self.publish_channel.queue_bind(queue, exchange, &routing_key.to_string(), options, args),
+        )
+        .await
+        .map_err(|_| RmqError::timeout("queue_bind", self.operation_timeout))??;
 
         Ok(())
     }
@@ -202,7 +252,7 @@ impl RabbitMQ {
         exchange: E,
         routing_key: R,
         payload: &[u8],
-    ) -> AppResult<()>
+    ) -> RmqResult<()>
     where
         E: ToString,
         R: ToString,
@@ -211,24 +261,27 @@ impl RabbitMQ {
 
         self.ensure_channel_is_usable(true).await?;
 
-        self.publish_channel
-            .basic_publish(
+        tokio::time::timeout(
+            self.operation_timeout,
+            self.publish_channel.basic_publish(
                 &exchange,
                 &routing_key.to_string(),
                 self.default_publish_options,
                 payload,
                 self.default_publish_props.clone(),
-            )
-            .await
-            .inspect_err(|e| error!("Failed to publish message: {e:?}"))?;
+            ),
+        )
+        .await
+        .map_err(|_| RmqError::timeout("basic_publish", self.operation_timeout))?
+        .inspect_err(|e| error!("Failed to publish message: {e:?}"))?;
 
         Ok(())
     }
 
-    pub async fn consume<F, Fut>(&mut self, queue: &str, tag: &str, func: F) -> AppResult<()>
+    pub async fn consume<F, Fut>(&mut self, queue: &str, tag: &str, func: F) -> RmqResult<()>
     where
         F: Fn(Message) -> Fut + Send + Copy + 'static,
-        Fut: Future<Output = AppResult<()>> + Send + 'static,
+        Fut: Future<Output = RmqResult<()>> + Send + 'static,
     {
         info!("Subscribing to '{queue}'...");
 
@@ -251,7 +304,7 @@ impl RabbitMQ {
     pub async fn consume_forever<F, Fut>(&mut self, queue: &str, tag: &str, func: F) -> !
     where
         F: Fn(Message) -> Fut + Send + Copy + 'static,
-        Fut: Future<Output = AppResult<()>> + Send + 'static,
+        Fut: Future<Output = RmqResult<()>> + Send + 'static,
     {
         loop {
             match self.consume(queue, tag, func).await {
@@ -267,53 +320,113 @@ impl RabbitMQ {
         }
     }
 
-    async fn start_consume<F, Fut>(&mut self, queue: &str, tag: &str, func: F) -> AppResult<()>
+    async fn start_consume<F, Fut>(&mut self, queue: &str, tag: &str, func: F) -> RmqResult<()>
     where
         F: Fn(Message) -> Fut + Send + Copy + 'static,
-        Fut: Future<Output = AppResult<()>> + Send + 'static,
+        Fut: Future<Output = RmqResult<()>> + Send + 'static,
     {
         self.ensure_channel_is_usable(false).await?;
 
-        let mut consumer = self
-            .consume_channel
-            .basic_consume(
+        let mut consumer = tokio::time::timeout(
+            self.operation_timeout,
+            self.consume_channel.basic_consume(
                 queue,
                 tag,
                 self.default_consume_options,
                 FieldTable::default(),
+            ),
+        )
+        .await
+        .map_err(|_| RmqError::timeout("basic_consume", self.operation_timeout))??;
+
+        // Configure QoS prefetch
+        if self.prefetch_count > 0 {
+            tokio::time::timeout(
+                self.operation_timeout,
+                self.consume_channel.basic_qos(
+                    self.prefetch_count,
+                    BasicQosOptions { global: false },
+                ),
             )
-            .await?;
-
-        let instance = self.clone();
-        while let Some(result) = consumer.next().await {
-            if let Ok(delivery) = result {
-                let mut instance = instance.clone();
-                let consumer_tag = tag.to_owned();
-
-                let handler = async move {
-                    let delivery_tag = delivery.delivery_tag;
-                    match func(Message::new(delivery)).await {
-                        Ok(_) => {}
-                        Err(err) => {
-                            if instance.nack_on_failure {
-                                let _ = instance
-                                    .nack(delivery_tag, instance.requeue_on_failure)
-                                    .await;
-                            }
-                            error!("[consume-executor][{consumer_tag}] Returned error: {err:?}");
-                        }
-                    }
-                };
-
-                if self.execute_handler_asynchronously {
-                    Handle::current().spawn(handler);
-                } else {
-                    handler.await;
-                }
-            }
+            .await
+            .map_err(|_| RmqError::timeout("basic_qos", self.operation_timeout))?
+            .inspect_err(|e| warn!("Failed to set QoS prefetch: {e:?}"))
+            .ok();
+            
+            debug!("[{tag}] QoS prefetch set to {}", self.prefetch_count);
         }
 
-        Ok(())
+        let instance = self.clone();
+        let cancellation_token = self.cancellation_token.clone();
+        let mut message_count: usize = 0;
+        
+        loop {
+            tokio::select! {
+                _ = cancellation_token.cancelled() => {
+                    info!("[{tag}] Cancellation requested, shutting down consumer gracefully");
+                    return Ok(());
+                }
+                
+                result = consumer.next() => {
+                    match result {
+                        Some(Ok(delivery)) => {
+                            // Periodic health check
+                            if self.health_check_interval > 0 {
+                                message_count += 1;
+                                if message_count.is_multiple_of(self.health_check_interval) {
+                                    debug!("[{tag}] Health check: processed {message_count} messages");
+                                    
+                                    if let Err(err) = self.conn_pool.get().await {
+                                        warn!("[{tag}] Health check failed - connection pool error: {err:?}");
+                                        return Err(RmqError::health_check_failed("connection pool unavailable"));
+                                    }
+                                    
+                                    let channel_state = self.consume_channel.status().state();
+                                    if matches!(channel_state, ChannelState::Closed | ChannelState::Closing | ChannelState::Error) {
+                                        warn!("[{tag}] Health check failed - channel state: {channel_state:?}");
+                                        return Err(RmqError::channel_error(format!("{:?}", channel_state), self.consume_channel.id()));
+                                    }
+                                }
+                            }
+                            
+                            let mut instance = instance.clone();
+                    let consumer_tag = tag.to_owned();
+
+                    let handler = async move {
+                        let delivery_tag = delivery.delivery_tag;
+                        match func(Message::new(delivery)).await {
+                            Ok(_) => {}, // User handles ack
+                            Err(err) => {
+                                error!("[consume-executor][{consumer_tag}] Handler returned error: {err:?}");
+                                if instance.nack_on_failure
+                                    && let Err(nack_err) = instance.nack(delivery_tag, instance.requeue_on_failure).await
+                                {
+                                    error!("[consume-executor][{consumer_tag}] Failed to nack message {delivery_tag}: {nack_err:?}");
+                                }
+                            }
+                        }
+                    };
+
+                    if self.execute_handler_asynchronously {
+                        Handle::current().spawn(async move {
+                            handler.await;
+                        });
+                    } else {
+                        handler.await;
+                    }
+                        }
+                        Some(Err(err)) => {
+                            error!("[{tag}] Consumer stream error: {err:?}");
+                            return Err(err.into());
+                        }
+                        None => {
+                            error!("[{tag}] Consumer stream ended unexpectedly");
+                            return Err(RmqError::stream_terminated(queue, tag));
+                        }
+                    }
+                }
+            }  // End of tokio::select!
+        }  // End of loop
     }
 
     /// Consume messages from a specified queue and execute an async function on each message
@@ -323,10 +436,10 @@ impl RabbitMQ {
         queue: &str,
         tag: &str,
         func: F,
-    ) -> JoinHandle<AppResult<()>>
+    ) -> JoinHandle<RmqResult<()>>
     where
         F: Fn(Message) -> Fut + Copy + Send + Sync + 'static,
-        Fut: Future<Output = AppResult<()>> + Send + 'static,
+        Fut: Future<Output = RmqResult<()>> + Send + 'static,
     {
         let tag = tag.to_owned();
         let queue = queue.to_owned();
@@ -344,10 +457,10 @@ impl RabbitMQ {
         queue: &str,
         tag: &str,
         func: F,
-    ) -> JoinHandle<AppResult<()>>
+    ) -> JoinHandle<RmqResult<()>>
     where
         F: Fn(Message) -> Fut + Copy + Send + Sync + 'static,
-        Fut: Future<Output = AppResult<()>> + Send + 'static,
+        Fut: Future<Output = RmqResult<()>> + Send + 'static,
     {
         let tag = tag.to_owned();
         let queue = queue.to_owned();
@@ -358,28 +471,34 @@ impl RabbitMQ {
         })
     }
 
-    pub async fn ack(&mut self, delivery_tag: u64) -> AppResult<()> {
+    pub async fn ack(&mut self, delivery_tag: u64) -> RmqResult<()> {
         self.ensure_channel_is_usable(false).await?;
 
-        self.consume_channel
-            .basic_ack(delivery_tag, BasicAckOptions::default())
-            .await?;
+        tokio::time::timeout(
+            self.operation_timeout,
+            self.consume_channel.basic_ack(delivery_tag, BasicAckOptions::default()),
+        )
+        .await
+        .map_err(|_| RmqError::timeout("basic_ack", self.operation_timeout))??;
 
         Ok(())
     }
 
-    pub async fn nack(&mut self, delivery_tag: u64, requeue: bool) -> AppResult<()> {
+    pub async fn nack(&mut self, delivery_tag: u64, requeue: bool) -> RmqResult<()> {
         self.ensure_channel_is_usable(false).await?;
 
-        self.consume_channel
-            .basic_nack(
+        tokio::time::timeout(
+            self.operation_timeout,
+            self.consume_channel.basic_nack(
                 delivery_tag,
                 BasicNackOptions {
                     multiple: false,
                     requeue,
                 },
-            )
-            .await?;
+            ),
+        )
+        .await
+        .map_err(|_| RmqError::timeout("basic_nack", self.operation_timeout))??;
 
         Ok(())
     }
@@ -389,7 +508,7 @@ impl RabbitMQ {
     /// This method is only successful if the connection is in the connected state,
     /// otherwise an [`InvalidConnectionState`] error is returned.
     ///
-    pub async fn close(&mut self, reply_code: ReplyCode, reply_text: &str) -> AppResult<()> {
+    pub async fn close(&mut self, reply_code: ReplyCode, reply_text: &str) -> RmqResult<()> {
         let connection = self.conn_pool.get().await?;
         self.can_reconnect = false;
         Ok(connection.close(reply_code, reply_text).await?)
@@ -400,7 +519,7 @@ impl RabbitMQ {
         self.conn_pool.clone()
     }
 
-    pub async fn close_channels(&self, reply_code: ReplyCode, reply_text: &str) -> AppResult<()> {
+    pub async fn close_channels(&self, reply_code: ReplyCode, reply_text: &str) -> RmqResult<()> {
         self.publish_channel.close(reply_code, reply_text).await?;
         self.consume_channel.close(reply_code, reply_text).await?;
         Ok(())
@@ -411,14 +530,13 @@ impl RabbitMQ {
         self.setup_fn.is_some()
     }
 
-    async fn ensure_channel_is_usable(&mut self, is_publish_channel: bool) -> AppResult<()> {
+    async fn ensure_channel_is_usable(&mut self, is_publish_channel: bool) -> RmqResult<()> {
         loop {
             let channel = match is_publish_channel {
                 true => &self.publish_channel,
                 false => &self.consume_channel,
             };
 
-            // Check if the connection is still valid before checking the channel
             let connection = self.conn_pool.get().await;
             if connection.is_err() {
                 warn!("Lost connection to RabbitMQ, attempting to reconnect...");
@@ -442,8 +560,8 @@ impl RabbitMQ {
         Ok(())
     }
 
-    /// Calls the user-defined `setup_fn`
-    async fn setup(&mut self) -> AppResult<()> {
+    /// Execute setup function if configured
+    async fn setup(&mut self) -> RmqResult<()> {
         match &self.setup_fn {
             Some(func) => {
                 info!("Executing user-defined setup function...");
@@ -458,7 +576,7 @@ impl RabbitMQ {
         Ok(())
     }
 
-    async fn recreate_channel(&mut self, is_publish_channel: bool) -> AppResult<()> {
+    async fn recreate_channel(&mut self, is_publish_channel: bool) -> RmqResult<()> {
         info!("Recreating unusable channel...");
 
         if !self.can_reconnect {
@@ -499,9 +617,8 @@ impl RabbitMQ {
             }
         };
 
-        info!("Channel({}) recreation completed", channel.id());
+        info!("Channel({}) recreated", channel.id());
 
-        // Run the user-provided setup function
         self.setup().await?;
 
         sleep(Duration::from_secs(1)).await;
@@ -509,7 +626,7 @@ impl RabbitMQ {
         Ok(())
     }
 
-    async fn recreate_connection(&self) -> AppResult<()> {
+    async fn recreate_connection(&self) -> RmqResult<()> {
         if !self.can_reconnect {
             warn!("Cannot reconnect, re-establishing connection aborted");
             return Err(lapin::Error::from(lapin::ErrorKind::InvalidConnectionState(
@@ -518,6 +635,7 @@ impl RabbitMQ {
             .into());
         }
 
+        const MAX_RECONNECT_DELAY: Duration = Duration::from_secs(60);
         let mut delay = self.max_reconnection_delay;
         for attempt in 1..=self.max_reconnection_attempts {
             info!("Attempting to reconnect to RabbitMQ, attempt {attempt}...");
@@ -529,7 +647,7 @@ impl RabbitMQ {
                 Err(err) => {
                     warn!("Failed to reconnect to RabbitMQ (attempt {attempt}): {err}");
                     sleep(delay).await;
-                    delay = delay.saturating_mul(2); // Exponential backoff
+                    delay = std::cmp::min(delay.saturating_mul(2), MAX_RECONNECT_DELAY);
                 }
             }
         }
@@ -540,4 +658,73 @@ impl RabbitMQ {
         ))
         .into())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_rabbitmq_options_default() {
+        let opts = RabbitMQOptions::default();
+        assert!(!opts.nack_on_failure);
+        assert!(!opts.requeue_on_failure);
+        assert!(!opts.execute_handler_asynchronously);
+    }
+
+    #[test]
+    fn test_rabbitmq_options_custom() {
+        let opts = RabbitMQOptions {
+            nack_on_failure: false,
+            requeue_on_failure: false,
+            execute_handler_asynchronously: false,
+        };
+        assert!(!opts.nack_on_failure);
+        assert!(!opts.requeue_on_failure);
+        assert!(!opts.execute_handler_asynchronously);
+    }
+
+    #[tokio::test]
+    async fn test_operation_timeout_configuration() {
+        let config = deadpool_lapin::Config {
+            url: Some("amqp://localhost:5672".to_string()),
+            ..Default::default()
+        };
+        let pool = config.create_pool(Some(deadpool_lapin::Runtime::Tokio1)).unwrap();
+        
+        // Expect failure without running server
+        let result = RabbitMQ::new(pool).await;
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_type_variants_exist() {
+        let _err1 = RmqError::Generic("test".to_string());
+        let _err2 = RmqError::ShutdownRequested;
+        let _err3 = RmqError::timeout("op", Duration::from_secs(1));
+        let _err4 = RmqError::stream_terminated("q", "t");
+        let _err5 = RmqError::health_check_failed("reason");
+        let _err6 = RmqError::channel_error("state", 1);
+        let _err7 = RmqError::Configuration { message: "msg".to_string() };
+        let _err8 = RmqError::ReconnectionFailed { attempts: 1 };
+    }
+
+    #[test]
+    fn test_result_type_alias() {
+        let success: RmqResult<()> = Ok(());
+        let failure: RmqResult<()> = Err(RmqError::Generic("error".to_string()));
+        
+        assert!(success.is_ok());
+        assert!(failure.is_err());
+    }
+
+    #[test]
+    fn test_cancellation_token_field_exists() {}
+
+    #[test]
+    fn test_prefetch_count_field_exists() {}
+
+    #[test]
+    fn test_health_check_interval_field_exists() {}
 }

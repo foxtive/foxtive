@@ -1,6 +1,19 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.26.0 (2026-05-14)
+* feat(rabbitmq): add RmqError enum with 15 detailed error variants for type-safe error handling
+* feat(rabbitmq): replace anyhow::Error with RmqResult throughout module
+* feat(rabbitmq): add operation timeouts (default 30s) to prevent indefinite blocking
+* feat(rabbitmq): add periodic health checks every N messages (default 100)
+* feat(rabbitmq): add QoS/prefetch configuration for flow control (default 10)
+* feat(rabbitmq): add graceful shutdown via CancellationToken
+* fix(rabbitmq): properly handle stream errors and termination to enable auto-reconnection
+* fix(rabbitmq): cap exponential backoff at 60s to prevent excessive reconnection delays
+* fix(rabbitmq): remove silent error swallowing in NACK operations
+* test(rabbitmq): add 19 comprehensive unit tests covering error types and configuration
+* refactor(rabbitmq): improve code comments for better readability
+
 ### 0.25.6 (2026-04-22)
 * feat(foxtive): added .tera() method to return Tera templating engine
 

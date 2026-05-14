@@ -1,6 +1,6 @@
 [package]
 name = "foxtive"
-version = "0.25.6"
+version = "0.26.0"
 edition = "2024"
 license = "MIT"
 description = "Foxtive Framework"
@@ -53,11 +53,12 @@ http = "1.4.0"
 thiserror = "2.0.18"
 uuid = { version = "1.21.0", features = ["v4", "serde"] }
 serde = { version = "1.0.228", features = ["derive"] }
-tokio = { version = "1.52.1", features = ["rt-multi-thread", "time"] }
+tokio = { version = "1.52.1", features = ["rt-multi-thread", "time", "macros"] }
+tokio-util = { version = "0.7.18", features = ["rt"] }
 chrono = { version = "0.4.44", features = ["std", "serde"] }
 dotenv = { version = "0.15.0" }
 serde_json = { version = "1.0.149", default-features = false, features = ["std"] }
-futures-util = { version = "0.3.32", default-features = false }
+futures-util = { version = "0.3.32", default-features = false, features = ["alloc"] }
 base64 = { version = "0.22.1", optional = true }
 hex = { version = "0.4.3", optional = true }
 sha2 = { version = "0.11.0", optional = true }
