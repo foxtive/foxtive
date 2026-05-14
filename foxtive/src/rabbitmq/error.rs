@@ -25,10 +25,7 @@ pub enum RmqError {
     HealthCheckFailed { reason: String },
 
     #[error("Channel error (state: {state:?}): channel_id={channel_id}")]
-    ChannelError {
-        state: String,
-        channel_id: u16,
-    },
+    ChannelError { state: String, channel_id: u16 },
 
     #[error("Acknowledgment failed for delivery {delivery_tag}: {operation} - {source}")]
     AcknowledgmentError {
@@ -87,7 +84,10 @@ impl RmqError {
     }
 
     /// Create an acknowledgment error
-    pub fn ack_error(delivery_tag: u64, source: impl std::error::Error + Send + Sync + 'static) -> Self {
+    pub fn ack_error(
+        delivery_tag: u64,
+        source: impl std::error::Error + Send + Sync + 'static,
+    ) -> Self {
         Self::AcknowledgmentError {
             delivery_tag,
             operation: "ack".to_string(),
@@ -237,7 +237,7 @@ mod tests {
         let json_err = serde_json::from_str::<String>("invalid json").unwrap_err();
         let rmq_err: RmqError = json_err.into();
         match rmq_err {
-            RmqError::Serialization(_) => {}, // Success
+            RmqError::Serialization(_) => {} // Success
             _ => panic!("Expected Serialization error"),
         }
 
@@ -247,7 +247,7 @@ mod tests {
         let utf8_err = std::str::from_utf8(&invalid_utf8).unwrap_err();
         let rmq_err: RmqError = utf8_err.into();
         match rmq_err {
-            RmqError::Utf8Error(_) => {}, // Success
+            RmqError::Utf8Error(_) => {} // Success
             _ => panic!("Expected Utf8Error"),
         }
     }
