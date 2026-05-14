@@ -1,4 +1,4 @@
-use crate::prelude::AppResult;
+use crate::prelude::RmqResult;
 use lapin::message::Delivery;
 use lapin::options::{BasicAckOptions, BasicNackOptions};
 use lapin::types::ShortString;
@@ -20,7 +20,7 @@ impl Message {
         &self.delivery.data
     }
 
-    pub fn str(&self) -> AppResult<&str> {
+    pub fn str(&self) -> RmqResult<&str> {
         Ok(std::str::from_utf8(&self.delivery.data)?)
     }
 
@@ -28,28 +28,28 @@ impl Message {
         &self.delivery.routing_key
     }
 
-    pub fn deserialize<T>(&self) -> AppResult<T>
+    pub fn deserialize<T>(&self) -> RmqResult<T>
     where
         T: serde::de::DeserializeOwned,
     {
         Ok(serde_json::from_slice(&self.delivery.data)?)
     }
 
-    pub async fn ack(&self) -> AppResult<()> {
+    pub async fn ack(&self) -> RmqResult<()> {
         self.ack_opt(BasicAckOptions::default()).await?;
         Ok(())
     }
 
-    pub async fn nack(&self) -> AppResult<()> {
+    pub async fn nack(&self) -> RmqResult<()> {
         self.nack_opt(BasicNackOptions::default()).await
     }
 
-    pub async fn ack_opt(&self, opt: BasicAckOptions) -> AppResult<()> {
+    pub async fn ack_opt(&self, opt: BasicAckOptions) -> RmqResult<()> {
         self.delivery.acker.ack(opt).await?;
         Ok(())
     }
 
-    pub async fn nack_opt(&self, opt: BasicNackOptions) -> AppResult<()> {
+    pub async fn nack_opt(&self, opt: BasicNackOptions) -> RmqResult<()> {
         self.delivery.acker.nack(opt).await?;
         Ok(())
     }
