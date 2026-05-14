@@ -1,7 +1,7 @@
 use crate::prelude::RmqResult;
 use lapin::message::Delivery;
 use lapin::options::{BasicAckOptions, BasicNackOptions};
-use lapin::types::ShortString;
+use lapin::types::{DeliveryTag, ShortString};
 
 pub struct Message {
     delivery: Delivery,
@@ -22,6 +22,10 @@ impl Message {
 
     pub fn str(&self) -> RmqResult<&str> {
         Ok(std::str::from_utf8(&self.delivery.data)?)
+    }
+
+    pub fn delivery_tag(&self) -> &DeliveryTag {
+        &self.delivery.delivery_tag
     }
 
     pub fn routing_key(&self) -> &ShortString {
