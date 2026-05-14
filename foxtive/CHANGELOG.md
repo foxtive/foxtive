@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.26.1 (2026-05-14)
+* feat(rabbitmq): add Msg.delivery_tag() to easily extract message delivery tag
+
 ### 0.26.0 (2026-05-14)
 * feat(rabbitmq): add RmqError enum with 15 detailed error variants for type-safe error handling
 * feat(rabbitmq): replace anyhow::Error with RmqResult throughout module
