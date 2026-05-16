@@ -17,7 +17,7 @@ pub use {
     lapin::{Channel, ChannelState, ExchangeKind, options::*},
 };
 
-pub use crate::rabbitmq::error::{RmqError, RmqResult};
+pub use crate::rabbitmq::error::{IntoRmqError, RmqError, RmqResult};
 
 use crate::FOXTIVE;
 use crate::prelude::AppStateExt;
