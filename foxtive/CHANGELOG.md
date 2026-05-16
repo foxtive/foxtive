@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.26.2 (2026-05-14)
+* feat(rabbitmq): enable automatic RmqError to anyhow::Error conversion for seamless interoperability
+
 ### 0.26.1 (2026-05-14)
 * feat(rabbitmq): add Msg.delivery_tag() to easily extract message delivery tag
 
