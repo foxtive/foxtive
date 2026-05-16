@@ -30,6 +30,70 @@ mod message;
 
 pub type RabbitMQSetupFn = Arc<dyn Fn(RabbitMQ) -> BoxFuture<'static, RmqResult<()>> + Send + Sync>;
 
+/// Async stream for pull-based message consumption.
+///
+/// Implements `futures_util::Stream` to allow receiving messages via `.next().await`.
+/// The stream will continue until the consumer is cancelled or an error occurs.
+pub struct ConsumerStream {
+    rx: tokio::sync::mpsc::Receiver<RmqResult<Message>>,
+}
+
+impl ConsumerStream {
+    /// Receive the next message from the stream.
+    ///
+    /// Returns `None` when the stream is closed (consumer cancelled or error).
+    pub async fn next(&mut self) -> Option<RmqResult<Message>> {
+        self.rx.recv().await
+    }
+}
+
+// Implement Stream trait for compatibility with futures utilities
+impl futures_util::Stream for ConsumerStream {
+    type Item = RmqResult<Message>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        use std::task::Poll;
+        
+        // Convert async recv to poll-based interface
+        let fut = self.rx.recv();
+        tokio::pin!(fut);
+        
+        match fut.poll(cx) {
+            Poll::Ready(val) => Poll::Ready(val),
+            Poll::Pending => Poll::Pending,
+        }
+    }
+}
+
+/// Guard that manages the lifecycle of a pull-based consumer.
+///
+/// When dropped, the guard will cancel the consumer and clean up resources.
+/// Keep this alive for as long as you want to receive messages.
+pub struct ConsumerGuard {
+    handle: Option<tokio::task::JoinHandle<()>>,
+    cancellation_token: CancellationToken,
+}
+
+impl ConsumerGuard {
+    /// Cancel the consumer immediately.
+    pub fn cancel(&mut self) {
+        if let Some(handle) = self.handle.take() {
+            self.cancellation_token.cancel();
+            // Don't await - just signal cancellation
+            drop(handle);
+        }
+    }
+}
+
+impl Drop for ConsumerGuard {
+    fn drop(&mut self) {
+        self.cancel();
+    }
+}
+
 #[derive(Clone)]
 pub struct RabbitMQ {
     conn_pool: deadpool_lapin::Pool,
@@ -469,6 +533,187 @@ impl RabbitMQ {
             let mut instance = instance.clone();
             instance.consume_forever(&queue, &tag, func).await
         })
+    }
+
+    // ==================== Pull-Based Consumer Methods ====================
+
+    /// Create a pull-based consumer that returns messages via an async stream.
+    ///
+    /// This method provides a more flexible alternative to callback-based consumption,
+    /// allowing you to receive messages on-demand using `.next().await`.
+    ///
+    /// # Returns
+    /// A tuple of `(ConsumerStream, ConsumerGuard)` where:
+    /// - `ConsumerStream` implements `Stream<Item = RmqResult<Message>>`
+    /// - `ConsumerGuard` must be kept alive; dropping it cancels the consumer
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// use foxtive::prelude::RabbitMQ;
+    /// use futures_util::StreamExt;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut rmq = RabbitMQ::new_from_foxtive().await.unwrap();
+    ///     
+    ///     let (mut stream, _guard) = rmq.create_consumer("my_queue", "my-consumer").await.unwrap();
+    ///     
+    ///     while let Some(message_result) = stream.next().await {
+    ///         match message_result {
+    ///             Ok(message) => {
+    ///                 println!("Received: {:?}", message.data());
+    ///                 message.ack().await.unwrap();
+    ///             }
+    ///             Err(e) => eprintln!("Error: {}", e),
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub async fn create_consumer(
+        &mut self,
+        queue: &str,
+        tag: &str,
+    ) -> RmqResult<(ConsumerStream, ConsumerGuard)> {
+        self.ensure_channel_is_usable(false).await?;
+
+        // Configure QoS prefetch
+        if self.prefetch_count > 0 {
+            tokio::time::timeout(
+                self.operation_timeout,
+                self.consume_channel.basic_qos(
+                    self.prefetch_count,
+                    BasicQosOptions { global: false },
+                ),
+            )
+            .await
+            .map_err(|_| RmqError::timeout("basic_qos", self.operation_timeout))?
+            .inspect_err(|e| warn!("Failed to set QoS prefetch: {e:?}"))
+            .ok();
+        }
+
+        // Start consumer
+        let consumer = tokio::time::timeout(
+            self.operation_timeout,
+            self.consume_channel.basic_consume(
+                queue,
+                tag,
+                self.default_consume_options,
+                FieldTable::default(),
+            ),
+        )
+        .await
+        .map_err(|_| RmqError::timeout("basic_consume", self.operation_timeout))??;
+
+        debug!("Created pull-based consumer for queue '{}' with tag '{}'", queue, tag);
+
+        // Create channel for message delivery
+        let (tx, rx) = tokio::sync::mpsc::channel(100);
+        let cancellation_token = self.cancellation_token.clone();
+
+        // Spawn task to forward deliveries to channel
+        let consumer_tag = tag.to_string();
+        let forwarder_handle = Handle::current().spawn(async move {
+            let mut consumer = consumer;
+            loop {
+                tokio::select! {
+                    _ = cancellation_token.cancelled() => {
+                        debug!("[{}] Consumer cancelled", consumer_tag);
+                        break;
+                    }
+                    delivery = consumer.next() => {
+                        match delivery {
+                            Some(Ok(delivery)) => {
+                                if tx.send(Ok(Message::new(delivery))).await.is_err() {
+                                    debug!("[{}] Receiver dropped, stopping forwarder", consumer_tag);
+                                    break;
+                                }
+                            }
+                            Some(Err(e)) => {
+                                error!("[{}] Consumer error: {:?}", consumer_tag, e);
+                                if tx.send(Err(e.into())).await.is_err() {
+                                    break;
+                                }
+                            }
+                            None => {
+                                warn!("[{}] Consumer stream ended", consumer_tag);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        let stream = ConsumerStream {
+            rx,
+        };
+
+        let guard = ConsumerGuard {
+            handle: Some(forwarder_handle),
+            cancellation_token: self.cancellation_token.clone(),
+        };
+
+        Ok((stream, guard))
+    }
+
+    /// Receive a single message from a queue (blocking until available or timeout).
+    ///
+    /// This is a convenience method for simple pull-based consumption without
+    /// managing streams or guards.
+    ///
+    /// # Arguments
+    /// * `queue` - Queue name to consume from
+    /// * `tag` - Consumer tag (identifier)
+    /// * `timeout` - Optional timeout duration (None = wait indefinitely)
+    ///
+    /// # Returns
+    /// * `Ok(Some(message))` - Message received
+    /// * `Ok(None)` - Timeout elapsed or consumer cancelled
+    /// * `Err(RmqError)` - Error occurred
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// use foxtive::prelude::RabbitMQ;
+    /// use std::time::Duration;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut rmq = RabbitMQ::new_from_foxtive().await.unwrap();
+    ///     
+    ///     // Wait up to 5 seconds for a message
+    ///     if let Ok(Some(message)) = rmq.receive_message("my_queue", "worker-1", Some(Duration::from_secs(5))).await {
+    ///         println!("Got message!");
+    ///         message.ack().await.unwrap();
+    ///     }
+    /// }
+    /// ```
+    pub async fn receive_message(
+        &mut self,
+        queue: &str,
+        tag: &str,
+        timeout: Option<Duration>,
+    ) -> RmqResult<Option<Message>> {
+        let (mut stream, _guard) = self.create_consumer(queue, tag).await?;
+
+        match timeout {
+            Some(duration) => {
+                match tokio::time::timeout(duration, stream.next()).await {
+                    Ok(Some(result)) => result.map(Some),
+                    Ok(None) => Ok(None), // Stream ended
+                    Err(_) => {
+                        debug!("Receive timed out after {:?}", duration);
+                        Ok(None)
+                    }
+                }
+            }
+            None => {
+                // Wait indefinitely
+                match stream.next().await {
+                    Some(result) => result.map(Some),
+                    None => Ok(None), // Stream ended
+                }
+            }
+        }
     }
 
     pub async fn ack(&mut self, delivery_tag: u64) -> RmqResult<()> {

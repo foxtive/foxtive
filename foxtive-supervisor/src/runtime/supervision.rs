@@ -8,7 +8,7 @@ use crate::enums::{
 use crate::persistence::{PersistedTaskState, TaskStateStore};
 use crate::runtime::circuit_breaker::{CircuitBreaker, CircuitState};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::{RwLock, Semaphore, broadcast, watch};
 use tokio::task::JoinHandle;
 use tracing::{Instrument, error, info, info_span, warn};
@@ -210,7 +210,7 @@ pub fn supervise(params: SupervisionParams) -> JoinHandle<SupervisionResult> {
             }
 
             if is_paused {
-                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                tokio::time::sleep(Duration::from_millis(100)).await;
                 continue;
             }
 
@@ -411,7 +411,7 @@ pub fn supervise(params: SupervisionParams) -> JoinHandle<SupervisionResult> {
                                     "Waiting for next cron scheduled execution"
                                 );
 
-                                let sleep_duration = std::time::Duration::from_millis(duration.num_milliseconds() as u64);
+                                let sleep_duration = Duration::from_millis(duration.num_milliseconds() as u64);
 
                                 // Sleep but remain responsive to control messages
                                 tokio::select! {
