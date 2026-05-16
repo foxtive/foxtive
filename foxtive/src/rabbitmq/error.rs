@@ -386,15 +386,15 @@ mod tests {
     fn test_anyhow_to_rmqerror_preserves_type() {
         // Create an AppResult error
         let app_err: anyhow::Error = anyhow::anyhow!("application error");
-        
+
         // Convert to RmqError using IntoRmqError trait
         let result: RmqResult<()> = Err(app_err).into_rmq();
-        
+
         // Verify it's wrapped as AppError variant
         match result.unwrap_err() {
             RmqError::AppError(err) => {
                 assert_eq!(err.to_string(), "application error");
-                
+
                 // Can downcast back to original error type if needed
                 // (though in this case it's just a string)
             }
@@ -406,10 +406,10 @@ mod tests {
     fn test_bidirectional_conversion() {
         // Test RmqError -> anyhow::Error -> RmqError preserves the error
         let original = RmqError::timeout("test_op", Duration::from_secs(5));
-        
+
         // Convert to anyhow
         let anyhow_err: anyhow::Error = original.into();
-        
+
         // Verify we can downcast back to RmqError
         let recovered = anyhow_err.downcast_ref::<RmqError>().unwrap();
         match recovered {
