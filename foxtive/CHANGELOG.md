@@ -1,6 +1,13 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.26.3 (2026-05-14)
+* feat(rabbitmq): add AppError variant to RmqError for preserving anyhow::Error types
+* feat(rabbitmq): add IntoRmqError trait for ergonomic error conversion in consume closures
+* feat(rabbitmq): enable bidirectional downcasting between RmqError and anyhow::Error
+* fix(rabbitmq): preserve error type information instead of converting to strings
+* test(rabbitmq): add tests for error preservation and bidirectional conversion
+
 ### 0.26.2 (2026-05-14)
 * feat(rabbitmq): enable automatic RmqError to anyhow::Error conversion for seamless interoperability
 
