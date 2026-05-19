@@ -1,6 +1,18 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.26.4 (2026-05-19)
+* feat(redis): add comprehensive Redis command support with 70+ new methods covering string, hash, list, set, sorted set, key, and server operations
+* feat(redis): use redis crate's AsyncCommands trait methods for type-safe API stability instead of raw commands
+* feat(redis): add string operations: getset, getrange, setrange, append, incr, decr, set_ex, pset_ex, set_nx, get_del, rename, rename_nx, unlink, strlen
+* feat(redis): add hash operations: hget, hmget, hdel, hset, hset_nx, hexists, hkeys, hvals, hgetall, hlen, hincr
+* feat(redis): add list operations: llen, lindex, linsert_before, linsert_after, lpush, ltrim, lset
+* feat(redis): add set operations: scard, sismember, smembers, srem, srandmember
+* feat(redis): add sorted set operations: zcard, zcount, zincr, zscore, zrank, zrem
+* feat(redis): add key operations: exists, expire, expire_at, pexpire, persist, ttl, pttl
+* feat(redis): add server operations: ping, dbsize
+* refactor(redis): ensure API stability by using typed AsyncCommands trait methods to prevent breakage on redis crate updates
+
 ### 0.26.3 (2026-05-14)
 * feat(rabbitmq): add AppError variant to RmqError for preserving anyhow::Error types
 * feat(rabbitmq): add IntoRmqError trait for ergonomic error conversion in consume closures

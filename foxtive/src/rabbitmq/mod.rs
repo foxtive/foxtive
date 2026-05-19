@@ -1,7 +1,7 @@
 use futures_util::StreamExt;
 use futures_util::future::BoxFuture;
 use lapin::types::FieldTable;
-use lapin::{BasicProperties, ConnectionState};
+use lapin::{BasicProperties, Channel, ConnectionState};
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,7 +14,7 @@ use tracing::{debug, error, info, warn};
 pub use {
     lapin::message::{Delivery, DeliveryResult},
     lapin::types::ReplyCode,
-    lapin::{Channel, ChannelState, ExchangeKind, options::*},
+    lapin::{ChannelState, ExchangeKind, options::*},
 };
 
 pub use crate::rabbitmq::error::{IntoRmqError, RmqError, RmqResult};
