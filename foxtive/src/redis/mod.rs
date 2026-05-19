@@ -6,6 +6,7 @@ use anyhow::Error;
 use futures_util::StreamExt;
 use redis::{AsyncCommands, FromRedisValue, ToRedisArgs, ToSingleRedisArg};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::future::Future;
 use std::num::{NonZeroU64, NonZeroUsize};
 use std::time::Duration;
@@ -295,5 +296,506 @@ impl Redis {
     pub async fn keys_by_pattern(&self, pattern: &str) -> AppResult<Vec<String>> {
         let mut conn = self.redis().await?;
         conn.keys(pattern).await.into_app_result()
+    }
+
+    // String Operations
+
+    /// Get the value of a key and set its old value.
+    pub async fn getset<K: ToSingleRedisArg + Send + Sync, V: FromRedisValue>(
+        &self,
+        key: K,
+        value: K,
+    ) -> AppResult<Option<V>> {
+        let mut conn = self.redis().await?;
+        conn.getset(key, value).await.into_app_result()
+    }
+
+    /// Get a range of bytes/substring from the value of a key.
+    pub async fn getrange<K: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        from: isize,
+        to: isize,
+    ) -> AppResult<String> {
+        let mut conn = self.redis().await?;
+        conn.getrange(key, from, to).await.into_app_result()
+    }
+
+    /// Overwrite the part of the value stored in key at the specified offset.
+    pub async fn setrange<K: ToSingleRedisArg + Send + Sync, V: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        offset: isize,
+        value: V,
+    ) -> AppResult<usize> {
+        let mut conn = self.redis().await?;
+        conn.setrange(key, offset, value).await.into_app_result()
+    }
+
+    /// Append a value to a key.
+    pub async fn append<K: ToSingleRedisArg + Send + Sync, V: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        value: V,
+    ) -> AppResult<usize> {
+        let mut conn = self.redis().await?;
+        conn.append(key, value).await.into_app_result()
+    }
+
+    /// Increment the numeric value of a key by the given amount.
+    pub async fn incr<K: ToSingleRedisArg + Send + Sync, V: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        delta: V,
+    ) -> AppResult<isize> {
+        let mut conn = self.redis().await?;
+        conn.incr(key, delta).await.into_app_result()
+    }
+
+    /// Decrement the numeric value of a key by the given amount.
+    pub async fn decr<K: ToSingleRedisArg + Send + Sync, V: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        delta: V,
+    ) -> AppResult<isize> {
+        let mut conn = self.redis().await?;
+        conn.decr(key, delta).await.into_app_result()
+    }
+
+    /// Set the string value of a key with expiration in seconds.
+    pub async fn set_ex<K: ToSingleRedisArg + Send + Sync, V: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        value: V,
+        seconds: u64,
+    ) -> AppResult<()> {
+        let mut conn = self.redis().await?;
+        conn.set_ex(key, value, seconds).await.into_app_result()
+    }
+
+    /// Set the string value of a key with expiration in milliseconds.
+    pub async fn pset_ex<K: ToSingleRedisArg + Send + Sync, V: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        value: V,
+        milliseconds: u64,
+    ) -> AppResult<()> {
+        let mut conn = self.redis().await?;
+        conn.pset_ex(key, value, milliseconds).await.into_app_result()
+    }
+
+    /// Set the value of a key, only if the key does not exist.
+    pub async fn set_nx<K: ToSingleRedisArg + Send + Sync, V: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        value: V,
+    ) -> AppResult<bool> {
+        let mut conn = self.redis().await?;
+        conn.set_nx(key, value).await.into_app_result()
+    }
+
+    /// Get the value of a key and delete it.
+    pub async fn get_del<K: ToSingleRedisArg + Send + Sync, V: FromRedisValue>(
+        &self,
+        key: K,
+    ) -> AppResult<Option<V>> {
+        let mut conn = self.redis().await?;
+        conn.get_del(key).await.into_app_result()
+    }
+
+    /// Rename a key.
+    pub async fn rename<K: ToSingleRedisArg + Send + Sync, N: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        new_key: N,
+    ) -> AppResult<()> {
+        let mut conn = self.redis().await?;
+        conn.rename(key, new_key).await.into_app_result()
+    }
+
+    /// Rename a key, only if the new key does not exist.
+    pub async fn rename_nx<K: ToSingleRedisArg + Send + Sync, N: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        new_key: N,
+    ) -> AppResult<bool> {
+        let mut conn = self.redis().await?;
+        conn.rename_nx(key, new_key).await.into_app_result()
+    }
+
+    /// Unlink one or more keys (non-blocking DEL).
+    pub async fn unlink<K: ToRedisArgs + Send + Sync>(&self, key: K) -> AppResult<usize> {
+        let mut conn = self.redis().await?;
+        conn.unlink(key).await.into_app_result()
+    }
+
+    /// Determine if a key exists.
+    pub async fn exists<K: ToRedisArgs + Send + Sync>(&self, key: K) -> AppResult<bool> {
+        let mut conn = self.redis().await?;
+        conn.exists(key).await.into_app_result()
+    }
+
+    /// Set a key's time to live in seconds.
+    pub async fn expire<K: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        seconds: i64,
+    ) -> AppResult<bool> {
+        let mut conn = self.redis().await?;
+        conn.expire(key, seconds).await.into_app_result()
+    }
+
+    /// Set the expiration for a key as a UNIX timestamp.
+    pub async fn expire_at<K: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        ts: i64,
+    ) -> AppResult<bool> {
+        let mut conn = self.redis().await?;
+        conn.expire_at(key, ts).await.into_app_result()
+    }
+
+    /// Set a key's time to live in milliseconds.
+    pub async fn pexpire<K: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        ms: i64,
+    ) -> AppResult<bool> {
+        let mut conn = self.redis().await?;
+        conn.pexpire(key, ms).await.into_app_result()
+    }
+
+    /// Remove the expiration from a key.
+    pub async fn persist<K: ToSingleRedisArg + Send + Sync>(&self, key: K) -> AppResult<bool> {
+        let mut conn = self.redis().await?;
+        conn.persist(key).await.into_app_result()
+    }
+
+    /// Get the time to live for a key in seconds.
+    pub async fn ttl<K: ToSingleRedisArg + Send + Sync>(&self, key: K) -> AppResult<i64> {
+        let mut conn = self.redis().await?;
+        conn.ttl(key).await.into_app_result()
+    }
+
+    /// Get the time to live for a key in milliseconds.
+    pub async fn pttl<K: ToSingleRedisArg + Send + Sync>(&self, key: K) -> AppResult<i64> {
+        let mut conn = self.redis().await?;
+        conn.pttl(key).await.into_app_result()
+    }
+
+    /// Get the length of the value stored in a key.
+    pub async fn strlen<K: ToSingleRedisArg + Send + Sync>(&self, key: K) -> AppResult<usize> {
+        let mut conn = self.redis().await?;
+        conn.strlen(key).await.into_app_result()
+    }
+
+    // Hash Operations
+
+    /// Gets a single field from a hash.
+    pub async fn hget<K: ToSingleRedisArg + Send + Sync, F: ToSingleRedisArg + Send + Sync, V: FromRedisValue>(
+        &self,
+        key: K,
+        field: F,
+    ) -> AppResult<Option<V>> {
+        let mut conn = self.redis().await?;
+        conn.hget(key, field).await.into_app_result()
+    }
+
+    /// Gets multiple fields from a hash.
+    pub async fn hmget<K: ToSingleRedisArg + Send + Sync, F: ToRedisArgs + Send + Sync, V: FromRedisValue>(
+        &self,
+        key: K,
+        fields: F,
+    ) -> AppResult<Vec<V>> {
+        let mut conn = self.redis().await?;
+        conn.hmget(key, fields).await.into_app_result()
+    }
+
+    /// Deletes a single field from a hash.
+    pub async fn hdel<K: ToSingleRedisArg + Send + Sync, F: ToRedisArgs + Send + Sync>(
+        &self,
+        key: K,
+        field: F,
+    ) -> AppResult<usize> {
+        let mut conn = self.redis().await?;
+        conn.hdel(key, field).await.into_app_result()
+    }
+
+    /// Sets a single field in a hash.
+    pub async fn hset<K: ToSingleRedisArg + Send + Sync, F: ToSingleRedisArg + Send + Sync, V: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        field: F,
+        value: V,
+    ) -> AppResult<usize> {
+        let mut conn = self.redis().await?;
+        conn.hset(key, field, value).await.into_app_result()
+    }
+
+    /// Sets a single field in a hash if it does not exist.
+    pub async fn hset_nx<K: ToSingleRedisArg + Send + Sync, F: ToSingleRedisArg + Send + Sync, V: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        field: F,
+        value: V,
+    ) -> AppResult<bool> {
+        let mut conn = self.redis().await?;
+        conn.hset_nx(key, field, value).await.into_app_result()
+    }
+
+    /// Checks if a field in a hash exists.
+    pub async fn hexists<K: ToSingleRedisArg + Send + Sync, F: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        field: F,
+    ) -> AppResult<bool> {
+        let mut conn = self.redis().await?;
+        conn.hexists(key, field).await.into_app_result()
+    }
+
+    /// Get all the keys in a hash.
+    pub async fn hkeys<K: ToSingleRedisArg + Send + Sync>(&self, key: K) -> AppResult<Vec<String>> {
+        let mut conn = self.redis().await?;
+        conn.hkeys(key).await.into_app_result()
+    }
+
+    /// Get all the values in a hash.
+    pub async fn hvals<K: ToSingleRedisArg + Send + Sync>(&self, key: K) -> AppResult<Vec<String>> {
+        let mut conn = self.redis().await?;
+        conn.hvals(key).await.into_app_result()
+    }
+
+    /// Get all the fields and values in a hash.
+    pub async fn hgetall<K: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+    ) -> AppResult<HashMap<String, String>> {
+        let mut conn = self.redis().await?;
+        conn.hgetall(key).await.into_app_result()
+    }
+
+    /// Get the length of a hash.
+    pub async fn hlen<K: ToSingleRedisArg + Send + Sync>(&self, key: K) -> AppResult<usize> {
+        let mut conn = self.redis().await?;
+        conn.hlen(key).await.into_app_result()
+    }
+
+    /// Increments a value in a hash.
+    pub async fn hincr<K: ToSingleRedisArg + Send + Sync, F: ToSingleRedisArg + Send + Sync, D: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        field: F,
+        delta: D,
+    ) -> AppResult<f64> {
+        let mut conn = self.redis().await?;
+        conn.hincr(key, field, delta).await.into_app_result()
+    }
+
+    // List Operations
+
+    /// Get the length of a list.
+    pub async fn llen<K: ToSingleRedisArg + Send + Sync>(&self, key: K) -> AppResult<usize> {
+        let mut conn = self.redis().await?;
+        conn.llen(key).await.into_app_result()
+    }
+
+    /// Get an element from a list by its index.
+    pub async fn lindex<K: ToSingleRedisArg + Send + Sync, V: FromRedisValue>(
+        &self,
+        key: K,
+        index: isize,
+    ) -> AppResult<Option<V>> {
+        let mut conn = self.redis().await?;
+        conn.lindex(key, index).await.into_app_result()
+    }
+
+    /// Insert an element before another element in a list.
+    pub async fn linsert_before<
+        K: ToSingleRedisArg + Send + Sync,
+        P: ToSingleRedisArg + Send + Sync,
+        V: ToSingleRedisArg + Send + Sync,
+    >(
+        &self,
+        key: K,
+        pivot: P,
+        value: V,
+    ) -> AppResult<isize> {
+        let mut conn = self.redis().await?;
+        conn.linsert_before(key, pivot, value).await.into_app_result()
+    }
+
+    /// Insert an element after another element in a list.
+    pub async fn linsert_after<
+        K: ToSingleRedisArg + Send + Sync,
+        P: ToSingleRedisArg + Send + Sync,
+        V: ToSingleRedisArg + Send + Sync,
+    >(
+        &self,
+        key: K,
+        pivot: P,
+        value: V,
+    ) -> AppResult<isize> {
+        let mut conn = self.redis().await?;
+        conn.linsert_after(key, pivot, value).await.into_app_result()
+    }
+
+    /// Insert all the specified values at the head of the list stored at key.
+    pub async fn lpush<K: ToSingleRedisArg + Send + Sync, V: ToRedisArgs + Send + Sync>(
+        &self,
+        key: K,
+        value: V,
+    ) -> AppResult<usize> {
+        let mut conn = self.redis().await?;
+        conn.lpush(key, value).await.into_app_result()
+    }
+
+    /// Trim an existing list so that it will contain only the specified range of elements.
+    pub async fn ltrim<K: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        start: isize,
+        stop: isize,
+    ) -> AppResult<()> {
+        let mut conn = self.redis().await?;
+        conn.ltrim(key, start, stop).await.into_app_result()
+    }
+
+    /// Set the list element at index to value.
+    pub async fn lset<K: ToSingleRedisArg + Send + Sync, V: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        index: isize,
+        value: V,
+    ) -> AppResult<()> {
+        let mut conn = self.redis().await?;
+        conn.lset(key, index, value).await.into_app_result()
+    }
+
+    // Set Operations
+
+    /// Get the number of members in a set.
+    pub async fn scard<K: ToSingleRedisArg + Send + Sync>(&self, key: K) -> AppResult<usize> {
+        let mut conn = self.redis().await?;
+        conn.scard(key).await.into_app_result()
+    }
+
+    /// Determine if a given value is a member of a set.
+    pub async fn sismember<K: ToSingleRedisArg + Send + Sync, M: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        member: M,
+    ) -> AppResult<bool> {
+        let mut conn = self.redis().await?;
+        conn.sismember(key, member).await.into_app_result()
+    }
+
+    /// Get all the members in a set.
+    pub async fn smembers<K: ToSingleRedisArg + Send + Sync>(&self, key: K) -> AppResult<Vec<String>> {
+        let mut conn = self.redis().await?;
+        conn.smembers(key).await.into_app_result()
+    }
+
+    /// Remove one or more members from a set.
+    pub async fn srem<K: ToSingleRedisArg + Send + Sync, M: ToRedisArgs + Send + Sync>(
+        &self,
+        key: K,
+        member: M,
+    ) -> AppResult<usize> {
+        let mut conn = self.redis().await?;
+        conn.srem(key, member).await.into_app_result()
+    }
+
+    /// Get one random member from a set.
+    pub async fn srandmember<K: ToSingleRedisArg + Send + Sync, V: FromRedisValue>(
+        &self,
+        key: K,
+    ) -> AppResult<Option<V>> {
+        let mut conn = self.redis().await?;
+        conn.srandmember(key).await.into_app_result()
+    }
+
+    // Sorted Set Operations
+
+    /// Get the number of members in a sorted set.
+    pub async fn zcard<K: ToSingleRedisArg + Send + Sync>(&self, key: K) -> AppResult<usize> {
+        let mut conn = self.redis().await?;
+        conn.zcard(key).await.into_app_result()
+    }
+
+    /// Count the members in a sorted set with scores within the given values.
+    pub async fn zcount<
+        K: ToSingleRedisArg + Send + Sync,
+        M: ToSingleRedisArg + Send + Sync,
+        MM: ToSingleRedisArg + Send + Sync,
+    >(
+        &self,
+        key: K,
+        min: M,
+        max: MM,
+    ) -> AppResult<usize> {
+        let mut conn = self.redis().await?;
+        conn.zcount(key, min, max).await.into_app_result()
+    }
+
+    /// Increments the member in a sorted set at key by delta.
+    pub async fn zincr<
+        K: ToSingleRedisArg + Send + Sync,
+        M: ToSingleRedisArg + Send + Sync,
+        D: ToSingleRedisArg + Send + Sync,
+    >(
+        &self,
+        key: K,
+        member: M,
+        delta: D,
+    ) -> AppResult<f64> {
+        let mut conn = self.redis().await?;
+        conn.zincr(key, member, delta).await.into_app_result()
+    }
+
+    /// Get the score associated with the given member in a sorted set.
+    pub async fn zscore<K: ToSingleRedisArg + Send + Sync, M: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        member: M,
+    ) -> AppResult<Option<f64>> {
+        let mut conn = self.redis().await?;
+        conn.zscore(key, member).await.into_app_result()
+    }
+
+    /// Determine the index of a member in a sorted set.
+    pub async fn zrank<K: ToSingleRedisArg + Send + Sync, M: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+        member: M,
+    ) -> AppResult<Option<usize>> {
+        let mut conn = self.redis().await?;
+        conn.zrank(key, member).await.into_app_result()
+    }
+
+    /// Remove one or more members from a sorted set.
+    pub async fn zrem<K: ToSingleRedisArg + Send + Sync, M: ToRedisArgs + Send + Sync>(
+        &self,
+        key: K,
+        members: M,
+    ) -> AppResult<usize> {
+        let mut conn = self.redis().await?;
+        conn.zrem(key, members).await.into_app_result()
+    }
+
+    // Server Operations
+
+    /// Sends a ping to the server.
+    pub async fn ping(&self) -> AppResult<String> {
+        let mut conn = self.redis().await?;
+        conn.ping().await.into_app_result()
+    }
+
+    /// Returns the number of keys in the currently selected database.
+    pub async fn dbsize(&self) -> AppResult<usize> {
+        let mut conn = self.redis().await?;
+        redis::cmd("DBSIZE")
+            .query_async(&mut *conn)
+            .await
+            .into_app_result()
     }
 }
