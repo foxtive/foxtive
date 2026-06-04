@@ -162,6 +162,17 @@ impl Redis {
         conn.lrange(key, start, stop).await.into_app_result()
     }
 
+    /// Retrieve a range of elements from a list
+    pub async fn zrange<T: FromRedisValue>(
+        &self,
+        key: &str,
+        start: isize,
+        stop: isize,
+    ) -> AppResult<Vec<T>> {
+        let mut conn = self.redis().await?;
+        conn.zrange(key, start, stop).await.into_app_result()
+    }
+
     /// Remove elements from a list
     pub async fn lrem<T: Serialize>(&self, key: &str, count: isize, value: &T) -> AppResult<i32> {
         let content = serde_json::to_string(value)?;
