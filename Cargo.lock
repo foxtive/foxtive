@@ -1447,7 +1447,7 @@ dependencies = [
 
 [[package]]
 name = "foxtive"
-version = "0.26.6"
+version = "0.26.7"
 dependencies = [
  "ammonia",
  "anyhow",

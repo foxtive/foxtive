@@ -1,7 +1,7 @@
-use crate::FOXTIVE;
 use crate::prelude::{AppResult, AppStateExt};
 use crate::redis::conn::create_redis_connection;
 use crate::results::redis_result::RedisResultToAppResult;
+use crate::FOXTIVE;
 use anyhow::Error;
 use futures_util::StreamExt;
 use redis::{AsyncCommands, FromRedisValue, ToRedisArgs, ToSingleRedisArg};
@@ -174,14 +174,22 @@ impl Redis {
     }
 
     /// Return a range of members in a sorted set, by score with scores.
-    pub async fn zrangebyscore_withscores<T: FromRedisValue>(
+    pub async fn zrangebyscore_withscores<T, K, M, MM>(
         &self,
-        key: &str,
-        min: isize,
-        max: isize,
-    ) -> AppResult<Vec<T>> {
+        key: K,
+        min: M,
+        max: MM,
+    ) -> AppResult<Vec<T>>
+    where
+        T: FromRedisValue + Send + Sync,
+        K: ToSingleRedisArg + Send + Sync,
+        M: ToSingleRedisArg + Send + Sync,
+        MM: ToSingleRedisArg + Send + Sync,
+    {
         let mut conn = self.redis().await?;
-        conn.zrangebyscore_withscores(key, min, max).await.into_app_result()
+        conn.zrangebyscore_withscores(key, min, max)
+            .await
+            .into_app_result()
     }
 
     /// Remove elements from a list
@@ -403,7 +411,9 @@ impl Redis {
         milliseconds: u64,
     ) -> AppResult<()> {
         let mut conn = self.redis().await?;
-        conn.pset_ex(key, value, milliseconds).await.into_app_result()
+        conn.pset_ex(key, value, milliseconds)
+            .await
+            .into_app_result()
     }
 
     /// Set the value of a key, only if the key does not exist.
@@ -514,7 +524,11 @@ impl Redis {
     // Hash Operations
 
     /// Gets a single field from a hash.
-    pub async fn hget<K: ToSingleRedisArg + Send + Sync, F: ToSingleRedisArg + Send + Sync, V: FromRedisValue>(
+    pub async fn hget<
+        K: ToSingleRedisArg + Send + Sync,
+        F: ToSingleRedisArg + Send + Sync,
+        V: FromRedisValue,
+    >(
         &self,
         key: K,
         field: F,
@@ -524,7 +538,11 @@ impl Redis {
     }
 
     /// Gets multiple fields from a hash.
-    pub async fn hmget<K: ToSingleRedisArg + Send + Sync, F: ToRedisArgs + Send + Sync, V: FromRedisValue>(
+    pub async fn hmget<
+        K: ToSingleRedisArg + Send + Sync,
+        F: ToRedisArgs + Send + Sync,
+        V: FromRedisValue,
+    >(
         &self,
         key: K,
         fields: F,
@@ -544,7 +562,11 @@ impl Redis {
     }
 
     /// Sets a single field in a hash.
-    pub async fn hset<K: ToSingleRedisArg + Send + Sync, F: ToSingleRedisArg + Send + Sync, V: ToSingleRedisArg + Send + Sync>(
+    pub async fn hset<
+        K: ToSingleRedisArg + Send + Sync,
+        F: ToSingleRedisArg + Send + Sync,
+        V: ToSingleRedisArg + Send + Sync,
+    >(
         &self,
         key: K,
         field: F,
@@ -555,7 +577,11 @@ impl Redis {
     }
 
     /// Sets a single field in a hash if it does not exist.
-    pub async fn hset_nx<K: ToSingleRedisArg + Send + Sync, F: ToSingleRedisArg + Send + Sync, V: ToSingleRedisArg + Send + Sync>(
+    pub async fn hset_nx<
+        K: ToSingleRedisArg + Send + Sync,
+        F: ToSingleRedisArg + Send + Sync,
+        V: ToSingleRedisArg + Send + Sync,
+    >(
         &self,
         key: K,
         field: F,
@@ -603,7 +629,11 @@ impl Redis {
     }
 
     /// Increments a value in a hash.
-    pub async fn hincr<K: ToSingleRedisArg + Send + Sync, F: ToSingleRedisArg + Send + Sync, D: ToSingleRedisArg + Send + Sync>(
+    pub async fn hincr<
+        K: ToSingleRedisArg + Send + Sync,
+        F: ToSingleRedisArg + Send + Sync,
+        D: ToSingleRedisArg + Send + Sync,
+    >(
         &self,
         key: K,
         field: F,
@@ -643,7 +673,9 @@ impl Redis {
         value: V,
     ) -> AppResult<isize> {
         let mut conn = self.redis().await?;
-        conn.linsert_before(key, pivot, value).await.into_app_result()
+        conn.linsert_before(key, pivot, value)
+            .await
+            .into_app_result()
     }
 
     /// Insert an element after another element in a list.
@@ -658,7 +690,9 @@ impl Redis {
         value: V,
     ) -> AppResult<isize> {
         let mut conn = self.redis().await?;
-        conn.linsert_after(key, pivot, value).await.into_app_result()
+        conn.linsert_after(key, pivot, value)
+            .await
+            .into_app_result()
     }
 
     /// Insert all the specified values at the head of the list stored at key.
@@ -712,7 +746,10 @@ impl Redis {
     }
 
     /// Get all the members in a set.
-    pub async fn smembers<K: ToSingleRedisArg + Send + Sync>(&self, key: K) -> AppResult<Vec<String>> {
+    pub async fn smembers<K: ToSingleRedisArg + Send + Sync>(
+        &self,
+        key: K,
+    ) -> AppResult<Vec<String>> {
         let mut conn = self.redis().await?;
         conn.smembers(key).await.into_app_result()
     }

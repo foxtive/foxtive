@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.26.7 (2026-04-04)
+* fix(zrangebyscore_withscores): adjust to use generic params
+
 ### 0.26.6 (2026-04-04)
 * feat(redis): add zrangebyscore_withscores method 
 
