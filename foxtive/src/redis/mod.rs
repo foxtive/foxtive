@@ -173,6 +173,17 @@ impl Redis {
         conn.zrange(key, start, stop).await.into_app_result()
     }
 
+    /// Return a range of members in a sorted set, by score with scores.
+    pub async fn zrangebyscore_withscores<T: FromRedisValue>(
+        &self,
+        key: &str,
+        min: isize,
+        max: isize,
+    ) -> AppResult<Vec<T>> {
+        let mut conn = self.redis().await?;
+        conn.zrangebyscore_withscores(key, min, max).await.into_app_result()
+    }
+
     /// Remove elements from a list
     pub async fn lrem<T: Serialize>(&self, key: &str, count: isize, value: &T) -> AppResult<i32> {
         let content = serde_json::to_string(value)?;
