@@ -1,7 +1,7 @@
-use crate::FOXTIVE;
 use crate::prelude::{AppResult, AppStateExt};
 use crate::redis::conn::create_redis_connection;
 use crate::results::redis_result::RedisResultToAppResult;
+use crate::FOXTIVE;
 use anyhow::Error;
 use futures_util::StreamExt;
 use redis::{AsyncCommands, FromRedisValue, ToRedisArgs, ToSingleRedisArg};
@@ -174,12 +174,18 @@ impl Redis {
     }
 
     /// Return a range of members in a sorted set, by score with scores.
-    pub async fn zrangebyscore_withscores<T: FromRedisValue>(
+    pub async fn zrangebyscore_withscores<T, K, M, MM>(
         &self,
-        key: &str,
-        min: isize,
-        max: isize,
-    ) -> AppResult<Vec<T>> {
+        key: K,
+        min: M,
+        max: MM,
+    ) -> AppResult<Vec<T>>
+    where
+        T: FromRedisValue + Send + Sync,
+        K: ToSingleRedisArg + Send + Sync,
+        M: ToSingleRedisArg + Send + Sync,
+        MM: ToSingleRedisArg + Send + Sync,
+    {
         let mut conn = self.redis().await?;
         conn.zrangebyscore_withscores(key, min, max)
             .await
