@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.26.5 (2026-04-04)
+* feat(redis): add zrange method 
+
 ### 0.26.4 (2026-05-19)
 * feat(redis): add comprehensive Redis command support with 70+ new methods covering string, hash, list, set, sorted set, key, and server operations
 * feat(redis): use redis crate's AsyncCommands trait methods for type-safe API stability instead of raw commands
