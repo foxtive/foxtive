@@ -181,7 +181,9 @@ impl Redis {
         max: isize,
     ) -> AppResult<Vec<T>> {
         let mut conn = self.redis().await?;
-        conn.zrangebyscore_withscores(key, min, max).await.into_app_result()
+        conn.zrangebyscore_withscores(key, min, max)
+            .await
+            .into_app_result()
     }
 
     /// Remove elements from a list
