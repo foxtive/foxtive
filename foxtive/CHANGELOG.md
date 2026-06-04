@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.26.6 (2026-04-04)
+* feat(redis): add zrangebyscore_withscores method 
+
 ### 0.26.5 (2026-04-04)
 * feat(redis): add zrange method 
 
