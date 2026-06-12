@@ -1,7 +1,7 @@
 //! Implements the Circuit Breaker pattern for supervised tasks.
 
 use crate::enums::{CircuitBreakerConfig, SupervisorEvent};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
 use tracing::{info, warn};
 
@@ -159,7 +159,7 @@ impl CircuitBreaker {
     }
 
     /// Returns the configured reset timeout for the circuit breaker.
-    pub fn reset_timeout(&self) -> std::time::Duration {
+    pub fn reset_timeout(&self) -> Duration {
         self.config.reset_timeout
     }
 }
