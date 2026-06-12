@@ -40,7 +40,7 @@ pub mod prelude {
     pub use crate::enums::AppMessage;
     pub use crate::ext::app_state::AppStateExt;
     #[cfg(feature = "rabbitmq")]
-    pub use crate::rabbitmq::{RabbitMQ, RmqError, RmqResult};
+    pub use crate::rabbitmq::{IntoRmqError, RabbitMQ, RmqError, RmqResult};
     #[cfg(feature = "redis")]
     pub use crate::redis::Redis;
     pub use crate::results::{AppResult, app_result::IntoAppResult};

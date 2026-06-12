@@ -1,7 +1,7 @@
 use futures_util::StreamExt;
 use futures_util::future::BoxFuture;
 use lapin::types::FieldTable;
-use lapin::{BasicProperties, ConnectionState};
+use lapin::{BasicProperties, Channel, ConnectionState};
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,10 +14,10 @@ use tracing::{debug, error, info, warn};
 pub use {
     lapin::message::{Delivery, DeliveryResult},
     lapin::types::ReplyCode,
-    lapin::{Channel, ChannelState, ExchangeKind, options::*},
+    lapin::{ChannelState, ExchangeKind, options::*},
 };
 
-pub use crate::rabbitmq::error::{RmqError, RmqResult};
+pub use crate::rabbitmq::error::{IntoRmqError, RmqError, RmqResult};
 
 use crate::FOXTIVE;
 use crate::prelude::AppStateExt;
@@ -303,7 +303,13 @@ impl RabbitMQ {
 
         tokio::time::timeout(
             self.operation_timeout,
-            self.publish_channel.queue_bind(queue, exchange, &routing_key.to_string(), options, args),
+            self.publish_channel.queue_bind(
+                queue,
+                exchange,
+                &routing_key.to_string(),
+                options,
+                args,
+            ),
         )
         .await
         .map_err(|_| RmqError::timeout("queue_bind", self.operation_timeout))??;
@@ -407,30 +413,28 @@ impl RabbitMQ {
         if self.prefetch_count > 0 {
             tokio::time::timeout(
                 self.operation_timeout,
-                self.consume_channel.basic_qos(
-                    self.prefetch_count,
-                    BasicQosOptions { global: false },
-                ),
+                self.consume_channel
+                    .basic_qos(self.prefetch_count, BasicQosOptions { global: false }),
             )
             .await
             .map_err(|_| RmqError::timeout("basic_qos", self.operation_timeout))?
             .inspect_err(|e| warn!("Failed to set QoS prefetch: {e:?}"))
             .ok();
-            
+
             debug!("[{tag}] QoS prefetch set to {}", self.prefetch_count);
         }
 
         let instance = self.clone();
         let cancellation_token = self.cancellation_token.clone();
         let mut message_count: usize = 0;
-        
+
         loop {
             tokio::select! {
                 _ = cancellation_token.cancelled() => {
                     info!("[{tag}] Cancellation requested, shutting down consumer gracefully");
                     return Ok(());
                 }
-                
+
                 result = consumer.next() => {
                     match result {
                         Some(Ok(delivery)) => {
@@ -439,12 +443,12 @@ impl RabbitMQ {
                                 message_count += 1;
                                 if message_count.is_multiple_of(self.health_check_interval) {
                                     debug!("[{tag}] Health check: processed {message_count} messages");
-                                    
+
                                     if let Err(err) = self.conn_pool.get().await {
                                         warn!("[{tag}] Health check failed - connection pool error: {err:?}");
                                         return Err(RmqError::health_check_failed("connection pool unavailable"));
                                     }
-                                    
+
                                     let channel_state = self.consume_channel.status().state();
                                     if matches!(channel_state, ChannelState::Closed | ChannelState::Closing | ChannelState::Error) {
                                         warn!("[{tag}] Health check failed - channel state: {channel_state:?}");
@@ -452,7 +456,7 @@ impl RabbitMQ {
                                     }
                                 }
                             }
-                            
+
                             let mut instance = instance.clone();
                     let consumer_tag = tag.to_owned();
 
@@ -489,8 +493,8 @@ impl RabbitMQ {
                         }
                     }
                 }
-            }  // End of tokio::select!
-        }  // End of loop
+            } // End of tokio::select!
+        } // End of loop
     }
 
     /// Consume messages from a specified queue and execute an async function on each message
@@ -721,7 +725,8 @@ impl RabbitMQ {
 
         tokio::time::timeout(
             self.operation_timeout,
-            self.consume_channel.basic_ack(delivery_tag, BasicAckOptions::default()),
+            self.consume_channel
+                .basic_ack(delivery_tag, BasicAckOptions::default()),
         )
         .await
         .map_err(|_| RmqError::timeout("basic_ack", self.operation_timeout))??;
@@ -936,8 +941,10 @@ mod tests {
             url: Some("amqp://localhost:5672".to_string()),
             ..Default::default()
         };
-        let pool = config.create_pool(Some(deadpool_lapin::Runtime::Tokio1)).unwrap();
-        
+        let pool = config
+            .create_pool(Some(deadpool_lapin::Runtime::Tokio1))
+            .unwrap();
+
         // Expect failure without running server
         let result = RabbitMQ::new(pool).await;
         assert!(result.is_err());
@@ -951,7 +958,9 @@ mod tests {
         let _err4 = RmqError::stream_terminated("q", "t");
         let _err5 = RmqError::health_check_failed("reason");
         let _err6 = RmqError::channel_error("state", 1);
-        let _err7 = RmqError::Configuration { message: "msg".to_string() };
+        let _err7 = RmqError::Configuration {
+            message: "msg".to_string(),
+        };
         let _err8 = RmqError::ReconnectionFailed { attempts: 1 };
     }
 
@@ -959,7 +968,7 @@ mod tests {
     fn test_result_type_alias() {
         let success: RmqResult<()> = Ok(());
         let failure: RmqResult<()> = Err(RmqError::Generic("error".to_string()));
-        
+
         assert!(success.is_ok());
         assert!(failure.is_err());
     }

@@ -1,6 +1,6 @@
 [package]
 name = "foxtive"
-version = "0.26.1"
+version = "0.26.7"
 edition = "2024"
 license = "MIT"
 description = "Foxtive Framework"
@@ -41,7 +41,7 @@ lapin = { version = "3.7.2", optional = true }
 deadpool-lapin = { version = "0.13.1", features = ["rt_tokio_1"], optional = true }
 
 # Redis
-redis = { version = "1.0.4", default-features = false, optional = true, features = [
+redis = { version = "1.2.2", default-features = false, optional = true, features = [
     "tokio-native-tls-comp", "connection-manager"
 ] }
 deadpool-redis = { version = "0.23.0", features = ["rt_tokio_1"], optional = true }
@@ -49,15 +49,15 @@ deadpool-redis = { version = "0.23.0", features = ["rt_tokio_1"], optional = tru
 # Dashmap
 dashmap = { version = "6.1.0", optional = true }
 
-http = "1.4.0"
+http = "1.4.1"
 thiserror = "2.0.18"
-uuid = { version = "1.21.0", features = ["v4", "serde"] }
+uuid = { version = "1.23.2", features = ["v4", "serde"] }
 serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1.52.1", features = ["rt-multi-thread", "time", "macros"] }
 tokio-util = { version = "0.7.18", features = ["rt"] }
-chrono = { version = "0.4.44", features = ["std", "serde"] }
+chrono = { version = "0.4.45", features = ["std", "serde"] }
 dotenv = { version = "0.15.0" }
-serde_json = { version = "1.0.149", default-features = false, features = ["std"] }
+serde_json = { version = "1.0.150", default-features = false, features = ["std"] }
 futures-util = { version = "0.3.32", default-features = false, features = ["alloc"] }
 base64 = { version = "0.22.1", optional = true }
 hex = { version = "0.4.3", optional = true }
@@ -65,7 +65,7 @@ sha2 = { version = "0.11.0", optional = true }
 hmac = { version = "0.13.0", optional = true }
 fancy-regex = { version = "0.18.0", optional = true }
 tera = { version = "1.20.1", optional = true }
-reqwest = { version = "0.13.2", features = ["native-tls"], optional = true }
+reqwest = { version = "0.13.4", features = ["native-tls"], optional = true }
 diesel = { version = "2.3.7", features = ["postgres", "r2d2"], optional = true }
 jsonwebtoken = { version = "10.3.0", optional = true, features = ["rust_crypto"] }
 strum = { version = "0.28.0", default-features = false, features = ["std"], optional = true }

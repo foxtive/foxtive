@@ -20,6 +20,13 @@ impl<T: Serialize> IntoEmptyJson for AppResult<T> {
     }
 }
 
+#[cfg(feature = "rabbitmq")]
+impl<T> IntoAppResult<T> for crate::rabbitmq::RmqResult<T> {
+    fn into_app_result(self) -> AppResult<T> {
+        self.map_err(crate::Error::from)
+    }
+}
+
 #[cfg(feature = "database")]
 impl<T> IntoAppResult<T> for QueryResult<T> {
     fn into_app_result(self) -> AppResult<T> {
