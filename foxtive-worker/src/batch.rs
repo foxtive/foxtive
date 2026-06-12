@@ -10,18 +10,21 @@ use crate::message::Message;
 pub struct MessageBatch<T> {
     /// Unique identifier for this batch
     pub id: String,
-    
+
     /// Messages in this batch
     pub messages: Vec<ReceivedBatchMessage<T>>,
-    
+
     /// When this batch was created
     pub created_at: std::time::Instant,
-    
+
     /// Metadata about the batch
     pub metadata: BatchMetadata,
 }
 
-impl<T> Clone for MessageBatch<T> where T: Clone {
+impl<T> Clone for MessageBatch<T>
+where
+    T: Clone,
+{
     fn clone(&self) -> Self {
         Self {
             id: self.id.clone(),
@@ -68,20 +71,19 @@ impl<T> MessageBatch<T> {
 pub struct BatchMetadata {
     /// Total number of messages in the batch
     pub total_messages: usize,
-    
+
     /// Source queues represented in this batch
     pub source_queues: Vec<String>,
-    
+
     /// Batch processing status
     pub status: BatchStatus,
-    
+
     /// Error information if batch failed
     pub error: Option<String>,
 }
 
 /// Status of a batch processing operation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum BatchStatus {
     /// Batch is being assembled
     #[default]
@@ -100,18 +102,20 @@ pub enum BatchStatus {
     ShutdownFlush,
 }
 
-
 /// A message within a batch context
 #[derive(Debug)]
 pub struct ReceivedBatchMessage<T> {
     /// The underlying message
     pub message: Message<T>,
-    
+
     /// Index within the batch
     pub batch_index: usize,
 }
 
-impl<T> Clone for ReceivedBatchMessage<T> where T: Clone {
+impl<T> Clone for ReceivedBatchMessage<T>
+where
+    T: Clone,
+{
     fn clone(&self) -> Self {
         Self {
             message: self.message.clone(),
@@ -124,25 +128,25 @@ impl<T> Clone for ReceivedBatchMessage<T> where T: Clone {
 #[async_trait]
 pub trait BatchHandler: Send + Sync {
     /// Process a batch of messages
-    /// 
+    ///
     /// All messages in the batch should be processed atomically.
     /// If any message fails, the entire batch may need to be retried
     /// or handled according to your error strategy.
     async fn process_batch(&self, batch: MessageBatch<serde_json::Value>) -> WorkerResult<()>;
-    
+
     /// Optional: Setup before batch handler starts
     async fn setup(&self) -> WorkerResult<()> {
         Ok(())
     }
-    
+
     /// Optional: Cleanup on shutdown
     async fn teardown(&self) {}
-    
+
     /// Maximum batch size this handler can process
     fn max_batch_size(&self) -> usize {
         100
     }
-    
+
     /// Maximum time to wait before flushing an incomplete batch
     fn max_batch_age(&self) -> Duration {
         Duration::from_secs(30)
@@ -154,13 +158,13 @@ pub trait BatchHandler: Send + Sync {
 pub struct BatchConfig {
     /// Maximum number of messages per batch
     pub batch_size: usize,
-    
+
     /// Maximum time to wait before flushing (even if batch not full)
     pub flush_interval: Duration,
-    
+
     /// Whether to wait for full batch before processing
     pub wait_for_full_batch: bool,
-    
+
     /// Timeout for batch processing
     pub processing_timeout: Duration,
 }
@@ -210,7 +214,7 @@ mod tests {
     fn test_message_batch_creation() {
         let messages = vec![];
         let batch = MessageBatch::<serde_json::Value>::new("batch-1".to_string(), messages);
-        
+
         assert_eq!(batch.id, "batch-1");
         assert_eq!(batch.len(), 0);
         assert!(batch.is_empty());
@@ -222,7 +226,7 @@ mod tests {
             .with_batch_size(100)
             .with_flush_interval(Duration::from_secs(5))
             .wait_for_full_batch(true);
-        
+
         assert_eq!(config.batch_size, 100);
         assert_eq!(config.flush_interval, Duration::from_secs(5));
         assert!(config.wait_for_full_batch);

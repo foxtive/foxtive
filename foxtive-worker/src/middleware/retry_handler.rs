@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, warn, error, info};
+use tracing::{debug, error, info, warn};
 
-use crate::error::{WorkerError, WorkerResult};
-use crate::message::ReceivedMessage;
-use crate::middleware::{Middleware, MessageHandler};
 use crate::backends::{DeadLetterQueueBackend, create_dlq_message};
 use crate::dlq::PoisonPillTracker;
+use crate::error::{WorkerError, WorkerResult};
+use crate::message::ReceivedMessage;
+use crate::middleware::{MessageHandler, Middleware};
 
 /// Configuration for the RetryHandler middleware.
 #[derive(Clone)]
@@ -35,7 +35,10 @@ impl std::fmt::Debug for RetryHandlerConfig {
             .field("initial_backoff", &self.initial_backoff)
             .field("max_backoff", &self.max_backoff)
             .field("backoff_multiplier", &self.backoff_multiplier)
-            .field("dead_letter_queue", &self.dead_letter_queue.as_ref().map(|_| "<MessageBackend>"))
+            .field(
+                "dead_letter_queue",
+                &self.dead_letter_queue.as_ref().map(|_| "<MessageBackend>"),
+            )
             .field("use_jitter", &self.use_jitter)
             .finish()
     }
@@ -110,7 +113,7 @@ impl RetryHandler {
             let jitter_factor = rand::random::<f64>() * 0.5 - 0.25; // Range: -0.25 to +0.25
             let jitter = backoff.as_secs_f64() * jitter_factor;
             let new_backoff = backoff.as_secs_f64() + jitter;
-            
+
             // Ensure we don't go below a minimum of 10ms
             backoff = Duration::from_secs_f64(new_backoff.max(0.01));
         }
@@ -202,7 +205,11 @@ impl Middleware for RetryHandler {
 
         match result {
             Ok(_) => {
-                debug!("[{}] Message {} processed successfully.", self.name(), message.message.id);
+                debug!(
+                    "[{}] Message {} processed successfully.",
+                    self.name(),
+                    message.message.id
+                );
                 Ok(())
             }
             Err(e) => {
@@ -230,7 +237,7 @@ impl Middleware for RetryHandler {
                 } else {
                     // Retries exhausted - send to DLQ if configured
                     self.send_to_dlq(&message, &e).await;
-                    
+
                     warn!(
                         "[{}] Retries exhausted for message {} after {} attempts.",
                         self.name(),
@@ -249,7 +256,7 @@ impl Middleware for RetryHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::{Message, MessageMetadata, ReceivedMessage, AckHandle};
+    use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
     use std::sync::Arc;
 
     #[derive(Debug)]
@@ -257,8 +264,12 @@ mod tests {
 
     #[async_trait::async_trait]
     impl AckHandle for MockAckHandle {
-        async fn ack(&self) -> WorkerResult<()> { Ok(()) }
-        async fn nack(&self, _requeue: bool) -> WorkerResult<()> { Ok(()) }
+        async fn ack(&self) -> WorkerResult<()> {
+            Ok(())
+        }
+        async fn nack(&self, _requeue: bool) -> WorkerResult<()> {
+            Ok(())
+        }
     }
 
     struct FailingHandler {
@@ -269,7 +280,9 @@ mod tests {
     #[async_trait::async_trait]
     impl MessageHandler for FailingHandler {
         async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-            let count = self.fail_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let count = self
+                .fail_count
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             if count < self.fail_until {
                 Err(WorkerError::ProcessingError("Simulated failure".into()))
             } else {
@@ -282,7 +295,7 @@ mod tests {
     async fn test_retry_success_after_failures() {
         let config = RetryHandlerConfig::default().with_max_retries(3);
         let handler = RetryHandler::new(config);
-        
+
         let inner_handler = FailingHandler {
             fail_count: std::sync::atomic::AtomicUsize::new(0),
             fail_until: 2, // Fail twice, succeed on third
@@ -294,11 +307,11 @@ mod tests {
                 payload: serde_json::json!({}),
                 metadata: MessageMetadata::new("test"),
             },
-            Arc::new(MockAckHandle)
+            Arc::new(MockAckHandle),
         );
 
         let result = handler.handle(message, Box::new(inner_handler)).await;
-        
+
         // The handler should eventually succeed after retries are handled by the pool/dispatcher
         // In this unit test context, we expect the first call to return a RetryableFailure
         assert!(result.is_err());
@@ -313,7 +326,7 @@ mod tests {
     async fn test_retries_exhausted() {
         let config = RetryHandlerConfig::default().with_max_retries(1);
         let handler = RetryHandler::new(config);
-        
+
         let inner_handler = FailingHandler {
             fail_count: std::sync::atomic::AtomicUsize::new(0),
             fail_until: 10, // Always fail
@@ -325,14 +338,14 @@ mod tests {
                 payload: serde_json::json!({}),
                 metadata: MessageMetadata::new("test"),
             },
-            Arc::new(MockAckHandle)
+            Arc::new(MockAckHandle),
         );
-        
+
         // Manually increment attempt to simulate max retries reached
         message.message.metadata.attempt = 1;
 
         let result = handler.handle(message, Box::new(inner_handler)).await;
-        
+
         if let Err(WorkerError::RetriesExhausted { .. }) = result {
             // Success: it correctly identified that retries are exhausted
         } else {

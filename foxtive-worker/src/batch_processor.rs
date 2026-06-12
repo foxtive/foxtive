@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, Notify};
-use tracing::{debug, info, error};
+use tracing::{debug, error, info};
 
 use crate::batch::{BatchConfig, BatchHandler, BatchStatus, MessageBatch, ReceivedBatchMessage};
 use crate::error::{WorkerError, WorkerResult};
@@ -16,19 +16,19 @@ struct QueuedMessage {
 pub struct BatchProcessor {
     /// The handler that processes completed batches
     handler: Arc<dyn BatchHandler>,
-    
+
     /// Configuration for batching behavior
     config: BatchConfig,
-    
+
     /// Queue of messages waiting to be batched
     queue: Arc<Mutex<Vec<QueuedMessage>>>,
-    
+
     /// Signal when new messages arrive
     notify: Arc<Notify>,
-    
+
     /// Signal for shutdown
     shutdown_notify: Arc<Notify>,
-    
+
     /// Handle to the background processing task
     _task_handle: Option<tokio::task::JoinHandle<()>>,
 }
@@ -50,8 +50,7 @@ impl BatchProcessor {
     pub async fn start(&mut self) -> WorkerResult<()> {
         info!(
             "Starting batch processor with batch_size={}, flush_interval={:?}",
-            self.config.batch_size,
-            self.config.flush_interval
+            self.config.batch_size, self.config.flush_interval
         );
 
         let queue = self.queue.clone();
@@ -65,49 +64,47 @@ impl BatchProcessor {
         });
 
         self._task_handle = Some(task_handle);
-        
+
         Ok(())
     }
 
     /// Add a message to the batch queue
     pub async fn enqueue(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
         let mut queue = self.queue.lock().await;
-        
-        let queued_msg = QueuedMessage {
-            message,
-        };
-        
+
+        let queued_msg = QueuedMessage { message };
+
         queue.push(queued_msg);
-        
+
         // Notify the processing loop that new messages are available
         self.notify.notify_one();
-        
+
         debug!("Message enqueued, queue size: {}", queue.len());
-        
+
         Ok(())
     }
 
     /// Shutdown the batch processor gracefully
     pub async fn shutdown(&self) -> WorkerResult<()> {
         info!("Shutting down batch processor...");
-        
+
         // Signal shutdown
         self.shutdown_notify.notify_one();
-        
+
         // Process any remaining messages in the queue
         self.flush_remaining().await?;
-        
+
         Ok(())
     }
 
     /// Flush any remaining messages in the queue
     async fn flush_remaining(&self) -> WorkerResult<()> {
         let mut queue = self.queue.lock().await;
-        
+
         if !queue.is_empty() {
             let count = queue.len();
             info!("Flushing {} remaining messages before shutdown", count);
-            
+
             // Create a batch from remaining messages
             let batch_messages: Vec<ReceivedBatchMessage<serde_json::Value>> = queue
                 .drain(..)
@@ -117,13 +114,13 @@ impl BatchProcessor {
                     batch_index: idx,
                 })
                 .collect();
-            
+
             drop(queue); // Release lock before processing
-            
+
             if !batch_messages.is_empty() {
                 let batch_id = format!("flush-{}", uuid::Uuid::new_v4());
                 let batch = MessageBatch::new(batch_id, batch_messages);
-                
+
                 match self.process_batch_with_retry(&batch).await {
                     Ok(_) => {
                         info!("Successfully flushed {} messages", count);
@@ -134,7 +131,7 @@ impl BatchProcessor {
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -147,14 +144,14 @@ impl BatchProcessor {
         config: BatchConfig,
     ) {
         let mut last_flush = Instant::now();
-        
+
         loop {
             tokio::select! {
                 // Wait for new messages or shutdown signal
                 _ = notify.notified() => {
                     // Check if we have enough messages to form a batch
                     let queue_len = queue.lock().await.len();
-                    
+
                     if queue_len >= config.batch_size {
                         // Process a full batch
                         if let Err(e) = Self::process_full_batch(&queue, &handler, &config).await {
@@ -163,15 +160,15 @@ impl BatchProcessor {
                         last_flush = Instant::now();
                     }
                 }
-                
+
                 // Periodic flush based on timeout
                 _ = tokio::time::sleep(config.flush_interval) => {
                     if !config.wait_for_full_batch {
                         let elapsed = last_flush.elapsed();
-                        
+
                         if elapsed >= config.flush_interval {
                             debug!("Flush interval reached, checking for partial batch");
-                            
+
                             if let Err(e) = Self::flush_partial_batch(&queue, &handler, &config, BatchStatus::TimeoutFlush).await {
                                 error!("Failed to flush partial batch: {:?}", e);
                             }
@@ -179,7 +176,7 @@ impl BatchProcessor {
                         }
                     }
                 }
-                
+
                 // Shutdown signal
                 _ = shutdown_notify.notified() => {
                     info!("Batch processor received shutdown signal");
@@ -196,15 +193,15 @@ impl BatchProcessor {
         config: &BatchConfig,
     ) -> WorkerResult<()> {
         let mut queue_guard = queue.lock().await;
-        
+
         if queue_guard.len() < config.batch_size {
             return Ok(());
         }
-        
+
         // Extract batch_size messages
         let batch_data: Vec<QueuedMessage> = queue_guard.drain(..config.batch_size).collect();
         drop(queue_guard); // Release lock
-        
+
         // Convert to batch messages
         let batch_messages: Vec<ReceivedBatchMessage<serde_json::Value>> = batch_data
             .into_iter()
@@ -214,12 +211,16 @@ impl BatchProcessor {
                 batch_index: idx,
             })
             .collect();
-        
+
         let batch_id = format!("batch-{}", uuid::Uuid::new_v4());
         let batch = MessageBatch::new(batch_id, batch_messages);
-        
-        info!("Processing full batch {} with {} messages", batch.id, batch.len());
-        
+
+        info!(
+            "Processing full batch {} with {} messages",
+            batch.id,
+            batch.len()
+        );
+
         Self::process_batch_with_timeout(&batch, handler, config.processing_timeout).await
     }
 
@@ -231,15 +232,15 @@ impl BatchProcessor {
         status: BatchStatus,
     ) -> WorkerResult<()> {
         let mut queue_guard = queue.lock().await;
-        
+
         if queue_guard.is_empty() {
             return Ok(());
         }
-        
+
         // Extract all messages
         let batch_data: Vec<QueuedMessage> = queue_guard.drain(..).collect();
         drop(queue_guard);
-        
+
         let batch_messages: Vec<ReceivedBatchMessage<serde_json::Value>> = batch_data
             .into_iter()
             .enumerate()
@@ -248,18 +249,18 @@ impl BatchProcessor {
                 batch_index: idx,
             })
             .collect();
-        
+
         let batch_id = format!("partial-{}", uuid::Uuid::new_v4());
         let mut batch = MessageBatch::new(batch_id, batch_messages);
         batch.metadata.status = status.clone();
-        
+
         info!(
             "Flushing partial batch {} with {} messages (reason: {:?})",
             batch.id,
             batch.len(),
             status
         );
-        
+
         Self::process_batch_with_timeout(&batch, handler, config.processing_timeout).await
     }
 
@@ -271,13 +272,10 @@ impl BatchProcessor {
     ) -> WorkerResult<()> {
         match tokio::time::timeout(timeout, handler.process_batch(batch.clone())).await {
             Ok(result) => result,
-            Err(_) => {
-                Err(WorkerError::ProcessingFailed(format!(
-                    "Batch {} processing timed out after {:?}",
-                    batch.id,
-                    timeout
-                )))
-            }
+            Err(_) => Err(WorkerError::ProcessingFailed(format!(
+                "Batch {} processing timed out after {:?}",
+                batch.id, timeout
+            ))),
         }
     }
 
@@ -294,7 +292,7 @@ impl BatchProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::{AckHandle, MessageMetadata, Message};
+    use crate::message::{AckHandle, Message, MessageMetadata};
     use async_trait::async_trait;
 
     #[derive(Debug)]
@@ -302,8 +300,12 @@ mod tests {
 
     #[async_trait]
     impl AckHandle for MockAckHandle {
-        async fn ack(&self) -> WorkerResult<()> { Ok(()) }
-        async fn nack(&self, _requeue: bool) -> WorkerResult<()> { Ok(()) }
+        async fn ack(&self) -> WorkerResult<()> {
+            Ok(())
+        }
+        async fn nack(&self, _requeue: bool) -> WorkerResult<()> {
+            Ok(())
+        }
     }
 
     struct TestBatchHandler;
@@ -321,7 +323,7 @@ mod tests {
         let handler = Arc::new(TestBatchHandler);
         let config = BatchConfig::default();
         let processor = BatchProcessor::new(handler, config);
-        
+
         assert_eq!(processor.config.batch_size, 50);
     }
 
@@ -330,7 +332,7 @@ mod tests {
         let handler = Arc::new(TestBatchHandler);
         let config = BatchConfig::default();
         let processor = BatchProcessor::new(handler, config);
-        
+
         let message = ReceivedMessage::new(
             Message {
                 id: "test-1".to_string(),
@@ -339,9 +341,9 @@ mod tests {
             },
             Arc::new(MockAckHandle),
         );
-        
+
         processor.enqueue(message).await.unwrap();
-        
+
         let queue_len = processor.queue.lock().await.len();
         assert_eq!(queue_len, 1);
     }

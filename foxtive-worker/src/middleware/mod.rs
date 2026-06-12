@@ -5,13 +5,13 @@ use crate::error::WorkerResult;
 use crate::message::ReceivedMessage;
 
 pub mod ack_nack;
+pub mod batch;
+pub mod circuit_breaker;
+pub mod processing_timeout;
 #[cfg(feature = "rate-limit")]
 pub mod rate_limit;
-pub mod circuit_breaker;
-pub mod tracing;
 pub mod retry_handler;
-pub mod batch;
-pub mod processing_timeout;
+pub mod tracing;
 
 /// A message handler that processes messages.
 ///
@@ -135,7 +135,9 @@ struct MiddlewareWrapper {
 impl MessageHandler for MiddlewareWrapper {
     async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
         let next = self.inner.clone();
-        self.middleware.handle(message, Box::new(ArcHandler(next))).await
+        self.middleware
+            .handle(message, Box::new(ArcHandler(next)))
+            .await
     }
 }
 

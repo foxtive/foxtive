@@ -56,11 +56,11 @@ impl futures_util::Stream for ConsumerStream {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
         use std::task::Poll;
-        
+
         // Convert async recv to poll-based interface
         let fut = self.rx.recv();
         tokio::pin!(fut);
-        
+
         match fut.poll(cx) {
             Poll::Ready(val) => Poll::Ready(val),
             Poll::Pending => Poll::Pending,
@@ -584,10 +584,8 @@ impl RabbitMQ {
         if self.prefetch_count > 0 {
             tokio::time::timeout(
                 self.operation_timeout,
-                self.consume_channel.basic_qos(
-                    self.prefetch_count,
-                    BasicQosOptions { global: false },
-                ),
+                self.consume_channel
+                    .basic_qos(self.prefetch_count, BasicQosOptions { global: false }),
             )
             .await
             .map_err(|_| RmqError::timeout("basic_qos", self.operation_timeout))?
@@ -608,7 +606,10 @@ impl RabbitMQ {
         .await
         .map_err(|_| RmqError::timeout("basic_consume", self.operation_timeout))??;
 
-        debug!("Created pull-based consumer for queue '{}' with tag '{}'", queue, tag);
+        debug!(
+            "Created pull-based consumer for queue '{}' with tag '{}'",
+            queue, tag
+        );
 
         // Create channel for message delivery
         let (tx, rx) = tokio::sync::mpsc::channel(100);
@@ -648,9 +649,7 @@ impl RabbitMQ {
             }
         });
 
-        let stream = ConsumerStream {
-            rx,
-        };
+        let stream = ConsumerStream { rx };
 
         let guard = ConsumerGuard {
             handle: Some(forwarder_handle),

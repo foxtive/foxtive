@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use crate::error::{WorkerError, WorkerResult};
 use crate::message::ReceivedMessage;
+use crate::metrics::{NoOpMetrics, WorkerMetrics};
 use crate::middleware::{MessageHandler, Middleware};
 use crate::pool::WorkerPool;
 use crate::strategies::LoadBalancingStrategy;
-use crate::worker::Worker;
-use crate::metrics::{WorkerMetrics, NoOpMetrics}; // Import NoOpMetrics
+use crate::worker::Worker; // Import NoOpMetrics
 
 /// Builder for configuring and creating worker pools.
 ///
@@ -163,7 +163,9 @@ impl WorkerPoolBuilder {
             ));
         }
 
-        let metrics_collector = self.metrics_collector.unwrap_or_else(|| Arc::new(NoOpMetrics));
+        let metrics_collector = self
+            .metrics_collector
+            .unwrap_or_else(|| Arc::new(NoOpMetrics));
 
         let mut pool = WorkerPool::with_concurrency(
             &self.name,
@@ -171,7 +173,7 @@ impl WorkerPoolBuilder {
             self.concurrency_limit,
             metrics_collector,
         );
-        
+
         // Add workers
         for worker in self.workers {
             pool.add_worker(worker);
@@ -189,7 +191,9 @@ impl WorkerPoolBuilder {
     ///
     /// This is useful for dynamic worker addition later.
     pub fn build_allow_empty(self) -> WorkerPool {
-        let metrics_collector = self.metrics_collector.unwrap_or_else(|| Arc::new(NoOpMetrics));
+        let metrics_collector = self
+            .metrics_collector
+            .unwrap_or_else(|| Arc::new(NoOpMetrics));
 
         let mut pool = WorkerPool::with_concurrency(
             &self.name,
@@ -197,7 +201,7 @@ impl WorkerPoolBuilder {
             self.concurrency_limit,
             metrics_collector,
         );
-        
+
         for worker in self.workers {
             pool.add_worker(worker);
         }
@@ -217,7 +221,7 @@ impl MessageHandler for PlaceholderHandler {
         // This should never be called in production
         // The WorkerPool's dispatch method wraps workers with proper handlers
         Err(WorkerError::ProcessingFailed(
-            "PlaceholderHandler should not be invoked".to_string()
+            "PlaceholderHandler should not be invoked".to_string(),
         ))
     }
 }
@@ -236,7 +240,7 @@ impl MessageHandler for ArcWrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::{ReceivedMessage, AckHandle};
+    use crate::message::{AckHandle, ReceivedMessage};
     use async_trait::async_trait;
     use std::time::Instant;
 
@@ -261,9 +265,7 @@ mod tests {
 
     impl TestWorker {
         fn new(id: &str) -> Self {
-            Self {
-                id: id.to_string(),
-            }
+            Self { id: id.to_string() }
         }
     }
 
@@ -286,22 +288,20 @@ mod tests {
 
     #[test]
     fn test_builder_with_strategy() {
-        let builder = WorkerPoolBuilder::new("test-pool")
-            .with_strategy(LoadBalancingStrategy::Random);
+        let builder =
+            WorkerPoolBuilder::new("test-pool").with_strategy(LoadBalancingStrategy::Random);
         assert!(matches!(builder.strategy, LoadBalancingStrategy::Random));
     }
 
     #[test]
     fn test_builder_with_concurrency_limit() {
-        let builder = WorkerPoolBuilder::new("test-pool")
-            .with_concurrency_limit(50);
+        let builder = WorkerPoolBuilder::new("test-pool").with_concurrency_limit(50);
         assert_eq!(builder.concurrency_limit, 50);
     }
 
     #[test]
     fn test_builder_add_worker() {
-        let builder = WorkerPoolBuilder::new("test-pool")
-            .add_worker(TestWorker::new("worker-1"));
+        let builder = WorkerPoolBuilder::new("test-pool").add_worker(TestWorker::new("worker-1"));
         assert_eq!(builder.workers.len(), 1);
     }
 
@@ -313,8 +313,7 @@ mod tests {
             TestWorker::new("worker-3"),
         ];
 
-        let builder = WorkerPoolBuilder::new("test-pool")
-            .add_workers(workers);
+        let builder = WorkerPoolBuilder::new("test-pool").add_workers(workers);
         assert_eq!(builder.workers.len(), 3);
     }
 
@@ -346,8 +345,7 @@ mod tests {
 
     #[test]
     fn test_builder_build_allow_empty() {
-        let pool = WorkerPoolBuilder::new("test-pool")
-            .build_allow_empty();
+        let pool = WorkerPoolBuilder::new("test-pool").build_allow_empty();
 
         assert_eq!(pool.worker_count(), 0);
         assert_eq!(pool.name(), "test-pool");
@@ -372,8 +370,21 @@ mod tests {
         struct MockMetrics;
         impl WorkerMetrics for MockMetrics {
             fn record_message_received(&self, _worker_id: &str, _queue_name: &str) {}
-            fn record_message_processed(&self, _worker_id: &str, _queue_name: &str, _start_time: Instant) {}
-            fn record_message_failed(&self, _worker_id: &str, _queue_name: &str, _error_type: &str, _start_time: Instant) {}
+            fn record_message_processed(
+                &self,
+                _worker_id: &str,
+                _queue_name: &str,
+                _start_time: Instant,
+            ) {
+            }
+            fn record_message_failed(
+                &self,
+                _worker_id: &str,
+                _queue_name: &str,
+                _error_type: &str,
+                _start_time: Instant,
+            ) {
+            }
             fn record_message_retried(&self, _worker_id: &str, _queue_name: &str, _attempt: u32) {}
             fn record_message_retries_exhausted(&self, _worker_id: &str, _queue_name: &str) {}
             fn record_message_sent_to_dlq(&self, _queue_name: &str, _is_poison_pill: bool) {}

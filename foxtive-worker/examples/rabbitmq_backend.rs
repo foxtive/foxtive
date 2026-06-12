@@ -8,8 +8,8 @@
 //! Run with: `cargo run --example rabbitmq_backend --features rabbitmq`
 
 use async_trait::async_trait;
-use foxtive_worker::{Worker, WorkerPoolBuilder, ReceivedMessage};
 use foxtive_worker::error::WorkerResult;
+use foxtive_worker::{ReceivedMessage, Worker, WorkerPoolBuilder};
 
 #[cfg(feature = "rabbitmq")]
 use {
@@ -30,15 +30,18 @@ impl Worker for ExampleWorker {
     }
 
     async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-        println!("Worker {} processing message: {}", self.id, message.message.id);
+        println!(
+            "Worker {} processing message: {}",
+            self.id, message.message.id
+        );
         println!("Payload: {:?}", message.message.payload);
-        
+
         // Process the message...
         // Your business logic here
-        
+
         // NOTE: Don't manually call message.ack() - the pool handles acknowledgment automatically
         // after successful processing. Only call ack/nack if you're using a custom middleware chain.
-        
+
         Ok(())
     }
 }
@@ -50,7 +53,9 @@ async fn main() -> anyhow::Result<()> {
 
     #[cfg(not(feature = "rabbitmq"))]
     {
-        println!("RabbitMQ feature not enabled. Run with: cargo run --example rabbitmq_backend --features rabbitmq");
+        println!(
+            "RabbitMQ feature not enabled. Run with: cargo run --example rabbitmq_backend --features rabbitmq"
+        );
         return Ok(());
     }
 
@@ -66,13 +71,20 @@ async fn main() -> anyhow::Result<()> {
 
         // Create RabbitMQ backend
         println!("Connecting to RabbitMQ...");
-        let backend = Arc::new(RabbitMqBackend::new("amqp://ahmard:Pass.1234@localhost", config).await?);
+        let backend =
+            Arc::new(RabbitMqBackend::new("amqp://ahmard:Pass.1234@localhost", config).await?);
         println!("Connected to RabbitMQ!");
 
         // Create workers
-        let worker1 = Arc::new(ExampleWorker { id: "worker-1".to_string() });
-        let worker2 = Arc::new(ExampleWorker { id: "worker-2".to_string() });
-        let worker3 = Arc::new(ExampleWorker { id: "worker-3".to_string() });
+        let worker1 = Arc::new(ExampleWorker {
+            id: "worker-1".to_string(),
+        });
+        let worker2 = Arc::new(ExampleWorker {
+            id: "worker-2".to_string(),
+        });
+        let worker3 = Arc::new(ExampleWorker {
+            id: "worker-3".to_string(),
+        });
 
         // Build worker pool
         let pool = Arc::new(
@@ -81,7 +93,7 @@ async fn main() -> anyhow::Result<()> {
                 .add_arc_worker(worker1)
                 .add_arc_worker(worker2)
                 .add_arc_worker(worker3)
-                .build()?
+                .build()?,
         );
 
         println!("Worker pool started. Waiting for messages...");
@@ -90,7 +102,7 @@ async fn main() -> anyhow::Result<()> {
         // Spawn message receiver task
         let backend_clone = backend.clone();
         let pool_clone = pool.clone();
-        
+
         let receiver_handle = tokio::spawn(async move {
             loop {
                 match backend_clone.receive().await {
@@ -120,10 +132,10 @@ async fn main() -> anyhow::Result<()> {
 
         // Shutdown backend first (stops receiving new messages)
         backend.shutdown().await?;
-        
+
         // Wait for receiver to finish
         let _ = receiver_handle.await;
-        
+
         // Then shutdown pool (waits for in-flight messages)
         pool.shutdown().await?;
         println!("Shutdown complete.");

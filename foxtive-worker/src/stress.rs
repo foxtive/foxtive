@@ -1,3 +1,4 @@
+use std::sync::Arc;
 /// Stress testing utilities for foxtive-worker.
 ///
 /// Provides tools for high-load testing, performance benchmarking,
@@ -21,7 +22,6 @@
 /// }
 /// ```
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::error::WorkerResult;
@@ -141,9 +141,15 @@ impl Worker for StressTestWorker {
         let _hash = calculate_hash(&message.message.payload);
 
         let elapsed = start.elapsed();
-        
+
         // Record processing time in microseconds
-        let idx = self.id.split('-').next_back().unwrap_or("0").parse::<usize>().unwrap_or(0);
+        let idx = self
+            .id
+            .split('-')
+            .next_back()
+            .unwrap_or("0")
+            .parse::<usize>()
+            .unwrap_or(0);
         if let Some(counter) = self.processing_times.get(idx) {
             counter.store(elapsed.as_micros() as u64, Ordering::Relaxed);
         }
@@ -158,7 +164,9 @@ impl Worker for StressTestWorker {
 /// Calculate a simple hash to simulate CPU work.
 fn calculate_hash(value: &serde_json::Value) -> u64 {
     let serialized = serde_json::to_string(value).unwrap_or_default();
-    serialized.bytes().fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64))
+    serialized
+        .bytes()
+        .fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64))
 }
 
 /// Run a stress test with the given configuration.
@@ -166,9 +174,9 @@ fn calculate_hash(value: &serde_json::Value) -> u64 {
 /// This creates multiple workers and dispatches messages at maximum speed
 /// to measure throughput, latency, and resource usage.
 pub async fn run_stress_test(config: StressTestConfig) -> StressTestResults {
+    use crate::metrics::NoOpMetrics;
     use crate::pool::WorkerPool;
     use crate::strategies::LoadBalancingStrategy;
-    use crate::metrics::NoOpMetrics;
 
     println!("Starting stress test...");
     println!("  Messages: {}", config.message_count);
@@ -180,7 +188,7 @@ pub async fn run_stress_test(config: StressTestConfig) -> StressTestResults {
     let processing_times = Arc::new(
         (0..config.concurrency)
             .map(|_| AtomicU64::new(0))
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>(),
     );
     let error_count = Arc::new(AtomicUsize::new(0));
 
@@ -204,14 +212,14 @@ pub async fn run_stress_test(config: StressTestConfig) -> StressTestResults {
 
     // Generate test messages
     let test_payload = generate_test_payload(config.message_size_bytes);
-    
+
     println!("Dispatching {} messages...", config.message_count);
     let dispatch_start = Instant::now();
 
     // Dispatch all messages
     for i in 0..config.message_count {
         let message = create_stress_test_message(&format!("msg-{}", i), test_payload.clone());
-        
+
         if let Err(e) = pool.dispatch(message).await {
             eprintln!("Failed to dispatch message {}: {}", i, e);
             error_count.fetch_add(1, Ordering::Relaxed);
@@ -229,7 +237,7 @@ pub async fn run_stress_test(config: StressTestConfig) -> StressTestResults {
     // Wait for all messages to be processed
     println!("Waiting for processing to complete...");
     let timeout = Duration::from_secs(config.test_timeout_secs);
-    
+
     loop {
         if start_time.elapsed() > timeout {
             eprintln!("WARNING: Test timeout reached!");
@@ -252,12 +260,13 @@ pub async fn run_stress_test(config: StressTestConfig) -> StressTestResults {
 
     // Calculate statistics
     let throughput = successful as f64 / total_duration.as_secs_f64();
-    
-    let times: Vec<u64> = processing_times.iter()
+
+    let times: Vec<u64> = processing_times
+        .iter()
         .map(|t| t.load(Ordering::Relaxed))
         .filter(|&t| t > 0)
         .collect();
-    
+
     let avg_time = if times.is_empty() {
         0.0
     } else {
@@ -266,15 +275,21 @@ pub async fn run_stress_test(config: StressTestConfig) -> StressTestResults {
 
     let mut sorted_times = times.clone();
     sorted_times.sort();
-    
-    let p95_idx = ((sorted_times.len() as f64 * 0.95) as usize).min(sorted_times.len().saturating_sub(1));
-    let p99_idx = ((sorted_times.len() as f64 * 0.99) as usize).min(sorted_times.len().saturating_sub(1));
-    
+
+    let p95_idx =
+        ((sorted_times.len() as f64 * 0.95) as usize).min(sorted_times.len().saturating_sub(1));
+    let p99_idx =
+        ((sorted_times.len() as f64 * 0.99) as usize).min(sorted_times.len().saturating_sub(1));
+
     let p95_time = sorted_times.get(p95_idx).copied().unwrap_or(0) as f64 / 1000.0;
     let p99_time = sorted_times.get(p99_idx).copied().unwrap_or(0) as f64 / 1000.0;
 
     // Estimate memory usage (rough approximation)
-    let peak_memory_mb = estimate_memory_usage(config.message_count, config.message_size_bytes, config.concurrency);
+    let peak_memory_mb = estimate_memory_usage(
+        config.message_count,
+        config.message_size_bytes,
+        config.concurrency,
+    );
 
     let success_rate = if config.message_count > 0 {
         (successful as f64 / config.message_count as f64) * 100.0
@@ -315,7 +330,10 @@ fn generate_test_payload(size_bytes: usize) -> serde_json::Value {
 }
 
 /// Create a stress test message.
-fn create_stress_test_message(id: &str, payload: serde_json::Value) -> ReceivedMessage<serde_json::Value> {
+fn create_stress_test_message(
+    id: &str,
+    payload: serde_json::Value,
+) -> ReceivedMessage<serde_json::Value> {
     let message = Message {
         id: id.to_string(),
         payload,
@@ -333,7 +351,7 @@ fn estimate_memory_usage(message_count: usize, message_size: usize, concurrency:
     let in_flight_bytes = concurrency * message_size;
     let queue_overhead = message_count * message_size / 10;
     let worker_state = concurrency * 1_048_576; // 1MB per worker
-    
+
     let total_bytes = in_flight_bytes + queue_overhead + worker_state;
     total_bytes as f64 / 1_048_576.0 // Convert to MB
 }
@@ -344,7 +362,7 @@ fn estimate_memory_usage(message_count: usize, message_size: usize, concurrency:
 /// memory leaks, resource exhaustion, or degradation over time.
 pub async fn run_stability_test(duration_secs: u64, config: StressTestConfig) -> StressTestResults {
     println!("Starting {}-second stability test...", duration_secs);
-    
+
     let start = Instant::now();
     let target_duration = Duration::from_secs(duration_secs);
     let mut iteration = 0;
@@ -354,20 +372,20 @@ pub async fn run_stability_test(duration_secs: u64, config: StressTestConfig) ->
     while start.elapsed() < target_duration {
         iteration += 1;
         println!("\n--- Iteration {} ---", iteration);
-        
+
         let mut iter_config = config.clone();
         iter_config.message_count = config.message_count / 10; // Smaller batches
-        
+
         let results = run_stress_test(iter_config).await;
         total_processed += results.total_messages;
         total_errors += results.error_count;
-        
+
         // Brief pause between iterations
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
     let total_duration = start.elapsed();
-    
+
     StressTestResults {
         total_messages: total_processed,
         total_duration,
@@ -399,7 +417,7 @@ mod tests {
         };
 
         let results = run_stress_test(config).await;
-        
+
         assert!(results.total_messages > 0);
         assert!(results.throughput > 0.0);
         assert!(results.success_rate >= 99.0); // Should be nearly 100%
@@ -409,7 +427,7 @@ mod tests {
     fn test_payload_generation() {
         let payload = generate_test_payload(1024);
         let serialized = serde_json::to_string(&payload).unwrap();
-        
+
         // Payload should be approximately the requested size
         assert!(serialized.len() >= 1024);
     }

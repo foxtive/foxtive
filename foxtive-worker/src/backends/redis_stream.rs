@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::backends::contract::MessageBackend;
 use crate::backends::ReceiveResult;
+use crate::backends::contract::MessageBackend;
 use crate::error::{WorkerError, WorkerResult};
 use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
 
@@ -55,7 +55,10 @@ impl AckHandle for RedisStreamAckHandle {
                     }
                 }
                 Ok(None) => {
-                    tracing::warn!("Message {} not found for DLQ - may have been deleted", self.message_id);
+                    tracing::warn!(
+                        "Message {} not found for DLQ - may have been deleted",
+                        self.message_id
+                    );
                 }
                 Err(e) => {
                     // Message payload retrieval failed (e.g., deserialization error)
@@ -67,10 +70,14 @@ impl AckHandle for RedisStreamAckHandle {
                     );
                 }
             }
-            
+
             // Always ACK from main stream to prevent infinite retry loop
             if let Err(ack_err) = self.ack().await {
-                tracing::error!("Failed to ACK message {} after DLQ attempt: {}", self.message_id, ack_err);
+                tracing::error!(
+                    "Failed to ACK message {} after DLQ attempt: {}",
+                    self.message_id,
+                    ack_err
+                );
                 return Err(ack_err);
             }
         } else {
@@ -245,13 +252,13 @@ impl RedisStreamBackend {
     }
 
     /// Trim the stream to a maximum length using XTRIM.
-    /// 
+    ///
     /// This prevents unbounded memory growth in Redis by removing old messages.
     /// Should be called periodically or after processing batches of messages.
-    /// 
+    ///
     /// # Arguments
     /// * `max_len` - Maximum number of messages to keep in the stream
-    /// 
+    ///
     /// # Example
     /// ```rust,no_run
     /// # use foxtive_worker::backends::RedisStreamBackend;
@@ -270,18 +277,22 @@ impl RedisStreamBackend {
         redis::cmd("XTRIM")
             .arg(&self.config.stream_name)
             .arg("MAXLEN")
-            .arg("~")  // Approximate trimming for better performance
+            .arg("~") // Approximate trimming for better performance
             .arg(max_len)
             .query_async::<()>(&mut conn)
             .await
             .map_err(|e| WorkerError::BackendError(format!("Failed to trim stream: {}", e)))?;
 
-        tracing::debug!("Trimmed stream {} to max length {}", self.config.stream_name, max_len);
+        tracing::debug!(
+            "Trimmed stream {} to max length {}",
+            self.config.stream_name,
+            max_len
+        );
         Ok(())
     }
 
     /// Trim the DLQ stream if configured.
-    /// 
+    ///
     /// # Arguments
     /// * `max_len` - Maximum number of messages to keep in the DLQ stream
     pub async fn trim_dlq_stream(&self, max_len: usize) -> WorkerResult<()> {
@@ -297,9 +308,15 @@ impl RedisStreamBackend {
                 .arg(max_len)
                 .query_async::<()>(&mut conn)
                 .await
-                .map_err(|e| WorkerError::BackendError(format!("Failed to trim DLQ stream: {}", e)))?;
+                .map_err(|e| {
+                    WorkerError::BackendError(format!("Failed to trim DLQ stream: {}", e))
+                })?;
 
-            tracing::debug!("Trimmed DLQ stream {} to max length {}", dlq_stream, max_len);
+            tracing::debug!(
+                "Trimmed DLQ stream {} to max length {}",
+                dlq_stream,
+                max_len
+            );
         }
         Ok(())
     }
@@ -324,13 +341,18 @@ impl RedisStreamBackend {
                 })?)
                 .query_async(&mut conn)
                 .await
-                .map_err(|e| WorkerError::BackendError(format!("Failed to add message to DLQ: {}", e)))?;
+                .map_err(|e| {
+                    WorkerError::BackendError(format!("Failed to add message to DLQ: {}", e))
+                })?;
 
         Ok(message_id)
     }
 
     /// Get the payload of a message by its ID from the main stream.
-    async fn get_message_payload(&self, message_id: &str) -> WorkerResult<Option<serde_json::Value>> {
+    async fn get_message_payload(
+        &self,
+        message_id: &str,
+    ) -> WorkerResult<Option<serde_json::Value>> {
         let mut conn = self.redis.get().await.map_err(|e| {
             WorkerError::BackendError(format!("Failed to get Redis connection: {}", e))
         })?;
@@ -342,22 +364,23 @@ impl RedisStreamBackend {
             .arg(message_id)
             .query_async(&mut conn)
             .await
-            .map_err(|e| WorkerError::BackendError(format!("Failed to read message for DLQ: {}", e)))?;
+            .map_err(|e| {
+                WorkerError::BackendError(format!("Failed to read message for DLQ: {}", e))
+            })?;
 
         if let Some(stream_messages) = result.first()
             && let Some((_, fields)) = stream_messages.first()
             && let Some((_, data_str)) = fields.iter().find(|(k, _)| k == "data")
         {
             // Parse JSON payload - fail on invalid JSON
-            let payload: serde_json::Value = serde_json::from_str(data_str)
-                .map_err(|e| {
-                    tracing::error!(
-                        "Failed to deserialize message payload for DLQ: {} (message_id: {})",
-                        e,
-                        message_id
-                    );
-                    WorkerError::SerializationError(e)
-                })?;
+            let payload: serde_json::Value = serde_json::from_str(data_str).map_err(|e| {
+                tracing::error!(
+                    "Failed to deserialize message payload for DLQ: {} (message_id: {})",
+                    e,
+                    message_id
+                );
+                WorkerError::SerializationError(e)
+            })?;
             Ok(Some(payload))
         } else {
             Ok(None)
@@ -472,7 +495,11 @@ impl RedisStreamBackend {
                             }),
                         });
                         if let Err(nack_err) = ack_handle_temp.nack(false).await {
-                            tracing::error!("Failed to nack malformed claimed message {}: {:?}", message_id, nack_err);
+                            tracing::error!(
+                                "Failed to nack malformed claimed message {}: {:?}",
+                                message_id,
+                                nack_err
+                            );
                         }
                         continue; // Skip this message and process next one
                     }
@@ -564,7 +591,11 @@ impl MessageBackend for RedisStreamBackend {
                         }),
                     });
                     if let Err(nack_err) = ack_handle_temp.nack(false).await {
-                        tracing::error!("Failed to nack malformed message {}: {:?}", message_id, nack_err);
+                        tracing::error!(
+                            "Failed to nack malformed message {}: {:?}",
+                            message_id,
+                            nack_err
+                        );
                     }
                     // Return Shutdown to skip this message and try to receive the next one
                     return Ok(ReceiveResult::Shutdown);
@@ -595,7 +626,9 @@ impl MessageBackend for RedisStreamBackend {
                 }),
             });
 
-            return Ok(ReceiveResult::Message(ReceivedMessage::new(message, ack_handle)));
+            return Ok(ReceiveResult::Message(ReceivedMessage::new(
+                message, ack_handle,
+            )));
         }
 
         // No messages (timeout or empty)
@@ -630,7 +663,10 @@ impl MessageBackend for RedisStreamBackend {
                             dlq_err
                         );
                     } else {
-                        tracing::info!("Message {} moved to DLQ successfully via backend nack", message_id);
+                        tracing::info!(
+                            "Message {} moved to DLQ successfully via backend nack",
+                            message_id
+                        );
                     }
                 }
                 Ok(None) => {
@@ -644,15 +680,22 @@ impl MessageBackend for RedisStreamBackend {
                     );
                 }
             }
-            
+
             // Always ACK from main stream to prevent infinite retry loop
             if let Err(ack_err) = self.ack(message_id).await {
-                tracing::error!("Failed to ACK message {} after DLQ attempt via backend nack: {}", message_id, ack_err);
+                tracing::error!(
+                    "Failed to ACK message {} after DLQ attempt via backend nack: {}",
+                    message_id,
+                    ack_err
+                );
                 return Err(ack_err);
             }
         } else {
             // If requeue, message remains in PEL
-            tracing::warn!("nack called on Redis Stream message {} with requeue=true via backend - message remains pending", message_id);
+            tracing::warn!(
+                "nack called on Redis Stream message {} with requeue=true via backend - message remains pending",
+                message_id
+            );
         }
         Ok(())
     }
@@ -684,8 +727,8 @@ mod tests {
     // They are marked with #[ignore] to skip in normal test runs
 
     use super::*;
-    use crate::backends::redis_stream::RedisStreamConsumerConfig;
     use crate::backends::ReceiveResult;
+    use crate::backends::redis_stream::RedisStreamConsumerConfig;
 
     #[tokio::test]
     #[ignore]
@@ -748,46 +791,62 @@ mod tests {
             dlq_stream_name: Some(dlq_stream.clone()),
             ..Default::default()
         };
-        let backend = RedisStreamBackend::new("redis://localhost", config).await.unwrap();
+        let backend = RedisStreamBackend::new("redis://localhost", config)
+            .await
+            .unwrap();
 
         // Add a message
-        let message_id = backend.add_message(serde_json::json!({"dlq_test": true})).await.unwrap();
+        let message_id = backend
+            .add_message(serde_json::json!({"dlq_test": true}))
+            .await
+            .unwrap();
 
         // Receive it
         let result = backend.receive().await.unwrap();
         if let ReceiveResult::Message(received_msg) = result {
             assert_eq!(received_msg.message.id, message_id);
 
-        // Nack without requeue (should go to DLQ)
-        received_msg.nack(false).await.unwrap();
+            // Nack without requeue (should go to DLQ)
+            received_msg.nack(false).await.unwrap();
 
-        // Verify message is acknowledged from main stream (not in PEL)
-        let pending_count = backend.pending_count().await.unwrap();
-        assert_eq!(pending_count, 0);
+            // Verify message is acknowledged from main stream (not in PEL)
+            let pending_count = backend.pending_count().await.unwrap();
+            assert_eq!(pending_count, 0);
 
-        // Verify message is in DLQ stream
-        let mut conn = backend.redis.get().await.unwrap();
-        let dlq_messages: StreamMessages = redis::cmd("XREAD")
-            .arg("COUNT")
-            .arg(1)
-            .arg("STREAMS")
-            .arg(&dlq_stream)
-            .arg("0-0")
-            .query_async(&mut conn)
-            .await
-            .unwrap();
+            // Verify message is in DLQ stream
+            let mut conn = backend.redis.get().await.unwrap();
+            let dlq_messages: StreamMessages = redis::cmd("XREAD")
+                .arg("COUNT")
+                .arg(1)
+                .arg("STREAMS")
+                .arg(&dlq_stream)
+                .arg("0-0")
+                .query_async(&mut conn)
+                .await
+                .unwrap();
 
-        assert!(!dlq_messages.is_empty());
-        assert!(!dlq_messages[0].is_empty());
-        let (_, fields) = &dlq_messages[0][0];
-        let (_, data_str) = fields.iter().find(|(k, _)| k == "data").unwrap();
-        assert_eq!(serde_json::from_str::<serde_json::Value>(data_str).unwrap(), serde_json::json!({"dlq_test": true}));
+            assert!(!dlq_messages.is_empty());
+            assert!(!dlq_messages[0].is_empty());
+            let (_, fields) = &dlq_messages[0][0];
+            let (_, data_str) = fields.iter().find(|(k, _)| k == "data").unwrap();
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(data_str).unwrap(),
+                serde_json::json!({"dlq_test": true})
+            );
 
-        // Clean up DLQ stream for next test run
-        redis::cmd("DEL").arg(&dlq_stream).query_async::<()>(&mut conn).await.unwrap();
-        redis::cmd("DEL").arg(&backend.config.stream_name).query_async::<()>(&mut conn).await.unwrap();
-    } else {
-        panic!("Expected Message variant");
-    }
+            // Clean up DLQ stream for next test run
+            redis::cmd("DEL")
+                .arg(&dlq_stream)
+                .query_async::<()>(&mut conn)
+                .await
+                .unwrap();
+            redis::cmd("DEL")
+                .arg(&backend.config.stream_name)
+                .query_async::<()>(&mut conn)
+                .await
+                .unwrap();
+        } else {
+            panic!("Expected Message variant");
+        }
     }
 }

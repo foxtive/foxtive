@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
 
 use crate::error::{WorkerError, WorkerResult};
 use crate::message::ReceivedMessage;
@@ -12,10 +12,10 @@ use crate::middleware::{MessageHandler, Middleware};
 pub enum CircuitState {
     /// Circuit is closed, requests flow normally
     Closed,
-    
+
     /// Circuit is open, requests are rejected
     Open,
-    
+
     /// Circuit is half-open, testing if service recovered
     HalfOpen,
 }
@@ -60,13 +60,14 @@ impl CircuitBreakerState {
             CircuitState::Open => {
                 // Check if timeout has elapsed
                 if let Some(opened_at) = self.opened_at
-                    && opened_at.elapsed() >= self.timeout {
-                        // Transition to HalfOpen and allow one test request
-                        self.state = CircuitState::HalfOpen;
-                        self.half_open_successes = 0;
-                        self.test_request_in_progress = true; // This request is the test request
-                        return true;
-                    }
+                    && opened_at.elapsed() >= self.timeout
+                {
+                    // Transition to HalfOpen and allow one test request
+                    self.state = CircuitState::HalfOpen;
+                    self.half_open_successes = 0;
+                    self.test_request_in_progress = true; // This request is the test request
+                    return true;
+                }
                 false // Still in Open state, timeout not elapsed
             }
             CircuitState::HalfOpen => {
@@ -196,11 +197,12 @@ impl CircuitBreakerMiddleware {
         // Check if Open state should transition to HalfOpen
         if state.current_state() == &CircuitState::Open
             && let Some(opened_at) = state.opened_at
-                && opened_at.elapsed() >= state.timeout {
-                    state.state = CircuitState::HalfOpen;
-                    state.half_open_successes = 0;
-                    // Don't reset test_request_in_progress here - it will be set by should_allow_request
-                }
+            && opened_at.elapsed() >= state.timeout
+        {
+            state.state = CircuitState::HalfOpen;
+            state.half_open_successes = 0;
+            // Don't reset test_request_in_progress here - it will be set by should_allow_request
+        }
         state.current_state().clone()
     }
 }
@@ -267,7 +269,7 @@ mod tests {
     }
 
     fn create_test_message() -> ReceivedMessage<serde_json::Value> {
-        use crate::message::{Message, MessageMetadata, AckHandle};
+        use crate::message::{AckHandle, Message, MessageMetadata};
 
         #[derive(Debug)]
         struct MockAckHandle;
@@ -349,23 +351,45 @@ mod tests {
         assert_eq!(middleware.get_state().await, CircuitState::Closed); // Should close after 1 success with default threshold
 
         // If it were still HalfOpen, a second request should be rejected
-        let middleware_half_open_test = CircuitBreakerMiddleware::with_threshold(2, Duration::from_millis(100), 2); // Need 2 successes to close
+        let middleware_half_open_test =
+            CircuitBreakerMiddleware::with_threshold(2, Duration::from_millis(100), 2); // Need 2 successes to close
         for _ in 0..2 {
             let message = create_test_message();
-            let _ = middleware_half_open_test.handle(message, Box::new(FailureHandler)).await;
+            let _ = middleware_half_open_test
+                .handle(message, Box::new(FailureHandler))
+                .await;
         }
         time::sleep(Duration::from_millis(150)).await;
-        assert_eq!(middleware_half_open_test.get_state().await, CircuitState::HalfOpen);
+        assert_eq!(
+            middleware_half_open_test.get_state().await,
+            CircuitState::HalfOpen
+        );
 
         let message_test_1 = create_test_message();
-        assert!(middleware_half_open_test.handle(message_test_1, Box::new(SuccessHandler)).await.is_ok());
-        assert_eq!(middleware_half_open_test.get_state().await, CircuitState::HalfOpen); // Still HalfOpen, 1 success recorded
+        assert!(
+            middleware_half_open_test
+                .handle(message_test_1, Box::new(SuccessHandler))
+                .await
+                .is_ok()
+        );
+        assert_eq!(
+            middleware_half_open_test.get_state().await,
+            CircuitState::HalfOpen
+        ); // Still HalfOpen, 1 success recorded
 
         let message_test_2 = create_test_message();
-        let result_test_2 = middleware_half_open_test.handle(message_test_2, Box::new(SuccessHandler)).await;
+        let result_test_2 = middleware_half_open_test
+            .handle(message_test_2, Box::new(SuccessHandler))
+            .await;
         assert!(result_test_2.is_err()); // Second request should be rejected
-        assert!(matches!(result_test_2, Err(WorkerError::ProcessingFailed(_))));
-        assert_eq!(middleware_half_open_test.get_state().await, CircuitState::HalfOpen); // Still HalfOpen
+        assert!(matches!(
+            result_test_2,
+            Err(WorkerError::ProcessingFailed(_))
+        ));
+        assert_eq!(
+            middleware_half_open_test.get_state().await,
+            CircuitState::HalfOpen
+        ); // Still HalfOpen
     }
 
     #[tokio::test]
@@ -383,7 +407,10 @@ mod tests {
 
         // Success in HalfOpen should close circuit (with default success_threshold = 1)
         let message = create_test_message();
-        middleware.handle(message, Box::new(SuccessHandler)).await.unwrap();
+        middleware
+            .handle(message, Box::new(SuccessHandler))
+            .await
+            .unwrap();
 
         assert_eq!(middleware.get_state().await, CircuitState::Closed);
     }

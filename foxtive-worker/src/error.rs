@@ -1,5 +1,5 @@
-use thiserror::Error;
 use std::time::Duration;
+use thiserror::Error;
 
 /// Error types for the foxtive-worker crate.
 #[derive(Debug, Error)]
@@ -17,10 +17,7 @@ pub enum WorkerError {
     AcknowledgmentFailed(String),
 
     #[error("Worker {id} panicked: {panic_info}")]
-    WorkerPanic {
-        id: String,
-        panic_info: String,
-    },
+    WorkerPanic { id: String, panic_info: String },
 
     #[error("Pool exhausted: no available workers")]
     PoolExhausted,
@@ -47,9 +44,7 @@ pub enum WorkerError {
     },
 
     #[error("Retries exhausted for message: {source}")]
-    RetriesExhausted {
-        source: Box<WorkerError>,
-    },
+    RetriesExhausted { source: Box<WorkerError> },
 
     #[error("Message already acknowledged by middleware")]
     AlreadyAcknowledged,

@@ -7,25 +7,25 @@ use serde::{Deserialize, Serialize};
 pub struct DeadLetterMessage {
     /// Original message ID
     pub original_id: String,
-    
+
     /// Original message payload
     pub original_payload: serde_json::Value,
-    
+
     /// Queue where the message originated
     pub source_queue: String,
-    
+
     /// Number of processing attempts before DLQ
     pub attempt_count: u32,
-    
+
     /// Error that caused the final failure
     pub error_message: String,
-    
+
     /// Timestamp when message was sent to DLQ
     pub dlq_timestamp: DateTime<Utc>,
-    
+
     /// Worker ID that processed the message last
     pub last_worker_id: Option<String>,
-    
+
     /// Additional metadata about the failure
     pub failure_context: serde_json::Value,
 }
@@ -81,10 +81,10 @@ impl DeadLetterMessage {
 pub struct PoisonPillConfig {
     /// Maximum number of failures before considering a message a poison pill
     pub max_failures: u32,
-    
+
     /// Time window for tracking failures (e.g., failures within 1 hour)
     pub time_window: std::time::Duration,
-    
+
     /// Whether to immediately send to DLQ when poison pill is detected
     pub immediate_dlq: bool,
 }
@@ -122,18 +122,18 @@ impl PoisonPillTracker {
     pub fn record_failure(&self, message_id: &str) -> bool {
         let mut counts = self.failure_counts.lock().unwrap();
         let now = Utc::now();
-        
+
         // Get or create failure timestamps for this message
         let failures = counts.entry(message_id.to_string()).or_default();
         failures.push(now);
-        
+
         // Remove old failures outside the time window
         let cutoff = now - chrono::Duration::from_std(self.config.time_window).unwrap_or_default();
         failures.retain(|&t| t > cutoff);
-        
+
         // Check if this exceeds the threshold
         let is_poison_pill = failures.len() >= self.config.max_failures as usize;
-        
+
         if is_poison_pill {
             tracing::warn!(
                 "Poison pill detected for message {}: {} failures in {:?}",
@@ -142,7 +142,7 @@ impl PoisonPillTracker {
                 self.config.time_window
             );
         }
-        
+
         is_poison_pill
     }
 

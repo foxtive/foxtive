@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use tokio::sync::{Notify, Semaphore};
 use tokio::time::sleep;
@@ -8,9 +8,11 @@ use tokio_util::sync::CancellationToken;
 use crate::error::{WorkerError, WorkerResult};
 use crate::health::{HealthCheck, HealthStatus};
 use crate::message::ReceivedMessage;
-use crate::middleware::{MessageHandler, Middleware, MiddlewareChain};
 use crate::metrics::WorkerMetrics;
-use crate::strategies::{LoadBalancingStrategy, LeastLoadedBalancer, RandomBalancer, RoundRobinBalancer};
+use crate::middleware::{MessageHandler, Middleware, MiddlewareChain};
+use crate::strategies::{
+    LeastLoadedBalancer, LoadBalancingStrategy, RandomBalancer, RoundRobinBalancer,
+};
 use crate::worker::Worker;
 
 /// A pool of workers with load balancing for message distribution.
@@ -118,7 +120,8 @@ impl WorkerPool {
         if let Some(ref balancer) = self.least_loaded_balancer {
             balancer.add_worker();
         }
-        self.metrics_collector.record_active_workers(self.workers.len());
+        self.metrics_collector
+            .record_active_workers(self.workers.len());
     }
 
     /// Add multiple workers to the pool.
@@ -165,22 +168,30 @@ impl WorkerPool {
         let worker_id = worker.id().to_string();
         let queue_name = message.message.metadata.source.clone();
 
-        self.metrics_collector.record_message_received(&worker_id, &queue_name);
+        self.metrics_collector
+            .record_message_received(&worker_id, &queue_name);
         let start_time = Instant::now();
 
         if let Some(ref balancer) = self.least_loaded_balancer {
             balancer.increment_load(worker_index);
         }
 
-        let permit = self.semaphore.clone().acquire_owned().await
+        let permit = self
+            .semaphore
+            .clone()
+            .acquire_owned()
+            .await
             .map_err(|_| WorkerError::Shutdown)?;
 
-        self.metrics_collector.record_in_flight_messages(self.semaphore.available_permits());
+        self.metrics_collector
+            .record_in_flight_messages(self.semaphore.available_permits());
 
         // Build the handler chain - wrap worker with middleware if configured
         let handler: Arc<dyn MessageHandler> = if !self.middlewares.is_empty() {
             let worker_handler = WorkerHandler(worker);
-            let boxed_middlewares: Vec<Box<dyn Middleware>> = self.middlewares.iter()
+            let boxed_middlewares: Vec<Box<dyn Middleware>> = self
+                .middlewares
+                .iter()
                 .map(|m| Box::new(ArcMiddlewareWrapper(m.clone())) as Box<dyn Middleware>)
                 .collect();
 
@@ -216,14 +227,22 @@ impl WorkerPool {
                     return;
                 }
             };
-            
+
             match result {
                 Ok(_) => {
                     tracing::debug!("Message {} processed successfully", message_id);
-                    metrics_collector_clone.record_message_processed(&worker_id, &queue_name, start_time);
+                    metrics_collector_clone.record_message_processed(
+                        &worker_id,
+                        &queue_name,
+                        start_time,
+                    );
                     // Retry ack with exponential backoff on failure
                     if let Err(e) = retry_ack(&ack_handle, &message_id).await {
-                        tracing::error!("Failed to ack message {} after retries: {}. Message may be redelivered.", message_id, e);
+                        tracing::error!(
+                            "Failed to ack message {} after retries: {}. Message may be redelivered.",
+                            message_id,
+                            e
+                        );
                         // Consider sending to DLQ or implementing idempotency at application level
                     }
                 }
@@ -234,8 +253,17 @@ impl WorkerPool {
                         delay_ms,
                         source
                     );
-                    metrics_collector_clone.record_message_retried(&worker_id, &queue_name, attempt);
-                    metrics_collector_clone.record_message_failed(&worker_id, &queue_name, "RetryableFailure", start_time);
+                    metrics_collector_clone.record_message_retried(
+                        &worker_id,
+                        &queue_name,
+                        attempt,
+                    );
+                    metrics_collector_clone.record_message_failed(
+                        &worker_id,
+                        &queue_name,
+                        "RetryableFailure",
+                        start_time,
+                    );
                     if let Err(e) = ack_handle.nack(true).await {
                         tracing::error!("Failed to requeue message {}: {}", message_id, e);
                     }
@@ -247,8 +275,14 @@ impl WorkerPool {
                         message_id,
                         source
                     );
-                    metrics_collector_clone.record_message_retries_exhausted(&worker_id, &queue_name);
-                    metrics_collector_clone.record_message_failed(&worker_id, &queue_name, "RetriesExhausted", start_time);
+                    metrics_collector_clone
+                        .record_message_retries_exhausted(&worker_id, &queue_name);
+                    metrics_collector_clone.record_message_failed(
+                        &worker_id,
+                        &queue_name,
+                        "RetriesExhausted",
+                        start_time,
+                    );
                     if let Err(e) = ack_handle.nack(false).await {
                         tracing::error!("Failed to send message {} to DLQ: {}", message_id, e);
                     }
@@ -261,23 +295,28 @@ impl WorkerPool {
                         task_completion_notify.notify_one();
                         return;
                     }
-                    
+
                     let error_type = format!("{:?}", e);
                     tracing::error!("Message {} failed: {}", message_id, e);
-                    metrics_collector_clone.record_message_failed(&worker_id, &queue_name, &error_type, start_time);
+                    metrics_collector_clone.record_message_failed(
+                        &worker_id,
+                        &queue_name,
+                        &error_type,
+                        start_time,
+                    );
                     if let Err(nack_err) = ack_handle.nack(false).await {
                         tracing::error!("Failed to nack message {}: {}", message_id, nack_err);
                     }
                 }
             }
-            
+
             // Decrement load for least-loaded balancer after processing completes
             if let Some(ref balancer) = least_loaded_balancer {
                 balancer.decrement_load(worker_index);
             }
-            
+
             drop(permit);
-            
+
             // Signal task completion and decrement counter
             in_flight_tasks.fetch_sub(1, Ordering::SeqCst);
             task_completion_notify.notify_one();
@@ -289,12 +328,8 @@ impl WorkerPool {
     /// Select a worker based on the configured load balancing strategy.
     fn select_worker(&self) -> usize {
         match self.strategy {
-            LoadBalancingStrategy::RoundRobin => {
-                self.round_robin_balancer.next(self.workers.len())
-            }
-            LoadBalancingStrategy::Random => {
-                self.random_balancer.next(self.workers.len())
-            }
+            LoadBalancingStrategy::RoundRobin => self.round_robin_balancer.next(self.workers.len()),
+            LoadBalancingStrategy::Random => self.random_balancer.next(self.workers.len()),
             LoadBalancingStrategy::LeastLoaded => {
                 if let Some(ref balancer) = self.least_loaded_balancer {
                     balancer.next()
@@ -321,27 +356,28 @@ impl WorkerPool {
 
         // Close the semaphore to prevent new acquisitions
         self.semaphore.close();
-        
+
         // Wait for permits to be returned with efficient notification
         let shutdown_timeout = Duration::from_secs(30); // 30 second timeout
         let start = Instant::now();
-        
+
         loop {
             let available = self.semaphore.available_permits();
             let in_flight = self.concurrency_limit.saturating_sub(available);
-            
+
             if in_flight == 0 {
                 break; // All tasks completed
             }
-            
+
             if start.elapsed() >= shutdown_timeout {
                 tracing::warn!(
                     "Shutdown timeout reached for pool {}. {} tasks still running. Forcing shutdown.",
-                    self.name, in_flight
+                    self.name,
+                    in_flight
                 );
                 break;
             }
-            
+
             // Wait efficiently for task completion notification instead of busy-wait
             tokio::select! {
                 _ = self.task_completion_notify.notified() => {
@@ -354,12 +390,12 @@ impl WorkerPool {
                 }
             }
         }
-        
+
         self.metrics_collector.record_in_flight_messages(0);
         tracing::info!("Worker pool {} shutdown complete", self.name);
         Ok(())
     }
-    
+
     /// Get the current number of in-flight tasks.
     pub fn in_flight_count(&self) -> usize {
         self.in_flight_tasks.load(Ordering::SeqCst)
@@ -371,30 +407,33 @@ impl HealthCheck for WorkerPool {
         let is_running = self.is_running.load(Ordering::SeqCst);
         let worker_count = self.worker_count();
         let in_flight = self.in_flight_tasks.load(Ordering::SeqCst);
-        
+
         // Check if pool is running
         if !is_running {
-            return HealthStatus::Unhealthy { 
-                reason: "Pool is not running".to_string() 
+            return HealthStatus::Unhealthy {
+                reason: "Pool is not running".to_string(),
             };
         }
-        
+
         // Check if workers are available
         if worker_count == 0 {
-            return HealthStatus::Degraded { 
-                reason: "No workers available".to_string() 
+            return HealthStatus::Degraded {
+                reason: "No workers available".to_string(),
             };
         }
-        
+
         // Check if pool is saturated (90%+ capacity)
         let saturation = in_flight as f64 / self.concurrency_limit as f64;
         if saturation > 0.9 {
-            return HealthStatus::Degraded { 
-                reason: format!("Pool near capacity: {} in-flight messages ({:.0}% saturation)", 
-                    in_flight, saturation * 100.0)
+            return HealthStatus::Degraded {
+                reason: format!(
+                    "Pool near capacity: {} in-flight messages ({:.0}% saturation)",
+                    in_flight,
+                    saturation * 100.0
+                ),
             };
         }
-        
+
         HealthStatus::Healthy
     }
 
@@ -402,7 +441,7 @@ impl HealthCheck for WorkerPool {
         let worker_count = self.worker_count();
         let in_flight = self.in_flight_tasks.load(Ordering::SeqCst);
         let available_permits = self.semaphore.available_permits();
-        
+
         match self.check_health() {
             HealthStatus::Healthy => {
                 format!(
@@ -467,10 +506,13 @@ impl MessageHandler for ArcHandlerWrapper {
 /// Retry ack with exponential backoff on failure.
 ///
 /// This helps handle transient network issues or broker unavailability.
-async fn retry_ack(ack_handle: &Arc<dyn crate::message::AckHandle>, message_id: &str) -> WorkerResult<()> {
+async fn retry_ack(
+    ack_handle: &Arc<dyn crate::message::AckHandle>,
+    message_id: &str,
+) -> WorkerResult<()> {
     let max_retries = 3;
     let base_delay_ms = 100;
-    
+
     for attempt in 0..max_retries {
         match ack_handle.ack().await {
             Ok(_) => return Ok(()),
@@ -491,18 +533,18 @@ async fn retry_ack(ack_handle: &Arc<dyn crate::message::AckHandle>, message_id: 
             }
         }
     }
-    
+
     unreachable!()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::{Message, MessageMetadata, AckHandle};
+    use crate::message::{AckHandle, Message, MessageMetadata};
+    use crate::metrics::NoOpMetrics;
     use async_trait::async_trait;
     use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::time::Duration;
-    use crate::metrics::NoOpMetrics; // Use NoOpMetrics for tests
+    use std::time::Duration; // Use NoOpMetrics for tests
 
     #[derive(Debug)]
     struct MockAckHandle;
@@ -559,7 +601,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_pool_creation() {
-        let pool = WorkerPool::new("test-pool", LoadBalancingStrategy::RoundRobin, Arc::new(NoOpMetrics));
+        let pool = WorkerPool::new(
+            "test-pool",
+            LoadBalancingStrategy::RoundRobin,
+            Arc::new(NoOpMetrics),
+        );
         assert_eq!(pool.name(), "test-pool");
         assert_eq!(pool.worker_count(), 0);
         assert!(pool.is_running.load(Ordering::SeqCst));
@@ -567,41 +613,53 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_worker() {
-        let mut pool = WorkerPool::new("test-pool", LoadBalancingStrategy::RoundRobin, Arc::new(NoOpMetrics));
+        let mut pool = WorkerPool::new(
+            "test-pool",
+            LoadBalancingStrategy::RoundRobin,
+            Arc::new(NoOpMetrics),
+        );
         let (worker, _) = TestWorker::new("worker-1");
         pool.add_worker(Arc::new(worker));
-        
+
         assert_eq!(pool.worker_count(), 1);
     }
 
     #[tokio::test]
     async fn test_dispatch_empty_pool() {
-        let pool = WorkerPool::new("test-pool", LoadBalancingStrategy::RoundRobin, Arc::new(NoOpMetrics));
+        let pool = WorkerPool::new(
+            "test-pool",
+            LoadBalancingStrategy::RoundRobin,
+            Arc::new(NoOpMetrics),
+        );
         let message = create_test_message("msg-1");
-        
+
         let result = pool.dispatch(message).await;
         assert!(matches!(result, Err(WorkerError::PoolExhausted)));
     }
 
     #[tokio::test]
     async fn test_round_robin_distribution() {
-        let mut pool = WorkerPool::new("test-pool", LoadBalancingStrategy::RoundRobin, Arc::new(NoOpMetrics));
-        
+        let mut pool = WorkerPool::new(
+            "test-pool",
+            LoadBalancingStrategy::RoundRobin,
+            Arc::new(NoOpMetrics),
+        );
+
         let (worker1, count1) = TestWorker::new("worker-1");
         let (worker2, count2) = TestWorker::new("worker-2");
-        
+
         pool.add_worker(Arc::new(worker1));
         pool.add_worker(Arc::new(worker2));
-        
+
         // Dispatch 4 messages
         for i in 0..4 {
             let message = create_test_message(&format!("msg-{}", i));
             pool.dispatch(message).await.unwrap();
         }
-        
+
         // Give tasks time to complete
         tokio::time::sleep(Duration::from_millis(100)).await;
-        
+
         // Each worker should have processed 2 messages
         assert_eq!(count1.load(Ordering::SeqCst), 2);
         assert_eq!(count2.load(Ordering::SeqCst), 2);
@@ -609,24 +667,28 @@ mod tests {
 
     #[tokio::test]
     async fn test_pool_health() {
-        let pool = WorkerPool::new("test-pool", LoadBalancingStrategy::RoundRobin, Arc::new(NoOpMetrics));
+        let pool = WorkerPool::new(
+            "test-pool",
+            LoadBalancingStrategy::RoundRobin,
+            Arc::new(NoOpMetrics),
+        );
         assert!(matches!(pool.check_health(), HealthStatus::Degraded { .. })); // Degraded because 0 workers
-        
+
         let mut pool = pool;
         let (worker, _) = TestWorker::new("worker-1");
         pool.add_worker(Arc::new(worker));
-        
+
         assert!(matches!(pool.check_health(), HealthStatus::Healthy));
     }
 
     #[tokio::test]
     async fn test_concurrency_limit_enforcement() {
         use std::sync::atomic::{AtomicUsize, Ordering};
-        
+
         // Create a worker that tracks concurrent executions
         let concurrent_count = Arc::new(AtomicUsize::new(0));
         let max_concurrent = Arc::new(AtomicUsize::new(0));
-        
+
         struct ConcurrentTestWorker {
             id: String,
             concurrent: Arc<AtomicUsize>,
@@ -639,10 +701,13 @@ mod tests {
                 &self.id
             }
 
-            async fn process(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+            async fn process(
+                &self,
+                _message: ReceivedMessage<serde_json::Value>,
+            ) -> WorkerResult<()> {
                 // Increment concurrent count
                 let current = self.concurrent.fetch_add(1, Ordering::SeqCst) + 1;
-                
+
                 // Track maximum
                 let mut max = self.max_concurrent.load(Ordering::SeqCst);
                 while current > max {
@@ -656,10 +721,10 @@ mod tests {
                         Err(new_max) => max = new_max,
                     }
                 }
-                
+
                 // Simulate processing time
                 tokio::time::sleep(Duration::from_millis(50)).await;
-                
+
                 // Decrement concurrent count
                 self.concurrent.fetch_sub(1, Ordering::SeqCst);
                 Ok(())
@@ -673,7 +738,7 @@ mod tests {
             3, // Limit to 3 concurrent
             Arc::new(NoOpMetrics),
         );
-        
+
         // Add 1 worker (will handle all messages)
         let worker = ConcurrentTestWorker {
             id: "worker-1".to_string(),
@@ -681,16 +746,16 @@ mod tests {
             max_concurrent: max_concurrent.clone(),
         };
         pool.add_worker(Arc::new(worker));
-        
+
         // Dispatch 10 messages rapidly
         for i in 0..10 {
             let message = create_test_message(&format!("msg-{}", i));
             pool.dispatch(message).await.unwrap();
         }
-        
+
         // Wait for all to complete
         tokio::time::sleep(Duration::from_millis(500)).await;
-        
+
         // Verify that concurrency never exceeded the limit
         let actual_max = max_concurrent.load(Ordering::SeqCst);
         assert!(
@@ -708,10 +773,10 @@ mod tests {
     #[tokio::test]
     async fn test_concurrency_limit_with_builder() {
         use crate::builder::WorkerPoolBuilder;
-        
+
         let concurrent_count = Arc::new(AtomicUsize::new(0));
         let max_concurrent = Arc::new(AtomicUsize::new(0));
-        
+
         struct TrackedWorker {
             id: String,
             concurrent: Arc<AtomicUsize>,
@@ -724,10 +789,13 @@ mod tests {
                 &self.id
             }
 
-            async fn process(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+            async fn process(
+                &self,
+                _message: ReceivedMessage<serde_json::Value>,
+            ) -> WorkerResult<()> {
                 // Track concurrency
                 let current = self.concurrent.fetch_add(1, Ordering::SeqCst) + 1;
-                
+
                 let mut max = self.max_concurrent.load(Ordering::SeqCst);
                 while current > max {
                     match self.max_concurrent.compare_exchange_weak(
@@ -740,14 +808,14 @@ mod tests {
                         Err(new_max) => max = new_max,
                     }
                 }
-                
+
                 tokio::time::sleep(Duration::from_millis(100)).await;
-                
+
                 self.concurrent.fetch_sub(1, Ordering::SeqCst);
                 Ok(())
             }
         }
-        
+
         // Build pool with concurrency limit of 2
         let pool = WorkerPoolBuilder::new("test-pool")
             .with_concurrency_limit(2)
@@ -758,16 +826,16 @@ mod tests {
             })
             .build()
             .unwrap();
-        
+
         // Dispatch 6 messages rapidly
         for i in 0..6 {
             let message = create_test_message(&format!("msg-{}", i));
             pool.dispatch(message).await.unwrap();
         }
-        
+
         // Wait for all to complete
         tokio::time::sleep(Duration::from_millis(800)).await;
-        
+
         // Verify that concurrency never exceeded the limit of 2
         let actual_max = max_concurrent.load(Ordering::SeqCst);
         assert!(
@@ -785,9 +853,19 @@ mod tests {
     #[tokio::test]
     async fn test_different_concurrency_limits() {
         // Test that different pools can have different limits
-        let pool1 = WorkerPool::with_concurrency("pool1", LoadBalancingStrategy::RoundRobin, 5, Arc::new(NoOpMetrics));
-        let pool2 = WorkerPool::with_concurrency("pool2", LoadBalancingStrategy::RoundRobin, 20, Arc::new(NoOpMetrics));
-        
+        let pool1 = WorkerPool::with_concurrency(
+            "pool1",
+            LoadBalancingStrategy::RoundRobin,
+            5,
+            Arc::new(NoOpMetrics),
+        );
+        let pool2 = WorkerPool::with_concurrency(
+            "pool2",
+            LoadBalancingStrategy::RoundRobin,
+            20,
+            Arc::new(NoOpMetrics),
+        );
+
         // Verify they have different semaphore capacities
         // We can't directly check semaphore capacity, but we can verify the pools work independently
         assert_eq!(pool1.name(), "pool1");
@@ -796,7 +874,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_pool_shutdown_prevents_dispatch() {
-        let mut pool = WorkerPool::new("test-pool", LoadBalancingStrategy::RoundRobin, Arc::new(NoOpMetrics));
+        let mut pool = WorkerPool::new(
+            "test-pool",
+            LoadBalancingStrategy::RoundRobin,
+            Arc::new(NoOpMetrics),
+        );
         let (worker, _) = TestWorker::new("worker-1");
         pool.add_worker(Arc::new(worker));
 
@@ -805,6 +887,9 @@ mod tests {
         let message = create_test_message("msg-after-shutdown");
         let result = pool.dispatch(message).await;
         assert!(matches!(result, Err(WorkerError::Shutdown)));
-        assert!(matches!(pool.check_health(), HealthStatus::Unhealthy { .. }));
+        assert!(matches!(
+            pool.check_health(),
+            HealthStatus::Unhealthy { .. }
+        ));
     }
 }

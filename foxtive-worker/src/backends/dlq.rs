@@ -50,9 +50,7 @@ impl DeadLetterQueueBackend {
     pub async fn send_to_dlq(&self, dlq_message: &DeadLetterMessage) -> WorkerResult<()> {
         info!(
             "[DLQ:{}] Sending message {} to dead letter queue after {} attempts",
-            self.dlq_name,
-            dlq_message.original_id,
-            dlq_message.attempt_count
+            self.dlq_name, dlq_message.original_id, dlq_message.attempt_count
         );
 
         // Serialize the DLQ message to JSON
@@ -61,24 +59,26 @@ impl DeadLetterQueueBackend {
         })?;
 
         // Create a unique message ID for the DLQ message
-        let dlq_message_id = format!("dlq-{}-{}", dlq_message.original_id, dlq_message.dlq_timestamp.timestamp());
+        let dlq_message_id = format!(
+            "dlq-{}-{}",
+            dlq_message.original_id,
+            dlq_message.dlq_timestamp.timestamp()
+        );
 
         debug!(
             "[DLQ:{}] Publishing message {} with payload: {}",
-            self.dlq_name,
-            dlq_message_id,
-            json_payload
+            self.dlq_name, dlq_message_id, json_payload
         );
 
         // Note: In a production implementation, you would:
         // 1. For RabbitMQ: Use basic_publish to send to a DLQ exchange/queue
         // 2. For Redis: Use XADD to add to a DLQ stream
         // 3. For custom backends: Implement your own publishing logic
-        
+
         // For now, we demonstrate with a simple approach that could be extended:
         // The backend is already configured to point to the DLQ queue/stream
         // So we would publish directly to it.
-        
+
         // Example pseudo-code for RabbitMQ:
         // ```
         // let channel = self.backend.get_channel().await?;
@@ -97,8 +97,7 @@ impl DeadLetterQueueBackend {
         // In production, replace this with actual backend publishing
         info!(
             "[DLQ:{}] Successfully queued message {} for delivery",
-            self.dlq_name,
-            dlq_message.original_id
+            self.dlq_name, dlq_message.original_id
         );
 
         Ok(())

@@ -9,15 +9,15 @@
 //! Run with: `cargo run --example dlq_handling --features rabbitmq`
 
 use async_trait::async_trait;
-use foxtive_worker::{Worker, ReceivedMessage};
 use foxtive_worker::error::WorkerResult;
+use foxtive_worker::{ReceivedMessage, Worker};
 
 #[cfg(feature = "rabbitmq")]
 use {
-    foxtive_worker::backends::{RabbitMqBackend, RabbitMqConsumerConfig, DeadLetterQueueBackend},
-    foxtive_worker::middleware::retry_handler::RetryHandlerConfig,
-    foxtive_worker::dlq::{PoisonPillTracker, PoisonPillConfig},
     foxtive_worker::WorkerPoolBuilder,
+    foxtive_worker::backends::{DeadLetterQueueBackend, RabbitMqBackend, RabbitMqConsumerConfig},
+    foxtive_worker::dlq::{PoisonPillConfig, PoisonPillTracker},
+    foxtive_worker::middleware::retry_handler::RetryHandlerConfig,
     std::sync::Arc,
     std::time::Duration,
 };
@@ -44,18 +44,24 @@ impl Worker for FailingWorker {
     }
 
     async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-        let count = self.fail_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        
-        println!("Worker {} processing message: {}", self.id, message.message.id);
+        let count = self
+            .fail_count
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+        println!(
+            "Worker {} processing message: {}",
+            self.id, message.message.id
+        );
         println!("  Attempt: {}", message.message.metadata.attempt);
         println!("  Payload: {:?}", message.message.payload);
-        
+
         // Simulate failures for first 3 messages, then succeed
         if count < 3 {
             println!("  ❌ Simulating failure (fail #{})", count + 1);
-            Err(foxtive_worker::WorkerError::BackendError(
-                format!("Simulated processing failure #{}", count + 1)
-            ))
+            Err(foxtive_worker::WorkerError::BackendError(format!(
+                "Simulated processing failure #{}",
+                count + 1
+            )))
         } else {
             println!("  ✅ Processing succeeded!");
             Ok(())
@@ -70,7 +76,9 @@ async fn main() -> anyhow::Result<()> {
 
     #[cfg(not(feature = "rabbitmq"))]
     {
-        println!("RabbitMQ feature not enabled. Run with: cargo run --example dlq_handling --features rabbitmq");
+        println!(
+            "RabbitMQ feature not enabled. Run with: cargo run --example dlq_handling --features rabbitmq"
+        );
         return Ok(());
     }
 
@@ -85,20 +93,24 @@ async fn main() -> anyhow::Result<()> {
             consumer_tag: "dlq-consumer".to_string(),
             ..Default::default()
         };
-        
-        let dlq_backend = Arc::new(RabbitMqBackend::new("amqp://ahmard:Pass.1234@localhost", dlq_config).await?);
+
+        let dlq_backend =
+            Arc::new(RabbitMqBackend::new("amqp://ahmard:Pass.1234@localhost", dlq_config).await?);
         let dlq_wrapper = Arc::new(DeadLetterQueueBackend::new(dlq_backend, "main-dlq"));
         println!("✅ DLQ configured: dead_letter_queue\n");
 
         // 2. Configure poison pill detection
         println!("Configuring poison pill detection...");
         let poison_config = PoisonPillConfig {
-            max_failures: 5,  // Detect after 5 failures
+            max_failures: 5,                        // Detect after 5 failures
             time_window: Duration::from_secs(3600), // Within 1 hour
             immediate_dlq: true,
         };
         let poison_tracker = Arc::new(PoisonPillTracker::new(poison_config.clone()));
-        println!("✅ Poison pill detection: {} failures within 1 hour\n", poison_config.max_failures);
+        println!(
+            "✅ Poison pill detection: {} failures within 1 hour\n",
+            poison_config.max_failures
+        );
 
         // 3. Configure retry handler with DLQ and poison pill tracking
         println!("Setting up retry handler...");
@@ -111,7 +123,7 @@ async fn main() -> anyhow::Result<()> {
             poison_pill_tracker: Some(poison_tracker.clone()),
             use_jitter: true,
         };
-        
+
         println!("✅ Retry handler configured:");
         println!("   - Max retries: {}", retry_config.max_retries);
         println!("   - Initial backoff: {:?}", retry_config.initial_backoff);
@@ -122,7 +134,7 @@ async fn main() -> anyhow::Result<()> {
         // 4. Create worker pool
         println!("Creating worker pool...\n");
         let worker = Arc::new(FailingWorker::new("failing-worker-1"));
-        
+
         let pool = WorkerPoolBuilder::new("dlq-example-pool")
             .with_concurrency_limit(5)
             .add_arc_worker(worker)
@@ -136,12 +148,13 @@ async fn main() -> anyhow::Result<()> {
             consumer_tag: "test-producer".to_string(),
             ..Default::default()
         };
-        
-        let _backend = RabbitMqBackend::new("amqp://ahmard:Pass.1234@localhost", backend_config).await?;
-        
+
+        let _backend =
+            RabbitMqBackend::new("amqp://ahmard:Pass.1234@localhost", backend_config).await?;
+
         // Note: In a real scenario, you'd have a separate producer sending messages
         // For this example, we're just showing the configuration
-        
+
         println!("Test messages would be sent here.");
         println!("The first 3 will fail, triggering retries.");
         println!("After 5 failed attempts, messages will be sent to DLQ.");
@@ -154,7 +167,7 @@ async fn main() -> anyhow::Result<()> {
         // Shutdown
         println!("\nShutting down...");
         pool.shutdown().await?;
-        
+
         println!("\n=== Example Complete ===");
         println!("\nKey takeaways:");
         println!("1. Failed messages are automatically retried with exponential backoff");

@@ -1,17 +1,17 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use tracing::{warn, info, error};
+use tracing::{error, info, warn};
 
-use crate::error::WorkerResult;
 use crate::backends::{MessageBackend, ReceiveResult};
+use crate::error::WorkerResult;
 
 /// Reconnection strategy for backends
 #[derive(Debug, Clone)]
 pub enum ReconnectStrategy {
     /// Fixed delay between reconnection attempts
     Fixed(Duration),
-    
+
     /// Exponential backoff with optional max delay and jitter
     Exponential {
         initial: Duration,
@@ -26,11 +26,16 @@ impl ReconnectStrategy {
     fn delay_for_attempt(&self, attempt: u32) -> Duration {
         match self {
             ReconnectStrategy::Fixed(d) => *d,
-            ReconnectStrategy::Exponential { initial, max, multiplier, jitter_factor } => {
+            ReconnectStrategy::Exponential {
+                initial,
+                max,
+                multiplier,
+                jitter_factor,
+            } => {
                 // Calculate exponential backoff
                 let base_delay = initial.mul_f64(multiplier.powi(attempt as i32));
                 let clamped = base_delay.min(*max);
-                
+
                 // Add jitter to prevent thundering herd problem
                 if *jitter_factor > 0.0 {
                     let jitter_range = clamped.mul_f64(*jitter_factor);
@@ -56,16 +61,16 @@ impl Default for ReconnectStrategy {
 }
 
 /// Wrapper that adds automatic reconnection to any backend.
-/// 
+///
 /// This wrapper implements the "refuse to die" philosophy - it will retry
 /// operations indefinitely with exponential backoff until they succeed.
 /// The only way to stop it is through explicit shutdown.
-/// 
+///
 /// # Example
 /// ```rust,no_run
 /// use foxtive_worker::{ResilientBackend, MessageBackend};
 /// use std::sync::Arc;
-/// 
+///
 /// #[tokio::main]
 /// async fn main() {
 ///     // Wrap any backend in ResilientBackend
@@ -132,7 +137,7 @@ impl ResilientBackend {
     }
 
     /// Execute an operation with automatic reconnection on failure.
-    /// 
+    ///
     /// This method implements the "refuse to die" philosophy - it will retry
     /// indefinitely until the operation succeeds or shutdown is requested.
     async fn execute_with_retry<T, F, Fut>(&self, operation_name: &str, op: F) -> WorkerResult<T>
@@ -141,7 +146,7 @@ impl ResilientBackend {
         Fut: std::future::Future<Output = WorkerResult<T>>,
     {
         let mut attempt = 0;
-        
+
         loop {
             match op().await {
                 Ok(result) => {
@@ -164,20 +169,20 @@ impl ResilientBackend {
                         *f
                     };
                     *self.is_connected.write().await = false;
-                    
+
                     warn!(
                         "{} failed (attempt {}, consecutive failures: {}): {}. Retrying...",
                         operation_name, attempt, failures, e
                     );
-                    
+
                     // Try to recover connection
                     if let Err(recover_err) = self.try_recover().await {
                         error!("Recovery attempt failed: {}", recover_err);
                     }
-                    
+
                     // Calculate delay with exponential backoff and jitter
                     let delay = self.strategy.delay_for_attempt(attempt - 1);
-                    
+
                     // Log every 10th attempt to avoid spam
                     if attempt % 10 == 0 || attempt <= 3 {
                         warn!(
@@ -185,9 +190,9 @@ impl ResilientBackend {
                             operation_name, attempt, delay
                         );
                     }
-                    
+
                     tokio::time::sleep(delay).await;
-                    
+
                     // Never give up - keep retrying forever
                     // The only way out is through explicit shutdown
                 }
@@ -217,9 +222,8 @@ impl ResilientBackend {
 #[async_trait::async_trait]
 impl MessageBackend for ResilientBackend {
     async fn receive(&self) -> WorkerResult<ReceiveResult<serde_json::Value>> {
-        self.execute_with_retry("receive", || async {
-            self.inner.receive().await
-        }).await
+        self.execute_with_retry("receive", || async { self.inner.receive().await })
+            .await
     }
 
     async fn ack(&self, message_id: &str) -> WorkerResult<()> {
@@ -232,7 +236,8 @@ impl MessageBackend for ResilientBackend {
         // Nack operations are critical - we should retry to avoid message loss
         self.execute_with_retry("nack", || async {
             self.inner.nack(message_id, requeue).await
-        }).await
+        })
+        .await
     }
 
     async fn health_check(&self) -> WorkerResult<()> {
@@ -307,7 +312,9 @@ mod tests {
             let calls = self.total_calls.fetch_add(1, Ordering::SeqCst);
             if calls < self.succeed_after {
                 self.fail_count.fetch_add(1, Ordering::SeqCst);
-                Err(WorkerError::BackendError("Simulated network failure".to_string()))
+                Err(WorkerError::BackendError(
+                    "Simulated network failure".to_string(),
+                ))
             } else {
                 Ok(ReceiveResult::Shutdown)
             }
@@ -339,7 +346,7 @@ mod tests {
     async fn test_resilient_backend_wraps_successfully() {
         let inner = Arc::new(MemoryBackend::new());
         let resilient = ResilientBackend::new(inner.clone());
-        
+
         assert!(resilient.is_connected().await);
         assert_eq!(resilient.reconnect_attempts().await, 0);
         assert_eq!(resilient.consecutive_failures().await, 0);
@@ -350,10 +357,10 @@ mod tests {
         let inner = MemoryBackend::new();
         let backend_arc = Arc::new(inner);
         let resilient = ResilientBackend::new(backend_arc.clone());
-        
+
         // Add a message (MemoryBackend uses enqueue, not add_message)
         backend_arc.enqueue(serde_json::json!({"test": "data"}));
-        
+
         // Receive through resilient wrapper
         let result = resilient.receive().await.unwrap();
         assert!(result.is_message());
@@ -369,7 +376,7 @@ mod tests {
         let inner = Arc::new(MemoryBackend::new());
         let strategy = ReconnectStrategy::Fixed(Duration::from_secs(1));
         let resilient = ResilientBackend::with_strategy(inner, strategy);
-        
+
         assert!(resilient.is_connected().await);
     }
 
@@ -410,7 +417,7 @@ mod tests {
     #[tokio::test]
     async fn test_fixed_delay_strategy() {
         let strategy = ReconnectStrategy::Fixed(Duration::from_secs(2));
-        
+
         // Should always return the same delay regardless of attempt
         assert_eq!(strategy.delay_for_attempt(0).as_secs(), 2);
         assert_eq!(strategy.delay_for_attempt(5).as_secs(), 2);
@@ -422,10 +429,10 @@ mod tests {
         // Backend fails first 2 times, succeeds on 3rd
         let (backend, fail_count, total_calls) = FailingBackend::new(2);
         let resilient = ResilientBackend::new(backend);
-        
+
         // This should retry until success
         let result = resilient.receive().await;
-        
+
         assert!(result.is_ok());
         if let Ok(receive_result) = result {
             assert!(receive_result.is_shutdown()); // FailingBackend returns Shutdown on success
@@ -442,14 +449,14 @@ mod tests {
         // Backend fails first time, then succeeds
         let (backend, _, _) = FailingBackend::new(1);
         let resilient = ResilientBackend::new(backend);
-        
+
         // Initial state
         assert!(resilient.is_connected().await);
         assert_eq!(resilient.reconnect_attempts().await, 0);
-        
+
         // First call will fail and trigger reconnection
         let _ = resilient.receive().await;
-        
+
         // After recovery, should be connected again
         assert!(resilient.is_connected().await);
         assert_eq!(resilient.reconnect_attempts().await, 0); // Reset after success
@@ -460,10 +467,10 @@ mod tests {
         // Backend fails 3 times before succeeding
         let (backend, _, _) = FailingBackend::new(3);
         let resilient = ResilientBackend::new(backend);
-        
+
         // Start receiving - this will retry internally
         let _ = resilient.receive().await;
-        
+
         // After success, failures should be reset
         assert_eq!(resilient.consecutive_failures().await, 0);
     }
@@ -472,7 +479,7 @@ mod tests {
     async fn test_ack_operations_dont_retry_indefinitely() {
         let inner = Arc::new(MemoryBackend::new());
         let resilient = ResilientBackend::new(inner.clone());
-        
+
         // Ack operations should complete immediately without retry logic
         let result = resilient.ack("non-existent-id").await;
         assert!(result.is_ok());
@@ -482,7 +489,7 @@ mod tests {
     async fn test_health_check_passthrough() {
         let inner = Arc::new(MemoryBackend::new());
         let resilient = ResilientBackend::new(inner.clone());
-        
+
         // Health check should pass through to inner backend
         let result = resilient.health_check().await;
         assert!(result.is_ok());
@@ -492,7 +499,7 @@ mod tests {
     async fn test_shutdown_passthrough() {
         let inner = Arc::new(MemoryBackend::new());
         let resilient = ResilientBackend::new(inner.clone());
-        
+
         // Shutdown should pass through
         let result = resilient.shutdown().await;
         assert!(result.is_ok());
@@ -507,11 +514,11 @@ mod tests {
             multiplier: 2.5,
             jitter_factor: 0.2,
         };
-        
+
         let resilient = ResilientBackendBuilder::new(inner)
             .with_strategy(strategy)
             .build();
-        
+
         assert!(resilient.is_connected().await);
     }
 
@@ -520,12 +527,12 @@ mod tests {
         let inner = MemoryBackend::new();
         let backend_arc = Arc::new(inner);
         let resilient = ResilientBackend::new(backend_arc.clone());
-        
+
         // Add multiple messages
         backend_arc.enqueue(serde_json::json!({"msg": 1}));
         backend_arc.enqueue(serde_json::json!({"msg": 2}));
         backend_arc.enqueue(serde_json::json!({"msg": 3}));
-        
+
         // Receive all messages through resilient wrapper
         for expected in 1..=3 {
             let result = resilient.receive().await.unwrap();
@@ -535,7 +542,7 @@ mod tests {
                 panic!("Expected Message variant, got {:?}", result);
             }
         }
-        
+
         // All operations should succeed without retries
         assert_eq!(resilient.reconnect_attempts().await, 0);
     }
@@ -543,10 +550,15 @@ mod tests {
     #[tokio::test]
     async fn test_default_reconnect_strategy() {
         let strategy = ReconnectStrategy::default();
-        
+
         // Verify default values
         match strategy {
-            ReconnectStrategy::Exponential { initial, max, multiplier, jitter_factor } => {
+            ReconnectStrategy::Exponential {
+                initial,
+                max,
+                multiplier,
+                jitter_factor,
+            } => {
                 assert_eq!(initial, Duration::from_secs(1));
                 assert_eq!(max, Duration::from_secs(60));
                 assert_eq!(multiplier, 2.0);

@@ -166,8 +166,8 @@ pub type ReceivedJsonMessage = ReceivedMessage<serde_json::Value>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     #[derive(Debug)]
     struct MockAckHandle {
@@ -246,8 +246,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_metadata_with_correlation_id() {
-        let metadata = MessageMetadata::new("test-queue")
-            .with_correlation_id("corr-123");
+        let metadata = MessageMetadata::new("test-queue").with_correlation_id("corr-123");
 
         assert_eq!(metadata.correlation_id, Some("corr-123".to_string()));
     }

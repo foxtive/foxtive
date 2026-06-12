@@ -22,10 +22,10 @@ use crate::middleware::{MessageHandler, Middleware};
 pub struct AckNackMiddleware {
     /// Whether to acknowledge messages on successful processing
     pub ack_on_success: bool,
-    
+
     /// Whether to negative-acknowledge messages on failed processing
     pub nack_on_failure: bool,
-    
+
     /// Whether to requeue messages when nacking
     pub requeue_on_nack: bool,
 }
@@ -107,9 +107,9 @@ impl Middleware for AckNackMiddleware {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::{Message, MessageMetadata, AckHandle};
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use crate::message::{AckHandle, Message, MessageMetadata};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     #[derive(Debug)]
     struct MockAckHandle {
@@ -164,18 +164,30 @@ mod tests {
     #[async_trait]
     impl MessageHandler for FailureHandler {
         async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-            Err(crate::error::WorkerError::ProcessingFailed("test error".to_string()))
+            Err(crate::error::WorkerError::ProcessingFailed(
+                "test error".to_string(),
+            ))
         }
     }
 
-    fn create_test_message() -> (ReceivedMessage<serde_json::Value>, Arc<AtomicBool>, Arc<AtomicBool>, Arc<AtomicBool>) {
+    fn create_test_message() -> (
+        ReceivedMessage<serde_json::Value>,
+        Arc<AtomicBool>,
+        Arc<AtomicBool>,
+        Arc<AtomicBool>,
+    ) {
         let (ack_handle, acked, nacked, requeued) = MockAckHandle::new();
         let message = Message {
             id: "test-1".to_string(),
             payload: serde_json::json!({"test": "data"}),
             metadata: MessageMetadata::new("test-queue"),
         };
-        (ReceivedMessage::new(message, Arc::new(ack_handle)), acked, nacked, requeued)
+        (
+            ReceivedMessage::new(message, Arc::new(ack_handle)),
+            acked,
+            nacked,
+            requeued,
+        )
     }
 
     #[tokio::test]
@@ -183,7 +195,10 @@ mod tests {
         let middleware = AckNackMiddleware::new();
         let (message, acked, nacked, _) = create_test_message();
 
-        middleware.handle(message, Box::new(SuccessHandler)).await.unwrap();
+        middleware
+            .handle(message, Box::new(SuccessHandler))
+            .await
+            .unwrap();
 
         assert!(acked.load(Ordering::SeqCst));
         assert!(!nacked.load(Ordering::SeqCst));
@@ -207,7 +222,10 @@ mod tests {
         let middleware = AckNackMiddleware::with_config(false, true, true);
         let (message, acked, _, _) = create_test_message();
 
-        middleware.handle(message, Box::new(SuccessHandler)).await.unwrap();
+        middleware
+            .handle(message, Box::new(SuccessHandler))
+            .await
+            .unwrap();
 
         assert!(!acked.load(Ordering::SeqCst));
     }

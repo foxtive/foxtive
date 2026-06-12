@@ -196,7 +196,7 @@ pub trait Worker: Send + Sync {
     ///         Some(Duration::from_secs(120))
     ///     }
     ///     
-    ///     async fn process(&self, message: foxtive_worker::ReceivedMessage<serde_json::Value>) 
+    ///     async fn process(&self, message: foxtive_worker::ReceivedMessage<serde_json::Value>)
     ///         -> foxtive_worker::error::WorkerResult<()> {
     ///         // Long-running processing...
     ///         Ok(())

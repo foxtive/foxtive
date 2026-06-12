@@ -3,8 +3,8 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use tokio::sync::Notify;
 
-use crate::backends::contract::MessageBackend;
 use crate::backends::ReceiveResult;
+use crate::backends::contract::MessageBackend;
 use crate::error::WorkerResult;
 use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
 
@@ -45,10 +45,11 @@ impl MemoryBackendInner {
     fn nack(&self, message_id: &str, requeue: bool) -> WorkerResult<()> {
         let mut unacked = self.unacked.lock().unwrap();
         if let Some(message) = unacked.remove(message_id)
-            && requeue {
-                self.queue.lock().unwrap().push_back(message);
-                self.notify.notify_one();
-            }
+            && requeue
+        {
+            self.queue.lock().unwrap().push_back(message);
+            self.notify.notify_one();
+        }
         Ok(())
     }
 }
@@ -114,7 +115,7 @@ impl MemoryBackend {
 
         let mut queue = self.inner.queue.lock().unwrap();
         queue.push_back(message);
-        
+
         // Notify waiting receivers
         self.inner.notify.notify_one();
 
@@ -169,7 +170,7 @@ impl MessageBackend for MemoryBackend {
                 let mut queue = self.inner.queue.lock().unwrap();
                 if let Some(message) = queue.pop_front() {
                     let message_id = message.id.clone();
-                    
+
                     // Track as unacked
                     {
                         let mut unacked = self.inner.unacked.lock().unwrap();
@@ -181,7 +182,9 @@ impl MessageBackend for MemoryBackend {
                         backend: self.inner.clone(),
                     });
 
-                    return Ok(ReceiveResult::Message(ReceivedMessage::new(message, ack_handle)));
+                    return Ok(ReceiveResult::Message(ReceivedMessage::new(
+                        message, ack_handle,
+                    )));
                 }
             }
 
@@ -228,12 +231,12 @@ mod tests {
     #[tokio::test]
     async fn test_enqueue_and_receive() {
         let backend = MemoryBackend::new();
-        
+
         backend.enqueue(serde_json::json!({"test": "data"}));
-        
+
         let result = backend.receive().await.unwrap();
         assert!(result.is_message());
-        
+
         if let ReceiveResult::Message(message) = result {
             assert_eq!(message.message.payload["test"], "data");
         } else {
@@ -244,9 +247,9 @@ mod tests {
     #[tokio::test]
     async fn test_ack_removes_from_unacked() {
         let backend = MemoryBackend::new();
-        
+
         backend.enqueue(serde_json::json!({"test": "data"}));
-        
+
         let result = backend.receive().await.unwrap();
         if let ReceiveResult::Message(received) = result {
             assert_eq!(backend.unacked_count(), 1);
@@ -260,9 +263,9 @@ mod tests {
     #[tokio::test]
     async fn test_nack_with_requeue() {
         let backend = MemoryBackend::new();
-        
+
         backend.enqueue(serde_json::json!({"test": "data"}));
-        
+
         let result = backend.receive().await.unwrap();
         if let ReceiveResult::Message(received) = result {
             assert_eq!(backend.queue_len(), 0);
@@ -276,9 +279,9 @@ mod tests {
     #[tokio::test]
     async fn test_nack_without_requeue() {
         let backend = MemoryBackend::new();
-        
+
         backend.enqueue(serde_json::json!({"test": "data"}));
-        
+
         let result = backend.receive().await.unwrap();
         if let ReceiveResult::Message(received) = result {
             received.nack(false).await.unwrap();
@@ -292,9 +295,9 @@ mod tests {
     #[tokio::test]
     async fn test_shutdown() {
         let backend = MemoryBackend::new();
-        
+
         backend.shutdown().await.unwrap();
-        
+
         let result = backend.receive().await.unwrap();
         assert!(result.is_shutdown());
     }
@@ -308,21 +311,21 @@ mod tests {
     #[tokio::test]
     async fn test_queue_len() {
         let backend = MemoryBackend::new();
-        
+
         backend.enqueue(serde_json::json!({"msg": 1}));
         backend.enqueue(serde_json::json!({"msg": 2}));
         backend.enqueue(serde_json::json!({"msg": 3}));
-        
+
         assert_eq!(backend.queue_len(), 3);
     }
 
     #[tokio::test]
     async fn test_clear() {
         let backend = MemoryBackend::new();
-        
+
         backend.enqueue(serde_json::json!({"msg": 1}));
         backend.enqueue(serde_json::json!({"msg": 2}));
-        
+
         backend.clear();
         assert_eq!(backend.queue_len(), 0);
     }

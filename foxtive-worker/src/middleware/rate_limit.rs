@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 
-use governor::{Quota, RateLimiter};
-use governor::state::{NotKeyed, InMemoryState};
 use governor::clock::DefaultClock;
+use governor::state::{InMemoryState, NotKeyed};
+use governor::{Quota, RateLimiter};
 
 use crate::error::{WorkerError, WorkerResult};
 use crate::message::ReceivedMessage;
@@ -42,8 +42,12 @@ impl RateLimitMiddleware {
     /// * `rate` - Sustained rate in messages per second
     /// * `burst` - Maximum burst capacity (max tokens)
     pub fn new(rate: u64, burst: u32) -> Self {
-        let quota = Quota::per_second(std::num::NonZeroU32::new(rate as u32).unwrap_or(std::num::NonZeroU32::new(1).unwrap()))
-            .allow_burst(std::num::NonZeroU32::new(burst).unwrap_or(std::num::NonZeroU32::new(1).unwrap()));
+        let quota = Quota::per_second(
+            std::num::NonZeroU32::new(rate as u32).unwrap_or(std::num::NonZeroU32::new(1).unwrap()),
+        )
+        .allow_burst(
+            std::num::NonZeroU32::new(burst).unwrap_or(std::num::NonZeroU32::new(1).unwrap()),
+        );
 
         Self {
             limiter: Arc::new(RateLimiter::direct(quota)),
@@ -69,15 +73,11 @@ impl Middleware for RateLimitMiddleware {
         next: Box<dyn MessageHandler>,
     ) -> WorkerResult<()> {
         match self.limiter.check() {
-            Ok(_) => {
-                next.handle(message).await
-            }
-            Err(_) => {
-                Err(WorkerError::ProcessingFailed(format!(
-                    "Rate limit exceeded for middleware '{}'",
-                    self.name
-                )))
-            }
+            Ok(_) => next.handle(message).await,
+            Err(_) => Err(WorkerError::ProcessingFailed(format!(
+                "Rate limit exceeded for middleware '{}'",
+                self.name
+            ))),
         }
     }
 }
@@ -85,7 +85,7 @@ impl Middleware for RateLimitMiddleware {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::{Message, MessageMetadata, AckHandle};
+    use crate::message::{AckHandle, Message, MessageMetadata};
     use std::sync::Arc;
     use tokio::time::{self, Duration};
 
@@ -126,11 +126,16 @@ mod tests {
         let rate = 10;
         let burst = 10;
         let middleware = RateLimitMiddleware::new(rate, burst);
-        
+
         // Should allow up to burst capacity
         for _ in 0..burst {
             let message = create_test_message();
-            assert!(middleware.handle(message, Box::new(SuccessHandler)).await.is_ok());
+            assert!(
+                middleware
+                    .handle(message, Box::new(SuccessHandler))
+                    .await
+                    .is_ok()
+            );
         }
     }
 
@@ -139,13 +144,16 @@ mod tests {
         let rate = 10;
         let burst = 5;
         let middleware = RateLimitMiddleware::new(rate, burst);
-        
+
         // Consume all tokens
         for _ in 0..burst {
             let message = create_test_message();
-            middleware.handle(message, Box::new(SuccessHandler)).await.unwrap();
+            middleware
+                .handle(message, Box::new(SuccessHandler))
+                .await
+                .unwrap();
         }
-        
+
         // Next should fail
         let message = create_test_message();
         let result = middleware.handle(message, Box::new(SuccessHandler)).await;
@@ -162,19 +170,31 @@ mod tests {
         let rate = 100;
         let burst = 20;
         let middleware = RateLimitMiddleware::new(rate, burst);
-        
+
         // Should allow burst of 20
         for _ in 0..burst {
             let message = create_test_message();
-            assert!(middleware.handle(message, Box::new(SuccessHandler)).await.is_ok());
+            assert!(
+                middleware
+                    .handle(message, Box::new(SuccessHandler))
+                    .await
+                    .is_ok()
+            );
         }
-        
+
         // 21st should fail
         let message = create_test_message();
-        assert!(middleware.handle(message, Box::new(SuccessHandler)).await.is_err());
-        
+        assert!(
+            middleware
+                .handle(message, Box::new(SuccessHandler))
+                .await
+                .is_err()
+        );
+
         let message = create_test_message();
-        if let Err(WorkerError::ProcessingFailed(_)) = middleware.handle(message, Box::new(SuccessHandler)).await {
+        if let Err(WorkerError::ProcessingFailed(_)) =
+            middleware.handle(message, Box::new(SuccessHandler)).await
+        {
             // Success: rate limited
         } else {
             panic!("Expected ProcessingFailed (rate limited)");
@@ -189,17 +209,32 @@ mod tests {
 
         // Consume the initial token
         let message = create_test_message();
-        assert!(middleware.handle(message, Box::new(SuccessHandler)).await.is_ok());
+        assert!(
+            middleware
+                .handle(message, Box::new(SuccessHandler))
+                .await
+                .is_ok()
+        );
 
         // Next message should be rate-limited immediately
         let message = create_test_message();
-        assert!(middleware.handle(message, Box::new(SuccessHandler)).await.is_err());
+        assert!(
+            middleware
+                .handle(message, Box::new(SuccessHandler))
+                .await
+                .is_err()
+        );
 
         // Wait for a token to refill (slightly more than 1 second)
         time::sleep(Duration::from_millis(1100)).await;
 
         // Now it should allow another message
         let message = create_test_message();
-        assert!(middleware.handle(message, Box::new(SuccessHandler)).await.is_ok());
+        assert!(
+            middleware
+                .handle(message, Box::new(SuccessHandler))
+                .await
+                .is_ok()
+        );
     }
 }

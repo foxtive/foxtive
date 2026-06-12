@@ -1,8 +1,8 @@
-use std::fmt;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
-use std::time::Duration;
 use chrono::{DateTime, Utc};
+use std::fmt;
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 
 /// Represents the health status of a component.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,7 +84,7 @@ impl WorkerHealth {
     pub fn record_success(&self, processing_time: Duration) {
         self.messages_processed.fetch_add(1, Ordering::Relaxed);
         self.consecutive_failures.store(0, Ordering::Relaxed);
-        
+
         // Update average processing time (simple moving average)
         let current_avg = self.avg_processing_time_ms.load(Ordering::Relaxed);
         let new_avg = if current_avg == 0 {
@@ -92,8 +92,9 @@ impl WorkerHealth {
         } else {
             (current_avg + processing_time.as_millis() as u64) / 2
         };
-        self.avg_processing_time_ms.store(new_avg, Ordering::Relaxed);
-        
+        self.avg_processing_time_ms
+            .store(new_avg, Ordering::Relaxed);
+
         self.update_status();
     }
 
@@ -108,33 +109,34 @@ impl WorkerHealth {
     /// Update health status based on metrics.
     fn update_status(&self) {
         let consecutive_failures = self.consecutive_failures.load(Ordering::Relaxed);
-        let total_messages = self.messages_processed.load(Ordering::Relaxed) 
+        let total_messages = self.messages_processed.load(Ordering::Relaxed)
             + self.messages_failed.load(Ordering::Relaxed);
-        
+
         let new_status = if total_messages == 0 {
             HealthStatus::Healthy
         } else if consecutive_failures >= 10 {
             // Too many consecutive failures
-            HealthStatus::Unhealthy { 
-                reason: format!("{} consecutive failures", consecutive_failures) 
+            HealthStatus::Unhealthy {
+                reason: format!("{} consecutive failures", consecutive_failures),
             }
         } else if consecutive_failures >= 3 {
             // Some consecutive failures
-            HealthStatus::Degraded { 
-                reason: format!("{} consecutive failures", consecutive_failures) 
+            HealthStatus::Degraded {
+                reason: format!("{} consecutive failures", consecutive_failures),
             }
         } else {
             // Calculate failure rate
-            let failure_rate = self.messages_failed.load(Ordering::Relaxed) as f64 / total_messages as f64;
+            let failure_rate =
+                self.messages_failed.load(Ordering::Relaxed) as f64 / total_messages as f64;
             if failure_rate > 0.5 {
-                HealthStatus::Degraded { 
-                    reason: format!("High failure rate: {:.1}%", failure_rate * 100.0) 
+                HealthStatus::Degraded {
+                    reason: format!("High failure rate: {:.1}%", failure_rate * 100.0),
                 }
             } else {
                 HealthStatus::Healthy
             }
         };
-        
+
         *self.status.lock().unwrap() = new_status;
         *self.last_check.lock().unwrap() = Utc::now();
     }
@@ -150,10 +152,22 @@ impl fmt::Debug for WorkerHealth {
         f.debug_struct("WorkerHealth")
             .field("worker_id", &self.worker_id)
             .field("status", &self.status)
-            .field("messages_processed", &self.messages_processed.load(Ordering::Relaxed))
-            .field("messages_failed", &self.messages_failed.load(Ordering::Relaxed))
-            .field("avg_processing_time_ms", &self.avg_processing_time_ms.load(Ordering::Relaxed))
-            .field("consecutive_failures", &self.consecutive_failures.load(Ordering::Relaxed))
+            .field(
+                "messages_processed",
+                &self.messages_processed.load(Ordering::Relaxed),
+            )
+            .field(
+                "messages_failed",
+                &self.messages_failed.load(Ordering::Relaxed),
+            )
+            .field(
+                "avg_processing_time_ms",
+                &self.avg_processing_time_ms.load(Ordering::Relaxed),
+            )
+            .field(
+                "consecutive_failures",
+                &self.consecutive_failures.load(Ordering::Relaxed),
+            )
             .finish()
     }
 }
@@ -180,12 +194,12 @@ impl WorkerPoolHealth {
 impl HealthCheck for WorkerPoolHealth {
     fn check_health(&self) -> HealthStatus {
         if !self.is_running {
-            HealthStatus::Unhealthy { 
-                reason: "Pool is not running".to_string() 
+            HealthStatus::Unhealthy {
+                reason: "Pool is not running".to_string(),
             }
         } else if self.worker_count == 0 {
-            HealthStatus::Degraded { 
-                reason: "No workers available".to_string() 
+            HealthStatus::Degraded {
+                reason: "No workers available".to_string(),
             }
         } else {
             HealthStatus::Healthy
@@ -195,11 +209,16 @@ impl HealthCheck for WorkerPoolHealth {
     fn status_message(&self) -> String {
         match self.check_health() {
             HealthStatus::Healthy => {
-                format!("WorkerPool '{}' is healthy with {} workers.", self.pool_name, self.worker_count)
+                format!(
+                    "WorkerPool '{}' is healthy with {} workers.",
+                    self.pool_name, self.worker_count
+                )
             }
             HealthStatus::Degraded { reason } => {
-                format!("WorkerPool '{}' is degraded: {}. {} workers running.", 
-                    self.pool_name, reason, self.worker_count)
+                format!(
+                    "WorkerPool '{}' is degraded: {}. {} workers running.",
+                    self.pool_name, reason, self.worker_count
+                )
             }
             HealthStatus::Unhealthy { reason } => {
                 format!("WorkerPool '{}' is unhealthy: {}.", self.pool_name, reason)

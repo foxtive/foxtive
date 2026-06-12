@@ -6,25 +6,27 @@
 //! To run this example:
 //! `cargo run --example redis_streams_backend --features redis-stream,http`
 
-use foxtive_worker::{Worker, ReceivedMessage, WorkerPoolBuilder};
+use async_trait::async_trait;
+use foxtive_worker::backends::{MessageBackend, ReceiveResult};
 use foxtive_worker::error::WorkerResult;
 use foxtive_worker::http::HealthEndpoint;
-use foxtive_worker::backends::{MessageBackend, ReceiveResult};
-use async_trait::async_trait;
+use foxtive_worker::{ReceivedMessage, Worker, WorkerPoolBuilder};
 use std::sync::Arc;
 
 struct RedisWorker;
 
 #[async_trait]
 impl Worker for RedisWorker {
-    fn id(&self) -> &str { "redis-worker" }
+    fn id(&self) -> &str {
+        "redis-worker"
+    }
 
     async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
         println!("Received from Redis Stream: {:?}", message.message.payload);
-        
+
         // Simulate processing
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        
+
         Ok(())
     }
 }
@@ -45,14 +47,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         let backend = Arc::new(
-            foxtive_worker::backends::RedisStreamBackend::new("redis://localhost", config).await?
+            foxtive_worker::backends::RedisStreamBackend::new("redis://localhost", config).await?,
         );
 
         // Build the worker pool
         let pool = Arc::new(
             WorkerPoolBuilder::new("redis-pool")
                 .add_worker(RedisWorker)
-                .build()?
+                .build()?,
         );
 
         // Expose health endpoint (simulated here)
@@ -64,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Manually receive from backend and dispatch to pool
         let backend_clone = backend.clone();
         let pool_clone = pool.clone();
-        
+
         let receiver_handle = tokio::spawn(async move {
             loop {
                 match backend_clone.receive().await {
@@ -88,7 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Wait for shutdown signal
         tokio::signal::ctrl_c().await?;
         println!("\nShutting down...");
-        
+
         backend.shutdown().await?;
         let _ = receiver_handle.await;
         pool.shutdown().await?;

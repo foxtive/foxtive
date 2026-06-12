@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Load balancing strategy for distributing messages across workers.
 #[derive(Debug, Clone, Copy, Default)]
@@ -7,10 +7,10 @@ pub enum LoadBalancingStrategy {
     /// Distribute messages in round-robin fashion.
     #[default]
     RoundRobin,
-    
+
     /// Select a random worker for each message.
     Random,
-    
+
     /// Select the worker with the least active tasks.
     LeastLoaded,
 }
@@ -70,7 +70,7 @@ impl RandomBalancer {
 /// Least-loaded balancer state.
 ///
 /// Tracks the number of active tasks per worker to select the least busy one.
-/// 
+///
 /// OPTIMIZATION: Uses Arc<Vec<AtomicUsize>> with atomic swap for lock-free updates
 /// when workers are added/removed, avoiding expensive recreation and copy operations.
 #[derive(Debug)]
@@ -81,32 +81,30 @@ pub struct LeastLoadedBalancer {
 impl LeastLoadedBalancer {
     /// Create a new least-loaded balancer with the given number of workers.
     pub fn new(worker_count: usize) -> Self {
-        let loads = (0..worker_count)
-            .map(|_| AtomicUsize::new(0))
-            .collect();
+        let loads = (0..worker_count).map(|_| AtomicUsize::new(0)).collect();
         Self {
             worker_loads: std::sync::RwLock::new(Arc::new(loads)),
         }
     }
 
     /// Add a new worker slot to the balancer without recreating existing state.
-    /// 
+    ///
     /// This is an O(1) operation that atomically swaps in a new vector,
     /// preserving all existing load counts.
     pub fn add_worker(&self) {
         let mut current = self.worker_loads.write().unwrap();
         let mut new_loads = Vec::with_capacity(current.len() + 1);
-        
+
         // Clone existing Arc<AtomicUsize> references (cheap - just increments ref count)
         for load in current.iter() {
             // We need to clone the AtomicUsize itself, not the reference
             let current_value = load.load(Ordering::Relaxed);
             new_loads.push(AtomicUsize::new(current_value));
         }
-        
+
         // Add new worker with zero load
         new_loads.push(AtomicUsize::new(0));
-        
+
         // Atomically swap in the new vector
         *current = Arc::new(new_loads);
     }
@@ -114,7 +112,7 @@ impl LeastLoadedBalancer {
     /// Get the index of the least loaded worker.
     pub fn next(&self) -> usize {
         let loads = self.worker_loads.read().unwrap();
-        
+
         if loads.is_empty() {
             return 0;
         }
@@ -166,7 +164,7 @@ mod tests {
     #[test]
     fn test_round_robin_distribution() {
         let balancer = RoundRobinBalancer::new();
-        
+
         assert_eq!(balancer.next(3), 0);
         assert_eq!(balancer.next(3), 1);
         assert_eq!(balancer.next(3), 2);
@@ -177,7 +175,7 @@ mod tests {
     #[test]
     fn test_round_robin_single_worker() {
         let balancer = RoundRobinBalancer::new();
-        
+
         assert_eq!(balancer.next(1), 0);
         assert_eq!(balancer.next(1), 0);
         assert_eq!(balancer.next(1), 0);
@@ -192,11 +190,11 @@ mod tests {
     #[test]
     fn test_random_balancer() {
         let balancer = RandomBalancer::new();
-        
+
         // Should return valid indices
         let idx = balancer.next(5);
         assert!(idx < 5);
-        
+
         let idx = balancer.next(1);
         assert_eq!(idx, 0);
     }
@@ -204,7 +202,7 @@ mod tests {
     #[test]
     fn test_least_loaded_initial() {
         let balancer = LeastLoadedBalancer::new(3);
-        
+
         // All workers start with 0 load, should return first
         assert_eq!(balancer.next(), 0);
     }
@@ -212,11 +210,11 @@ mod tests {
     #[test]
     fn test_least_loaded_after_increment() {
         let balancer = LeastLoadedBalancer::new(3);
-        
+
         // Increment load on worker 0
         balancer.increment_load(0);
         balancer.increment_load(0);
-        
+
         // Worker 0 has load 2, workers 1 and 2 have load 0
         // Should return worker 1 (first with minimum load)
         assert_eq!(balancer.next(), 1);
@@ -225,15 +223,15 @@ mod tests {
     #[test]
     fn test_least_loaded_load_tracking() {
         let balancer = LeastLoadedBalancer::new(3);
-        
+
         balancer.increment_load(0);
         balancer.increment_load(0);
         balancer.increment_load(1);
-        
+
         assert_eq!(balancer.get_load(0), 2);
         assert_eq!(balancer.get_load(1), 1);
         assert_eq!(balancer.get_load(2), 0);
-        
+
         balancer.decrement_load(0);
         assert_eq!(balancer.get_load(0), 1);
     }

@@ -5,8 +5,8 @@ use lapin::options::{
 use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
 
-use crate::backends::contract::MessageBackend;
 use crate::backends::ReceiveResult;
+use crate::backends::contract::MessageBackend;
 use crate::error::{WorkerError, WorkerResult};
 use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
 
@@ -181,12 +181,13 @@ impl RabbitMqBackend {
     ///
     /// # Errors
     /// Returns error if connection or channel setup fails
-    pub async fn new(amqp_url: impl Into<String>, config: RabbitMqConsumerConfig) -> WorkerResult<Self> {
+    pub async fn new(
+        amqp_url: impl Into<String>,
+        config: RabbitMqConsumerConfig,
+    ) -> WorkerResult<Self> {
         // Create connection pool
-        let manager = deadpool_lapin::Manager::new(
-            amqp_url.into(),
-            lapin::ConnectionProperties::default(),
-        );
+        let manager =
+            deadpool_lapin::Manager::new(amqp_url.into(), lapin::ConnectionProperties::default());
 
         let pool = deadpool_lapin::Pool::builder(manager)
             .build()

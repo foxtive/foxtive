@@ -82,7 +82,7 @@ impl Middleware for ProcessingTimeoutMiddleware {
         next: Box<dyn MessageHandler>,
     ) -> WorkerResult<()> {
         let message_id = message.message.id.clone();
-        
+
         tracing::debug!(
             message_id = %message_id,
             timeout_ms = self.timeout.as_millis(),
@@ -144,8 +144,8 @@ impl Middleware for ProcessingTimeoutMiddleware {
 mod tests {
     use super::*;
     use crate::message::{AckHandle, Message, MessageMetadata};
-    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     #[derive(Debug)]
     struct MockAckHandle {
@@ -213,18 +213,30 @@ mod tests {
     #[async_trait]
     impl MessageHandler for FailingHandler {
         async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-            Err(WorkerError::ProcessingFailed("intentional failure".to_string()))
+            Err(WorkerError::ProcessingFailed(
+                "intentional failure".to_string(),
+            ))
         }
     }
 
-    fn create_test_message() -> (ReceivedMessage<serde_json::Value>, Arc<AtomicBool>, Arc<AtomicBool>, Arc<AtomicBool>) {
+    fn create_test_message() -> (
+        ReceivedMessage<serde_json::Value>,
+        Arc<AtomicBool>,
+        Arc<AtomicBool>,
+        Arc<AtomicBool>,
+    ) {
         let (ack_handle, acked, nacked, requeued) = MockAckHandle::new();
         let message = Message {
             id: "test-msg-1".to_string(),
             payload: serde_json::json!({"test": "data"}),
             metadata: MessageMetadata::new("test-queue"),
         };
-        (ReceivedMessage::new(message, Arc::new(ack_handle)), acked, nacked, requeued)
+        (
+            ReceivedMessage::new(message, Arc::new(ack_handle)),
+            acked,
+            nacked,
+            requeued,
+        )
     }
 
     #[tokio::test]
@@ -233,7 +245,7 @@ mod tests {
         let (message, acked, nacked, _) = create_test_message();
 
         let result = middleware.handle(message, Box::new(FastHandler)).await;
-        
+
         assert!(result.is_ok());
         assert!(!acked.load(Ordering::SeqCst)); // Middleware doesn't auto-ack
         assert!(!nacked.load(Ordering::SeqCst));
@@ -251,7 +263,7 @@ mod tests {
         };
 
         let result = middleware.handle(message, Box::new(slow_handler)).await;
-        
+
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), WorkerError::Timeout(_)));
         assert!(nacked.load(Ordering::SeqCst)); // Should nack on timeout
@@ -264,9 +276,12 @@ mod tests {
         let (message, _, _, _) = create_test_message();
 
         let result = middleware.handle(message, Box::new(FailingHandler)).await;
-        
+
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), WorkerError::ProcessingFailed(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            WorkerError::ProcessingFailed(_)
+        ));
     }
 
     #[tokio::test]
@@ -281,7 +296,9 @@ mod tests {
         };
 
         let start = std::time::Instant::now();
-        let result = middleware.handle(message, Box::new(very_slow_handler)).await;
+        let result = middleware
+            .handle(message, Box::new(very_slow_handler))
+            .await;
         let elapsed = start.elapsed();
 
         // Should timeout quickly, not wait for full 10 seconds
@@ -301,8 +318,10 @@ mod tests {
             delay: Duration::from_millis(80),
         };
 
-        let result = middleware.handle(message, Box::new(almost_timeout_handler)).await;
-        
+        let result = middleware
+            .handle(message, Box::new(almost_timeout_handler))
+            .await;
+
         // Should succeed (completed before timeout)
         assert!(result.is_ok());
     }

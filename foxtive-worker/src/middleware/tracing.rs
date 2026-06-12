@@ -58,7 +58,7 @@ impl Middleware for TracingMiddleware {
     ) -> WorkerResult<()> {
         let message_id = message.message.id.clone();
         let source = message.message.metadata.source.clone();
-        
+
         // Log message reception
         #[cfg(feature = "tracing")]
         {
@@ -157,12 +157,14 @@ mod tests {
     #[async_trait]
     impl MessageHandler for FailureHandler {
         async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-            Err(crate::error::WorkerError::ProcessingFailed("test error".to_string()))
+            Err(crate::error::WorkerError::ProcessingFailed(
+                "test error".to_string(),
+            ))
         }
     }
 
     fn create_test_message() -> ReceivedMessage<serde_json::Value> {
-        use crate::message::{Message, MessageMetadata, AckHandle};
+        use crate::message::{AckHandle, Message, MessageMetadata};
 
         #[derive(Debug)]
         struct MockAckHandle;

@@ -1,11 +1,9 @@
 use async_trait::async_trait;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
-use foxtive_worker::{
-    Worker, WorkerResult, ReceivedMessage, Message, MessageMetadata, AckHandle,
-};
+use foxtive_worker::{AckHandle, Message, MessageMetadata, ReceivedMessage, Worker, WorkerResult};
 
 /// Mock acknowledgment handle for testing.
 #[derive(Debug)]
@@ -90,7 +88,7 @@ impl Worker for TestWorker {
     async fn process(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
         // Track concurrency
         let current = self.concurrent_count.fetch_add(1, Ordering::SeqCst) + 1;
-        
+
         // Update max concurrent
         let mut max = self.max_concurrent.load(Ordering::SeqCst);
         while current > max {
@@ -112,13 +110,15 @@ impl Worker for TestWorker {
 
         // Decrement concurrency
         self.concurrent_count.fetch_sub(1, Ordering::SeqCst);
-        
+
         // Increment process count
         self.process_count.fetch_add(1, Ordering::SeqCst);
 
         // Check if should fail
         if self.should_fail.load(Ordering::SeqCst) {
-            return Err(foxtive_worker::WorkerError::ProcessingFailed("Intentional failure".to_string()));
+            return Err(foxtive_worker::WorkerError::ProcessingFailed(
+                "Intentional failure".to_string(),
+            ));
         }
 
         Ok(())

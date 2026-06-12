@@ -9,8 +9,7 @@
 
 use async_trait::async_trait;
 use foxtive_worker::{
-    Worker, ReceivedMessage, WorkerPoolBuilder, ProcessingTimeoutMiddleware,
-    error::WorkerResult,
+    ProcessingTimeoutMiddleware, ReceivedMessage, Worker, WorkerPoolBuilder, error::WorkerResult,
 };
 use std::time::Duration;
 
@@ -31,12 +30,18 @@ impl Worker for FastWorker {
     }
 
     async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-        println!("[{}] Processing fast message: {}", self.id, message.message.id);
-        
+        println!(
+            "[{}] Processing fast message: {}",
+            self.id, message.message.id
+        );
+
         // Simulate fast processing
         tokio::time::sleep(Duration::from_millis(500)).await;
-        
-        println!("[{}] Completed fast message: {}", self.id, message.message.id);
+
+        println!(
+            "[{}] Completed fast message: {}",
+            self.id, message.message.id
+        );
         message.ack().await?;
         Ok(())
     }
@@ -61,12 +66,18 @@ impl Worker for SlowWorker {
     }
 
     async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-        println!("[{}] Processing slow message: {}", self.id, message.message.id);
-        
+        println!(
+            "[{}] Processing slow message: {}",
+            self.id, message.message.id
+        );
+
         // Simulate slow processing (e.g., calling external APIs, heavy computation)
         tokio::time::sleep(Duration::from_secs(3)).await;
-        
-        println!("[{}] Completed slow message: {}", self.id, message.message.id);
+
+        println!(
+            "[{}] Completed slow message: {}",
+            self.id, message.message.id
+        );
         message.ack().await?;
         Ok(())
     }
@@ -90,12 +101,18 @@ impl Worker for VerySlowWorker {
     }
 
     async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-        println!("[{}] Processing very slow message: {}", self.id, message.message.id);
-        
+        println!(
+            "[{}] Processing very slow message: {}",
+            self.id, message.message.id
+        );
+
         // Simulate very slow processing
         tokio::time::sleep(Duration::from_secs(5)).await;
-        
-        println!("[{}] Completed very slow message: {}", self.id, message.message.id);
+
+        println!(
+            "[{}] Completed very slow message: {}",
+            self.id, message.message.id
+        );
         message.ack().await?;
         Ok(())
     }
@@ -118,11 +135,14 @@ impl Worker for TimeoutWorker {
     }
 
     async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-        println!("[{}] Starting message that will timeout: {}", self.id, message.message.id);
-        
+        println!(
+            "[{}] Starting message that will timeout: {}",
+            self.id, message.message.id
+        );
+
         // This will exceed the 2-second timeout
         tokio::time::sleep(Duration::from_secs(10)).await;
-        
+
         // This line won't be reached due to timeout
         message.ack().await?;
         Ok(())
@@ -165,7 +185,7 @@ async fn main() -> anyhow::Result<()> {
     // Build worker pool with processing timeout middleware
     // The middleware provides a safety net for all workers
     println!("Building worker pool with ProcessingTimeoutMiddleware...\n");
-    
+
     let _pool = WorkerPoolBuilder::new("timeout-example-pool")
         .with_concurrency_limit(5)
         .add_arc_worker(fast_worker_1)
@@ -183,9 +203,11 @@ async fn main() -> anyhow::Result<()> {
     // Note: In a real application, you would connect this to a message backend
     // like RabbitMQ or Redis Streams. For this example, we're just showing
     // the configuration.
-    
+
     println!("To use with RabbitMQ:");
-    println!("  1. Start RabbitMQ: docker run -d --name rabbitmq -p 5672:5672 rabbitmq:3-management");
+    println!(
+        "  1. Start RabbitMQ: docker run -d --name rabbitmq -p 5672:5672 rabbitmq:3-management"
+    );
     println!("  2. Configure RabbitMqBackend with your queue");
     println!("  3. Connect the pool to the backend");
     println!("  4. Messages will be processed with timeout protection\n");
@@ -216,7 +238,7 @@ mod tests {
         let worker = FastWorker {
             id: "test-fast".to_string(),
         };
-        
+
         assert_eq!(worker.processing_timeout(), Some(Duration::from_secs(5)));
     }
 
@@ -225,7 +247,7 @@ mod tests {
         let worker = SlowWorker {
             id: "test-slow".to_string(),
         };
-        
+
         assert_eq!(worker.processing_timeout(), Some(Duration::from_secs(25)));
     }
 
@@ -234,7 +256,7 @@ mod tests {
         let worker = VerySlowWorker {
             id: "test-very-slow".to_string(),
         };
-        
+
         assert_eq!(worker.processing_timeout(), Some(Duration::from_secs(120)));
     }
 
@@ -243,7 +265,7 @@ mod tests {
         let worker = TimeoutWorker {
             id: "test-timeout".to_string(),
         };
-        
+
         assert_eq!(worker.processing_timeout(), Some(Duration::from_secs(2)));
     }
 }

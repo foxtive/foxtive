@@ -43,37 +43,37 @@ pub enum ReceiveResult<T> {
     /// Message received successfully
     #[error("Message received")]
     Message(ReceivedMessage<T>),
-    
+
     /// Backend is shutting down gracefully (shutdown() was called)
     #[error("Backend shutting down")]
     Shutdown,
-    
+
     /// Connection lost - requires reconnection
     #[error("Connection lost: {reason}")]
-    ConnectionLost { 
+    ConnectionLost {
         /// Reason for connection loss
-        reason: String 
+        reason: String,
     },
-    
+
     /// Operation timed out
     #[error("Operation timed out")]
     Timeout,
-    
+
     /// Consumer channel was closed unexpectedly
     #[error("Consumer channel closed")]
     ChannelClosed,
-    
+
     /// Consumer was cancelled by broker or client
     #[error("Consumer cancelled")]
     ConsumerCancelled,
-    
+
     /// Transient error that may resolve on retry
     #[error("Retryable error: {reason}")]
-    Retryable { 
+    Retryable {
         /// Error description
-        reason: String, 
+        reason: String,
         /// Optional suggested wait time before retrying
-        retry_after: Option<Duration> 
+        retry_after: Option<Duration>,
     },
 }
 

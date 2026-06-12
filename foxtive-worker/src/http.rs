@@ -21,7 +21,7 @@ impl HealthEndpoint {
     pub fn get_status_json(&self) -> String {
         let status = self.check.check_health();
         let message = self.check.status_message();
-        
+
         let status_str = match status {
             HealthStatus::Healthy => "healthy",
             HealthStatus::Degraded { .. } => "degraded",
@@ -48,7 +48,7 @@ impl HealthEndpoint {
 #[cfg(feature = "http")]
 mod axum_integration {
     use super::*;
-    use axum::{http::StatusCode, response::IntoResponse, Json};
+    use axum::{Json, http::StatusCode, response::IntoResponse};
     use serde::Serialize;
 
     #[derive(Serialize)]
@@ -61,7 +61,7 @@ mod axum_integration {
         fn into_response(self) -> axum::response::Response {
             let status = self.check.check_health();
             let message = self.check.status_message();
-            
+
             let (code, status_str) = match status {
                 HealthStatus::Healthy => (StatusCode::OK, "healthy"),
                 HealthStatus::Degraded { .. } => (StatusCode::OK, "degraded"),

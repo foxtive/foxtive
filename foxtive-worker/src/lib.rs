@@ -50,33 +50,33 @@
 //!
 //! These are independent strategies serving different purposes.
 
-pub mod error;
-pub mod message;
-pub mod worker;
-pub mod pool;
-pub mod strategies;
-pub mod builder;
 pub mod backends;
-pub mod middleware;
-pub mod metrics;
-pub mod health;
-pub mod dlq;
 pub mod batch;
 pub mod batch_processor;
+pub mod builder;
+pub mod dlq;
+pub mod error;
+pub mod health;
 pub mod http;
+pub mod message;
+pub mod metrics;
+pub mod middleware;
+pub mod pool;
+pub mod strategies;
 pub mod stress;
+pub mod worker;
 
 // Re-exports for convenience
+pub use crate::backends::{MemoryBackend, MessageBackend};
+pub use crate::builder::WorkerPoolBuilder;
 pub use crate::error::{WorkerError, WorkerResult};
 pub use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
-pub use crate::worker::{BackoffStrategy, Worker};
 pub use crate::pool::WorkerPool;
 pub use crate::strategies::LoadBalancingStrategy;
-pub use crate::builder::WorkerPoolBuilder;
-pub use crate::backends::{MessageBackend, MemoryBackend};
+pub use crate::worker::{BackoffStrategy, Worker};
 
 // Re-export resilient backend for all configurations
-pub use crate::backends::{ResilientBackend, ResilientBackendBuilder, ReconnectStrategy};
+pub use crate::backends::{ReconnectStrategy, ResilientBackend, ResilientBackendBuilder};
 
 #[cfg(feature = "rabbitmq")]
 pub use crate::backends::{RabbitMqBackend, RabbitMqConsumerConfig};
@@ -85,13 +85,10 @@ pub use crate::backends::{RabbitMqBackend, RabbitMqConsumerConfig};
 pub use crate::backends::{RedisStreamBackend, RedisStreamConsumerConfig};
 
 pub use crate::middleware::{
-    Middleware, MessageHandler, MiddlewareChain,
-    ack_nack::AckNackMiddleware,
-    circuit_breaker::CircuitBreakerMiddleware,
+    MessageHandler, Middleware, MiddlewareChain, ack_nack::AckNackMiddleware,
+    batch::BatchMiddleware, circuit_breaker::CircuitBreakerMiddleware,
+    processing_timeout::ProcessingTimeoutMiddleware, retry_handler::RetryHandler,
     tracing::TracingMiddleware,
-    retry_handler::RetryHandler,
-    batch::BatchMiddleware,
-    processing_timeout::ProcessingTimeoutMiddleware,
 };
 
 #[cfg(feature = "rate-limit")]
@@ -102,43 +99,47 @@ pub use crate::metrics::MetricsCollector;
 #[cfg(not(feature = "metrics"))]
 pub use crate::metrics::NoOpMetrics as MetricsCollector;
 
-pub use crate::health::{HealthCheck, HealthStatus, WorkerPoolHealth, WorkerHealth};
-pub use crate::dlq::{DeadLetterMessage, PoisonPillConfig, PoisonPillTracker};
-pub use crate::batch::{BatchHandler, BatchConfig, MessageBatch, ReceivedBatchMessage, BatchMetadata, BatchStatus};
+pub use crate::batch::{
+    BatchConfig, BatchHandler, BatchMetadata, BatchStatus, MessageBatch, ReceivedBatchMessage,
+};
 pub use crate::batch_processor::BatchProcessor;
+pub use crate::dlq::{DeadLetterMessage, PoisonPillConfig, PoisonPillTracker};
+pub use crate::health::{HealthCheck, HealthStatus, WorkerHealth, WorkerPoolHealth};
 
 /// Common types and traits used throughout the crate.
 pub mod prelude {
+    pub use crate::backends::ReceiveResult;
+    pub use crate::backends::{MemoryBackend, MessageBackend};
+    pub use crate::backends::{ReconnectStrategy, ResilientBackend, ResilientBackendBuilder};
+    pub use crate::builder::WorkerPoolBuilder;
     pub use crate::error::{WorkerError, WorkerResult};
-    pub use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage, ReceivedJsonMessage};
-    pub use crate::worker::{BackoffStrategy, Worker};
+    pub use crate::message::{
+        AckHandle, Message, MessageMetadata, ReceivedJsonMessage, ReceivedMessage,
+    };
     pub use crate::pool::WorkerPool;
     pub use crate::strategies::LoadBalancingStrategy;
-    pub use crate::builder::WorkerPoolBuilder;
-    pub use crate::backends::{MessageBackend, MemoryBackend};
-    pub use crate::backends::ReceiveResult;
-    pub use crate::backends::{ResilientBackend, ResilientBackendBuilder, ReconnectStrategy};
-    
+    pub use crate::worker::{BackoffStrategy, Worker};
+
     #[cfg(feature = "rabbitmq")]
     pub use crate::backends::{RabbitMqBackend, RabbitMqConsumerConfig};
-    
+
     #[cfg(feature = "redis-stream")]
     pub use crate::backends::{RedisStreamBackend, RedisStreamConsumerConfig};
-    
-    pub use crate::middleware::{Middleware, MessageHandler, MiddlewareChain};
+
     pub use crate::middleware::ack_nack::AckNackMiddleware;
+    pub use crate::middleware::circuit_breaker::CircuitBreakerMiddleware;
+    pub use crate::middleware::processing_timeout::ProcessingTimeoutMiddleware;
     #[cfg(feature = "rate-limit")]
     pub use crate::middleware::rate_limit::RateLimitMiddleware;
-    pub use crate::middleware::circuit_breaker::CircuitBreakerMiddleware;
-    pub use crate::middleware::tracing::TracingMiddleware;
     pub use crate::middleware::retry_handler::RetryHandler;
-    pub use crate::middleware::processing_timeout::ProcessingTimeoutMiddleware;
+    pub use crate::middleware::tracing::TracingMiddleware;
+    pub use crate::middleware::{MessageHandler, Middleware, MiddlewareChain};
 
-    pub use crate::metrics::WorkerMetrics;
     #[cfg(feature = "metrics")]
     pub use crate::metrics::MetricsCollector;
     #[cfg(not(feature = "metrics"))]
     pub use crate::metrics::NoOpMetrics as MetricsCollector;
+    pub use crate::metrics::WorkerMetrics;
 
-    pub use crate::health::{HealthCheck, HealthStatus, WorkerPoolHealth, WorkerHealth};
+    pub use crate::health::{HealthCheck, HealthStatus, WorkerHealth, WorkerPoolHealth};
 }
