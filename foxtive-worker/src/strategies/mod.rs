@@ -63,7 +63,7 @@ impl RandomBalancer {
         if worker_count == 0 {
             return 0;
         }
-        rand::random::<usize>() % worker_count
+        (rand::random::<u64>() % worker_count as u64) as usize
     }
 }
 

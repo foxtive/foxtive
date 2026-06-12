@@ -32,7 +32,7 @@ impl AckHandle for RedisStreamAckHandle {
             .arg(&self.stream_name)
             .arg(&self.group_name)
             .arg(&self.message_id)
-            .query_async::<_, ()>(&mut conn)
+            .query_async::<()>(&mut conn)
             .await
             .map_err(|e| WorkerError::BackendError(format!("Failed to ack message: {}", e)))?;
 
@@ -178,7 +178,7 @@ impl RedisStreamBackend {
             .map_err(|e| WorkerError::BackendError(format!("Failed to connect to Redis: {}", e)))?;
 
         redis::cmd("PING")
-            .query_async::<_, String>(&mut conn)
+            .query_async::<String>(&mut conn)
             .await
             .map_err(|e| WorkerError::BackendError(format!("Redis PING failed: {}", e)))?;
 
@@ -189,7 +189,7 @@ impl RedisStreamBackend {
             .arg(&config.group_name)
             .arg("$") // Start from end
             .arg("MKSTREAM") // Create stream if not exists
-            .query_async::<_, ()>(&mut conn)
+            .query_async::<()>(&mut conn)
             .await
             .ok(); // Ignore error if group already exists
 
@@ -201,7 +201,7 @@ impl RedisStreamBackend {
                 .arg(format!("{}-dlq", &config.group_name)) // DLQ group name
                 .arg("$") // Start from end
                 .arg("MKSTREAM") // Create stream if not exists
-                .query_async::<_, ()>(&mut conn)
+                .query_async::<()>(&mut conn)
                 .await
                 .ok(); // Ignore error if group already exists
         }
@@ -272,7 +272,7 @@ impl RedisStreamBackend {
             .arg("MAXLEN")
             .arg("~")  // Approximate trimming for better performance
             .arg(max_len)
-            .query_async::<_, ()>(&mut conn)
+            .query_async::<()>(&mut conn)
             .await
             .map_err(|e| WorkerError::BackendError(format!("Failed to trim stream: {}", e)))?;
 
@@ -295,7 +295,7 @@ impl RedisStreamBackend {
                 .arg("MAXLEN")
                 .arg("~")
                 .arg(max_len)
-                .query_async::<_, ()>(&mut conn)
+                .query_async::<()>(&mut conn)
                 .await
                 .map_err(|e| WorkerError::BackendError(format!("Failed to trim DLQ stream: {}", e)))?;
 
@@ -611,7 +611,7 @@ impl MessageBackend for RedisStreamBackend {
             .arg(&self.config.stream_name)
             .arg(&self.config.group_name)
             .arg(message_id)
-            .query_async::<_, ()>(&mut conn)
+            .query_async::<()>(&mut conn)
             .await
             .map_err(|e| WorkerError::BackendError(format!("Failed to ack message: {}", e)))?;
 
@@ -663,7 +663,7 @@ impl MessageBackend for RedisStreamBackend {
         })?;
 
         redis::cmd("PING")
-            .query_async::<_, String>(&mut conn)
+            .query_async::<String>(&mut conn)
             .await
             .map_err(|e| WorkerError::BackendError(format!("Redis health check failed: {}", e)))?;
 
@@ -784,8 +784,8 @@ mod tests {
         assert_eq!(serde_json::from_str::<serde_json::Value>(data_str).unwrap(), serde_json::json!({"dlq_test": true}));
 
         // Clean up DLQ stream for next test run
-        redis::cmd("DEL").arg(&dlq_stream).query_async::<_, ()>(&mut conn).await.unwrap();
-        redis::cmd("DEL").arg(&backend.config.stream_name).query_async::<_, ()>(&mut conn).await.unwrap();
+        redis::cmd("DEL").arg(&dlq_stream).query_async::<()>(&mut conn).await.unwrap();
+        redis::cmd("DEL").arg(&backend.config.stream_name).query_async::<()>(&mut conn).await.unwrap();
     } else {
         panic!("Expected Message variant");
     }

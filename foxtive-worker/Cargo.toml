@@ -32,7 +32,7 @@ foxtive-cron = ["dep:foxtive-cron"]
 
 [dependencies]
 foxtive = { path = "../foxtive", version = "0.26.0" }
-foxtive-supervisor = { path = "../foxtive-supervisor", version = "0.3.3", optional = true }
+foxtive-supervisor = { path = "../foxtive-supervisor", version = "0.3.2", optional = true }
 foxtive-cron = { path = "../foxtive-cron", version = "0.5.0", optional = true }
 
 tokio = { version = "1.52.1", features = ["full"] }
@@ -44,26 +44,24 @@ tracing = { version = "0.1.44", optional = true }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 chrono = { version = "0.4.44", features = ["serde"] }
-uuid = { version = "1.21.0", features = ["v4", "serde"] }
-rand = "0.8.5"
+uuid = { version = "1.23.3", features = ["v4", "serde"] }
+rand = "0.10.1"
 
 # Optional dependencies
-governor = { version = "0.8.0", optional = true }
+governor = { version = "0.10.4", optional = true }
 dashmap = { version = "6.1.0", optional = true }
 metrics = { version = "0.24.0", optional = true }
 lapin = { version = "3.7.2", optional = true }
 futures-util = { version = "0.3.30", optional = true }
-deadpool-redis = { version = "0.15.1", optional = true }
-redis = { version = "0.25.4", optional = true }
+deadpool-redis = { version = "0.23.0", optional = true }
+redis = { version = "1.2.2", optional = true }
 deadpool-lapin = { version = "0.13.1", features = ["rt_tokio_1"], optional = true }
 axum = { version = "0.8", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.52.1", features = ["full", "test-util"] }
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
-tempfile = "3.27.0"
 foxtive-supervisor = { path = "../foxtive-supervisor", version = "0.3.3" }
-# criterion = { version = "0.5.1", features = ["html_reports"] }
 
 # [[bench]]
 # name = "worker_performance"
