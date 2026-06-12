@@ -49,6 +49,7 @@ impl SupervisedTask for SupervisedWorkerPool {
                 }
                 ReceiveResult::Shutdown => break,
                 _ => {
+                    // For other cases (connection lost, timeout, etc.), continue
                     tokio::time::sleep(Duration::from_millis(100)).await;
                 }
             }
@@ -104,9 +105,28 @@ async fn test_supervised_worker_pool_basic() {
         backend.enqueue(msg.message.payload);
     }
     
-    // Run the supervised task (will process messages and exit when queue is empty)
-    let result = supervised.run().await;
-    assert!(result.is_ok());
+    // Run processing in background
+    let backend_clone = backend.clone();
+    let handle = tokio::spawn(async move {
+        supervised.run().await
+    });
+    
+    // Wait for messages to be processed
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    
+    // Trigger shutdown to stop the infinite loop
+    backend_clone.shutdown().await.unwrap();
+    
+    // Wait for completion with timeout
+    let result = tokio::time::timeout(
+        Duration::from_secs(5),
+        handle
+    ).await;
+    
+    assert!(result.is_ok(), "Test timed out");
+    let inner_result = result.unwrap();
+    assert!(inner_result.is_ok());
+    assert!(inner_result.unwrap().is_ok());
 }
 
 /// Test supervised worker pool with multiple workers
@@ -160,9 +180,28 @@ async fn test_supervised_worker_pool_multiple_workers() {
         backend.enqueue(msg.message.payload);
     }
     
-    // Run
-    let result = supervised.run().await;
-    assert!(result.is_ok());
+    // Run processing in background
+    let backend_clone = backend.clone();
+    let handle = tokio::spawn(async move {
+        supervised.run().await
+    });
+    
+    // Wait for messages to be processed
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    
+    // Trigger shutdown
+    backend_clone.shutdown().await.unwrap();
+    
+    // Wait for completion with timeout
+    let result = tokio::time::timeout(
+        Duration::from_secs(5),
+        handle
+    ).await;
+    
+    assert!(result.is_ok(), "Test timed out");
+    let inner_result = result.unwrap();
+    assert!(inner_result.is_ok());
+    assert!(inner_result.unwrap().is_ok());
     
     // Verify all messages were processed
     let count = processed_count.load(Ordering::SeqCst);

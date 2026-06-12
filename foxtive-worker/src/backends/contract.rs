@@ -12,23 +12,30 @@ use crate::message::ReceivedMessage;
 ///
 /// # Examples
 /// ```no_run
-/// match backend.receive_with_status().await? {
-///     ReceiveResult::Message(msg) => {
-///         // Process the message
-///         println!("Received: {}", msg.message.id);
+/// use foxtive_worker::backends::ReceiveResult;
+///
+/// async fn process_messages(backend: &dyn foxtive_worker::backends::MessageBackend) -> anyhow::Result<()> {
+///     loop {
+///         match backend.receive().await? {
+///             ReceiveResult::Message(msg) => {
+///                 // Process the message
+///                 println!("Received: {}", msg.message.id);
+///             }
+///             ReceiveResult::Shutdown => {
+///                 // Backend is shutting down gracefully
+///                 break;
+///             }
+///             ReceiveResult::ConnectionLost { reason } => {
+///                 // Connection lost - trigger reconnection
+///                 eprintln!("Connection lost: {}", reason);
+///                 return Err(anyhow::anyhow!("Connection lost: {}", reason));
+///             }
+///             _ => {
+///                 // Handle other cases
+///             }
+///         }
 ///     }
-///     ReceiveResult::Shutdown => {
-///         // Backend is shutting down gracefully
-///         break;
-///     }
-///     ReceiveResult::ConnectionLost { reason } => {
-///         // Connection lost - trigger reconnection
-///         eprintln!("Connection lost: {}", reason);
-///         return Err(anyhow::anyhow!("Connection lost: {}", reason));
-///     }
-///     _ => {
-///         // Handle other cases
-///     }
+///     Ok(())
 /// }
 /// ```
 #[derive(Debug, thiserror::Error)]

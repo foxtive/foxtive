@@ -357,8 +357,13 @@ impl RabbitMqBackend {
     ///
     /// # Example
     /// ```rust,no_run
+    /// # use foxtive_worker::backends::RabbitMqBackend;
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let backend = RabbitMqBackend::with_defaults("amqp://localhost").await?;
     /// // Acknowledge all messages up to tag 1000
     /// backend.batch_ack(1000).await?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn batch_ack(&self, delivery_tag: u64) -> WorkerResult<()> {
         let channel = self.consume_channel.lock().await;
@@ -398,11 +403,16 @@ impl RabbitMqBackend {
     ///
     /// # Example
     /// ```rust,no_run
+    /// # use foxtive_worker::backends::RabbitMqBackend;
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let backend = RabbitMqBackend::with_defaults("amqp://localhost").await?;
     /// // Increase prefetch for fast workers
     /// backend.adjust_prefetch(50).await?;
     ///
     /// // Decrease prefetch for slow/large messages
     /// backend.adjust_prefetch(5).await?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn adjust_prefetch(&self, prefetch_count: u16) -> WorkerResult<()> {
         let channel = self.consume_channel.lock().await;

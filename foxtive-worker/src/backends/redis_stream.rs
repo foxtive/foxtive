@@ -254,8 +254,13 @@ impl RedisStreamBackend {
     /// 
     /// # Example
     /// ```rust,no_run
+    /// # use foxtive_worker::backends::RedisStreamBackend;
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let backend = RedisStreamBackend::new("redis://localhost", Default::default()).await?;
     /// // Keep only the last 10,000 messages
     /// backend.trim_stream(10000).await?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn trim_stream(&self, max_len: usize) -> WorkerResult<()> {
         let mut conn = self.redis.get().await.map_err(|e| {
