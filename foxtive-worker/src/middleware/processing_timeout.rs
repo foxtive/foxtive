@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use std::time::Duration;
 
-use crate::error::{WorkerError, WorkerResult};
+use crate::error::WorkerError;
 use crate::message::ReceivedMessage;
-use crate::middleware::{MessageHandler, Middleware};
+use crate::middleware::{MessageHandler, Middleware, MiddlewareResult};
 
 /// Middleware that enforces a processing timeout on message handling.
 ///
@@ -80,7 +80,7 @@ impl Middleware for ProcessingTimeoutMiddleware {
         &self,
         message: ReceivedMessage<serde_json::Value>,
         next: Box<dyn MessageHandler>,
-    ) -> WorkerResult<()> {
+    ) -> Result<MiddlewareResult, WorkerError> {
         let message_id = message.message.id.clone();
 
         tracing::debug!(
@@ -95,23 +95,7 @@ impl Middleware for ProcessingTimeoutMiddleware {
         match tokio::time::timeout(self.timeout, next.handle(message.clone())).await {
             Ok(result) => {
                 // Processing completed within timeout
-                match result {
-                    Ok(()) => {
-                        tracing::debug!(
-                            message_id = %message_id,
-                            "Message processing completed successfully within timeout"
-                        );
-                        Ok(())
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            message_id = %message_id,
-                            error = %e,
-                            "Message processing failed (within timeout)"
-                        );
-                        Err(e)
-                    }
-                }
+                result
             }
             Err(_) => {
                 // Timeout expired! Nack the message before broker kills us
@@ -174,12 +158,12 @@ mod tests {
 
     #[async_trait]
     impl AckHandle for MockAckHandle {
-        async fn ack(&self) -> WorkerResult<()> {
+        async fn ack(&self) -> crate::WorkerResult<()> {
             self.acked.store(true, Ordering::SeqCst);
             Ok(())
         }
 
-        async fn nack(&self, requeue: bool) -> WorkerResult<()> {
+        async fn nack(&self, requeue: bool) -> crate::WorkerResult<()> {
             self.nacked.store(true, Ordering::SeqCst);
             self.requeued.store(requeue, Ordering::SeqCst);
             Ok(())
@@ -190,9 +174,9 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for FastHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
             // Completes immediately
-            Ok(())
+            Ok(MiddlewareResult::Continue)
         }
     }
 
@@ -202,9 +186,9 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for SlowHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
             tokio::time::sleep(self.delay).await;
-            Ok(())
+            Ok(MiddlewareResult::Continue)
         }
     }
 
@@ -212,7 +196,7 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for FailingHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
             Err(WorkerError::ProcessingFailed(
                 "intentional failure".to_string(),
             ))

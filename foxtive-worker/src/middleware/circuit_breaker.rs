@@ -3,9 +3,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
-use crate::error::{WorkerError, WorkerResult};
+use crate::error::WorkerError;
 use crate::message::ReceivedMessage;
-use crate::middleware::{MessageHandler, Middleware};
+use crate::middleware::{MessageHandler, Middleware, MiddlewareResult};
 
 /// Circuit breaker state.
 #[derive(Debug, Clone, PartialEq)]
@@ -217,7 +217,7 @@ impl Middleware for CircuitBreakerMiddleware {
         &self,
         message: ReceivedMessage<serde_json::Value>,
         next: Box<dyn MessageHandler>,
-    ) -> WorkerResult<()> {
+    ) -> Result<crate::middleware::MiddlewareResult, WorkerError> {
         // Check if request should be allowed
         {
             let mut state = self.state.lock().await;
@@ -235,8 +235,8 @@ impl Middleware for CircuitBreakerMiddleware {
         // Record success or failure
         {
             let mut state = self.state.lock().await;
-            match result {
-                Ok(_) => state.record_success(),
+            match &result {
+                Ok(MiddlewareResult::Continue) | Ok(MiddlewareResult::Acknowledged) => state.record_success(),
                 Err(_) => state.record_failure(),
             }
         }
@@ -254,8 +254,8 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for SuccessHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-            Ok(())
+        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
+            Ok(MiddlewareResult::Continue)
         }
     }
 
@@ -263,7 +263,7 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for FailureHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
             Err(WorkerError::ProcessingFailed("test failure".to_string()))
         }
     }
@@ -276,11 +276,11 @@ mod tests {
 
         #[async_trait]
         impl AckHandle for MockAckHandle {
-            async fn ack(&self) -> WorkerResult<()> {
+            async fn ack(&self) -> crate::WorkerResult<()> {
                 Ok(())
             }
 
-            async fn nack(&self, _requeue: bool) -> WorkerResult<()> {
+            async fn nack(&self, _requeue: bool) -> crate::WorkerResult<()> {
                 Ok(())
             }
         }

@@ -323,7 +323,7 @@ async fn test_middleware_execution_order() {
             &self,
             message: foxtive_worker::ReceivedMessage<serde_json::Value>,
             next: Box<dyn foxtive_worker::middleware::MessageHandler>,
-        ) -> foxtive_worker::WorkerResult<()> {
+        ) -> Result<foxtive_worker::middleware::MiddlewareResult, foxtive_worker::WorkerError> {
             self.order.lock().unwrap().push(self.name);
             next.handle(message).await
         }

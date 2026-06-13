@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 
-use crate::error::WorkerResult;
 use crate::message::ReceivedMessage;
-use crate::middleware::{MessageHandler, Middleware};
+use crate::middleware::{MessageHandler, Middleware, MiddlewareResult};
 
 /// Middleware that adds distributed tracing to message processing.
 ///
@@ -55,7 +54,7 @@ impl Middleware for TracingMiddleware {
         &self,
         message: ReceivedMessage<serde_json::Value>,
         next: Box<dyn MessageHandler>,
-    ) -> WorkerResult<()> {
+    ) -> Result<MiddlewareResult, crate::error::WorkerError> {
         let message_id = message.message.id.clone();
         let source = message.message.metadata.source.clone();
 
@@ -88,7 +87,7 @@ impl Middleware for TracingMiddleware {
 
         // Log completion
         match &result {
-            Ok(()) => {
+            Ok(MiddlewareResult::Continue) | Ok(MiddlewareResult::Acknowledged) => {
                 #[cfg(feature = "tracing")]
                 {
                     tracing::info!(
@@ -147,8 +146,8 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for SuccessHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-            Ok(())
+        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, crate::error::WorkerError> {
+            Ok(MiddlewareResult::Continue)
         }
     }
 
@@ -156,7 +155,7 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for FailureHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, crate::error::WorkerError> {
             Err(crate::error::WorkerError::ProcessingFailed(
                 "test error".to_string(),
             ))
@@ -171,11 +170,11 @@ mod tests {
 
         #[async_trait]
         impl AckHandle for MockAckHandle {
-            async fn ack(&self) -> WorkerResult<()> {
+            async fn ack(&self) -> crate::WorkerResult<()> {
                 Ok(())
             }
 
-            async fn nack(&self, _requeue: bool) -> WorkerResult<()> {
+            async fn nack(&self, _requeue: bool) -> crate::WorkerResult<()> {
                 Ok(())
             }
         }

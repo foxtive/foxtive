@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 
-use crate::error::{WorkerError, WorkerResult};
+use crate::error::WorkerError;
 use crate::message::ReceivedMessage;
-use crate::middleware::{MessageHandler, Middleware};
+use crate::middleware::{MessageHandler, Middleware, MiddlewareResult};
 
 /// Middleware that automatically acknowledges or negative-acknowledges messages
 /// based on processing results.
@@ -66,11 +66,11 @@ impl Middleware for AckNackMiddleware {
         &self,
         message: ReceivedMessage<serde_json::Value>,
         next: Box<dyn MessageHandler>,
-    ) -> WorkerResult<()> {
+    ) -> Result<MiddlewareResult, WorkerError> {
         let result = next.handle(message.clone()).await;
 
         match result {
-            Ok(()) if self.ack_on_success => {
+            Ok(MiddlewareResult::Continue) if self.ack_on_success => {
                 // Acknowledge successful processing
                 message.ack().await.map_err(|e| {
                     tracing::error!("Failed to ack message {}: {}", message.message.id, e);
@@ -79,7 +79,8 @@ impl Middleware for AckNackMiddleware {
                         message.message.id, e
                     ))
                 })?;
-                Ok(())
+                // Signal that acknowledgment was handled
+                Ok(MiddlewareResult::Acknowledged)
             }
             Err(e) if self.nack_on_failure => {
                 // Negative-acknowledge failed processing
@@ -96,8 +97,8 @@ impl Middleware for AckNackMiddleware {
                         message.message.id, nack_err, e
                     )));
                 }
-                // Successfully nacked - return special error to prevent pool from nacking again
-                Err(WorkerError::AlreadyAcknowledged)
+                // Successfully nacked - signal that acknowledgment was handled
+                Ok(MiddlewareResult::Acknowledged)
             }
             other => other,
         }
@@ -138,12 +139,12 @@ mod tests {
 
     #[async_trait]
     impl AckHandle for MockAckHandle {
-        async fn ack(&self) -> WorkerResult<()> {
+        async fn ack(&self) -> crate::WorkerResult<()> {
             self.acked.store(true, Ordering::SeqCst);
             Ok(())
         }
 
-        async fn nack(&self, requeue: bool) -> WorkerResult<()> {
+        async fn nack(&self, requeue: bool) -> crate::WorkerResult<()> {
             self.nacked.store(true, Ordering::SeqCst);
             self.requeued.store(requeue, Ordering::SeqCst);
             Ok(())
@@ -154,8 +155,8 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for SuccessHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-            Ok(())
+        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
+            Ok(MiddlewareResult::Continue)
         }
     }
 
@@ -163,7 +164,7 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for FailureHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
             Err(crate::error::WorkerError::ProcessingFailed(
                 "test error".to_string(),
             ))
@@ -195,10 +196,9 @@ mod tests {
         let middleware = AckNackMiddleware::new();
         let (message, acked, nacked, _) = create_test_message();
 
-        middleware
-            .handle(message, Box::new(SuccessHandler))
-            .await
-            .unwrap();
+        let result = middleware.handle(message, Box::new(SuccessHandler)).await;
+        // Middleware returns Acknowledged to signal it handled the ack
+        assert!(matches!(result, Ok(MiddlewareResult::Acknowledged)));
 
         assert!(acked.load(Ordering::SeqCst));
         assert!(!nacked.load(Ordering::SeqCst));
@@ -210,7 +210,8 @@ mod tests {
         let (message, acked, nacked, requeued) = create_test_message();
 
         let result = middleware.handle(message, Box::new(FailureHandler)).await;
-        assert!(result.is_err());
+        // Middleware returns Acknowledged after successfully nacking
+        assert!(matches!(result, Ok(MiddlewareResult::Acknowledged)));
 
         assert!(!acked.load(Ordering::SeqCst));
         assert!(nacked.load(Ordering::SeqCst));

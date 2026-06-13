@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 
-use crate::error::WorkerResult;
+use crate::error::WorkerError;
 use crate::message::ReceivedMessage;
 
 pub mod ack_nack;
@@ -12,6 +12,34 @@ pub mod processing_timeout;
 pub mod rate_limit;
 pub mod retry_handler;
 pub mod tracing;
+
+/// Result of middleware processing.
+///
+/// This enum provides explicit control flow for middleware chains,
+/// allowing middleware to signal whether they've handled acknowledgment
+/// or whether processing should continue normally.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MiddlewareResult {
+    /// Message has been acknowledged by this middleware.
+    /// The pool should NOT attempt to ack/nack again.
+    Acknowledged,
+
+    /// Continue with normal processing flow.
+    /// The pool should handle ack/nack based on the result.
+    Continue,
+}
+
+impl MiddlewareResult {
+    /// Returns true if the message was already acknowledged.
+    pub fn is_acknowledged(&self) -> bool {
+        matches!(self, Self::Acknowledged)
+    }
+
+    /// Returns true if processing should continue normally.
+    pub fn is_continue(&self) -> bool {
+        matches!(self, Self::Continue)
+    }
+}
 
 /// A message handler that processes messages.
 ///
@@ -25,9 +53,10 @@ pub trait MessageHandler: Send + Sync {
     /// * `message` - The message to process
     ///
     /// # Returns
-    /// * `Ok(())` if processing succeeded
+    /// * `Ok(MiddlewareResult::Acknowledged)` if middleware handled acknowledgment
+    /// * `Ok(MiddlewareResult::Continue)` if processing should continue normally
     /// * `Err(WorkerError)` if processing failed
-    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()>;
+    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError>;
 }
 
 /// Middleware that wraps message handlers to add cross-cutting concerns.
@@ -37,11 +66,12 @@ pub trait MessageHandler: Send + Sync {
 /// - Perform actions before and after processing
 /// - Short-circuit the chain by returning early
 /// - Handle errors and implement retry logic
+/// - Signal whether acknowledgment was handled
 ///
 /// # Example
 /// ```rust,no_run
-/// use foxtive_worker::middleware::{Middleware, MessageHandler};
-/// use foxtive_worker::{ReceivedMessage, WorkerResult};
+/// use foxtive_worker::middleware::{Middleware, MessageHandler, MiddlewareResult};
+/// use foxtive_worker::{ReceivedMessage, WorkerError};
 ///
 /// struct LoggingMiddleware;
 ///
@@ -53,11 +83,11 @@ pub trait MessageHandler: Send + Sync {
 ///         &self,
 ///         message: ReceivedMessage<serde_json::Value>,
 ///         next: Box<dyn MessageHandler>,
-///     ) -> WorkerResult<()> {
+///     ) -> Result<MiddlewareResult, WorkerError> {
 ///         println!("Processing message: {}", message.message.id);
-///         let result = next.handle(message).await;
-///         println!("Message processed with result: {:?}", result.is_ok());
-///         result
+///         let result = next.handle(message).await?;
+///         println!("Message processed with result: {:?}", result);
+///         Ok(result)
 ///     }
 /// }
 /// ```
@@ -73,13 +103,14 @@ pub trait Middleware: Send + Sync {
     /// * `next` - The next handler in the middleware chain
     ///
     /// # Returns
-    /// * `Ok(())` if processing succeeded
+    /// * `Ok(MiddlewareResult::Acknowledged)` if middleware handled acknowledgment
+    /// * `Ok(MiddlewareResult::Continue)` if processing should continue normally
     /// * `Err(WorkerError)` if processing failed
     async fn handle(
         &self,
         message: ReceivedMessage<serde_json::Value>,
         next: Box<dyn MessageHandler>,
-    ) -> WorkerResult<()>;
+    ) -> Result<MiddlewareResult, WorkerError>;
 }
 
 /// A chain of middleware that processes messages in sequence.
@@ -133,7 +164,7 @@ struct MiddlewareWrapper {
 
 #[async_trait]
 impl MessageHandler for MiddlewareWrapper {
-    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
         let next = self.inner.clone();
         self.middleware
             .handle(message, Box::new(ArcHandler(next)))
@@ -146,7 +177,7 @@ struct ArcHandler(Arc<dyn MessageHandler>);
 
 #[async_trait]
 impl MessageHandler for ArcHandler {
-    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
         self.0.handle(message).await
     }
 }
@@ -156,7 +187,7 @@ struct ArcHandlerWrapper(Box<dyn MessageHandler>);
 
 #[async_trait]
 impl MessageHandler for ArcHandlerWrapper {
-    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
         self.0.handle(message).await
     }
 }

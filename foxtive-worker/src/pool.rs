@@ -229,21 +229,37 @@ impl WorkerPool {
             };
 
             match result {
-                Ok(_) => {
-                    tracing::debug!("Message {} processed successfully", message_id);
-                    metrics_collector_clone.record_message_processed(
-                        &worker_id,
-                        &queue_name,
-                        start_time,
-                    );
-                    // Retry ack with exponential backoff on failure
-                    if let Err(e) = retry_ack(&ack_handle, &message_id).await {
-                        tracing::error!(
-                            "Failed to ack message {} after retries: {}. Message may be redelivered.",
-                            message_id,
-                            e
-                        );
-                        // Consider sending to DLQ or implementing idempotency at application level
+                Ok(middleware_result) => {
+                    match middleware_result {
+                        crate::middleware::MiddlewareResult::Acknowledged => {
+                            // Middleware (e.g., AckNackMiddleware) already handled acknowledgment
+                            tracing::debug!("Message {} already acknowledged by middleware", message_id);
+                            metrics_collector_clone.record_message_processed(
+                                &worker_id,
+                                &queue_name,
+                                start_time,
+                            );
+                            // Decrement in-flight counter
+                            in_flight_tasks.fetch_sub(1, Ordering::SeqCst);
+                            task_completion_notify.notify_one();
+                            return;
+                        }
+                        crate::middleware::MiddlewareResult::Continue => {
+                            // No middleware handled ack - pool should ack on success
+                            tracing::debug!("Message {} processed successfully", message_id);
+                            metrics_collector_clone.record_message_processed(
+                                &worker_id,
+                                &queue_name,
+                                start_time,
+                            );
+                            if let Err(e) = retry_ack(&ack_handle, &message_id).await {
+                                tracing::error!(
+                                    "Failed to ack message {} after retries: {}. Message may be redelivered.",
+                                    message_id,
+                                    e
+                                );
+                            }
+                        }
                     }
                 }
                 Err(WorkerError::RetryableFailure { source, delay_ms }) => {
@@ -288,14 +304,6 @@ impl WorkerPool {
                     }
                 }
                 Err(e) => {
-                    // Skip nack if middleware already handled it
-                    if matches!(e, WorkerError::AlreadyAcknowledged) {
-                        // Decrement in-flight counter
-                        in_flight_tasks.fetch_sub(1, Ordering::SeqCst);
-                        task_completion_notify.notify_one();
-                        return;
-                    }
-
                     let error_type = format!("{:?}", e);
                     tracing::error!("Message {} failed: {}", message_id, e);
                     metrics_collector_clone.record_message_failed(
@@ -470,8 +478,10 @@ struct WorkerHandler(Arc<dyn Worker>);
 
 #[async_trait::async_trait]
 impl MessageHandler for WorkerHandler {
-    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-        self.0.process(message).await
+    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> Result<crate::middleware::MiddlewareResult, WorkerError> {
+        // Workers always return Continue - they don't handle acknowledgment directly
+        self.0.process(message).await?;
+        Ok(crate::middleware::MiddlewareResult::Continue)
     }
 }
 
@@ -488,7 +498,7 @@ impl Middleware for ArcMiddlewareWrapper {
         &self,
         message: ReceivedMessage<serde_json::Value>,
         next: Box<dyn MessageHandler>,
-    ) -> WorkerResult<()> {
+    ) -> Result<crate::middleware::MiddlewareResult, WorkerError> {
         self.0.handle(message, next).await
     }
 }
@@ -498,7 +508,7 @@ struct ArcHandlerWrapper(Box<dyn MessageHandler>);
 
 #[async_trait::async_trait]
 impl MessageHandler for ArcHandlerWrapper {
-    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> Result<crate::middleware::MiddlewareResult, WorkerError> {
         self.0.handle(message).await
     }
 }
@@ -891,5 +901,335 @@ mod tests {
             pool.check_health(),
             HealthStatus::Unhealthy { .. }
         ));
+    }
+
+    /// Test that messages are not double-acknowledged when using AckNackMiddleware.
+    /// This verifies the fix for the "PRECONDITION_FAILED - unknown delivery tag" issue.
+    #[tokio::test]
+    async fn test_no_double_ack_with_middleware() {
+        use crate::AckNackMiddleware;
+        use std::sync::atomic::AtomicUsize;
+
+        // Track if ack was called
+        let ack_count = Arc::new(AtomicUsize::new(0));
+        let nack_count = Arc::new(AtomicUsize::new(0));
+
+        #[derive(Debug)]
+        struct TrackingAckHandle {
+            ack_count: Arc<AtomicUsize>,
+            nack_count: Arc<AtomicUsize>,
+        }
+
+        #[async_trait]
+        impl AckHandle for TrackingAckHandle {
+            async fn ack(&self) -> WorkerResult<()> {
+                self.ack_count.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            }
+
+            async fn nack(&self, _requeue: bool) -> WorkerResult<()> {
+                self.nack_count.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            }
+        }
+
+        // Create a successful worker
+        struct SuccessWorker;
+
+        #[async_trait]
+        impl Worker for SuccessWorker {
+            fn id(&self) -> &str {
+                "success-worker"
+            }
+
+            async fn process(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+                Ok(())
+            }
+        }
+
+        let mut pool = WorkerPool::new(
+            "test-pool",
+            LoadBalancingStrategy::RoundRobin,
+            Arc::new(NoOpMetrics),
+        );
+
+        // Add AckNackMiddleware to auto-ack on success
+        pool.middlewares.push(Arc::new(AckNackMiddleware::default()));
+        pool.add_worker(Arc::new(SuccessWorker));
+
+        // Create message with tracking ack handle
+        let message = Message {
+            id: "test-msg".to_string(),
+            payload: serde_json::json!({"test": "data"}),
+            metadata: MessageMetadata::new("test-queue"),
+        };
+        let received = ReceivedMessage::new(
+            message,
+            Arc::new(TrackingAckHandle {
+                ack_count: ack_count.clone(),
+                nack_count: nack_count.clone(),
+            }),
+        );
+
+        // Dispatch the message
+        pool.dispatch(received).await.unwrap();
+
+        // Wait for processing to complete
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Verify ack was called exactly once (by middleware, not by pool)
+        assert_eq!(
+            ack_count.load(Ordering::SeqCst),
+            1,
+            "Message should have been acked exactly once by middleware"
+        );
+        assert_eq!(
+            nack_count.load(Ordering::SeqCst),
+            0,
+            "Message should not have been nacked"
+        );
+    }
+
+    /// Test that pool handles ack/nack correctly WITHOUT AckNackMiddleware.
+    #[tokio::test]
+    async fn test_pool_handles_ack_without_middleware() {
+        use std::sync::atomic::AtomicUsize;
+
+        let ack_count = Arc::new(AtomicUsize::new(0));
+        let nack_count = Arc::new(AtomicUsize::new(0));
+
+        #[derive(Debug)]
+        struct CountingAckHandle {
+            ack_count: Arc<AtomicUsize>,
+            nack_count: Arc<AtomicUsize>,
+        }
+
+        #[async_trait]
+        impl AckHandle for CountingAckHandle {
+            async fn ack(&self) -> WorkerResult<()> {
+                self.ack_count.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            }
+
+            async fn nack(&self, _requeue: bool) -> WorkerResult<()> {
+                self.nack_count.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            }
+        }
+
+        // Create a successful worker
+        struct SuccessWorker;
+
+        #[async_trait]
+        impl Worker for SuccessWorker {
+            fn id(&self) -> &str {
+                "success-worker"
+            }
+
+            async fn process(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+                Ok(())
+            }
+        }
+
+        let mut pool = WorkerPool::new(
+            "test-pool",
+            LoadBalancingStrategy::RoundRobin,
+            Arc::new(NoOpMetrics),
+        );
+        // NO middleware - pool should handle ack
+        pool.add_worker(Arc::new(SuccessWorker));
+
+        let message = Message {
+            id: "test-msg".to_string(),
+            payload: serde_json::json!({"test": "data"}),
+            metadata: MessageMetadata::new("test-queue"),
+        };
+        let received = ReceivedMessage::new(
+            message,
+            Arc::new(CountingAckHandle {
+                ack_count: ack_count.clone(),
+                nack_count: nack_count.clone(),
+            }),
+        );
+
+        pool.dispatch(received).await.unwrap();
+
+        // Wait for processing to complete
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Verify pool acked the message
+        assert_eq!(
+            ack_count.load(Ordering::SeqCst),
+            1,
+            "Pool should have acked the message when no middleware is used"
+        );
+        assert_eq!(
+            nack_count.load(Ordering::SeqCst),
+            0,
+            "Nack should not be called for successful message"
+        );
+    }
+
+    /// Test that pool handles nack correctly WITHOUT AckNackMiddleware.
+    #[tokio::test]
+    async fn test_pool_handles_nack_without_middleware() {
+        use std::sync::atomic::AtomicUsize;
+
+        let ack_count = Arc::new(AtomicUsize::new(0));
+        let nack_count = Arc::new(AtomicUsize::new(0));
+
+        #[derive(Debug)]
+        struct CountingAckHandle {
+            ack_count: Arc<AtomicUsize>,
+            nack_count: Arc<AtomicUsize>,
+        }
+
+        #[async_trait]
+        impl AckHandle for CountingAckHandle {
+            async fn ack(&self) -> WorkerResult<()> {
+                self.ack_count.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            }
+
+            async fn nack(&self, _requeue: bool) -> WorkerResult<()> {
+                self.nack_count.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            }
+        }
+
+        // Create a failing worker
+        struct FailingWorker;
+
+        #[async_trait]
+        impl Worker for FailingWorker {
+            fn id(&self) -> &str {
+                "failing-worker"
+            }
+
+            async fn process(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+                Err(WorkerError::ProcessingFailed("Simulated failure".to_string()))
+            }
+        }
+
+        let mut pool = WorkerPool::new(
+            "test-pool",
+            LoadBalancingStrategy::RoundRobin,
+            Arc::new(NoOpMetrics),
+        );
+        // NO middleware - pool should handle nack
+        pool.add_worker(Arc::new(FailingWorker));
+
+        let message = Message {
+            id: "test-msg".to_string(),
+            payload: serde_json::json!({"test": "data"}),
+            metadata: MessageMetadata::new("test-queue"),
+        };
+        let received = ReceivedMessage::new(
+            message,
+            Arc::new(CountingAckHandle {
+                ack_count: ack_count.clone(),
+                nack_count: nack_count.clone(),
+            }),
+        );
+
+        pool.dispatch(received).await.unwrap();
+
+        // Wait for processing to complete
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Verify pool nacked the message
+        assert_eq!(
+            nack_count.load(Ordering::SeqCst),
+            1,
+            "Pool should have nacked the message when no middleware is used"
+        );
+        assert_eq!(
+            ack_count.load(Ordering::SeqCst),
+            0,
+            "Ack should not be called for failed message"
+        );
+    }
+
+    /// Integration test: Verify end-to-end flow with AckNackMiddleware and failing worker.
+    #[tokio::test]
+    async fn test_integration_ack_nack_middleware_with_failure() {
+        use crate::AckNackMiddleware;
+        use std::sync::atomic::AtomicUsize;
+
+        let ack_count = Arc::new(AtomicUsize::new(0));
+        let nack_count = Arc::new(AtomicUsize::new(0));
+
+        #[derive(Debug)]
+        struct CountingAckHandle {
+            ack_count: Arc<AtomicUsize>,
+            nack_count: Arc<AtomicUsize>,
+        }
+
+        #[async_trait]
+        impl AckHandle for CountingAckHandle {
+            async fn ack(&self) -> WorkerResult<()> {
+                self.ack_count.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            }
+
+            async fn nack(&self, _requeue: bool) -> WorkerResult<()> {
+                self.nack_count.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            }
+        }
+
+        // Create a failing worker
+        struct FailingWorker;
+
+        #[async_trait]
+        impl Worker for FailingWorker {
+            fn id(&self) -> &str {
+                "failing-worker"
+            }
+
+            async fn process(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+                Err(WorkerError::ProcessingFailed("Simulated failure".to_string()))
+            }
+        }
+
+        let mut pool = WorkerPool::new(
+            "test-pool",
+            LoadBalancingStrategy::RoundRobin,
+            Arc::new(NoOpMetrics),
+        );
+
+        // Add AckNackMiddleware to auto-nack on failure
+        pool.middlewares.push(Arc::new(AckNackMiddleware::default()));
+        pool.add_worker(Arc::new(FailingWorker));
+
+        let message = Message {
+            id: "test-msg".to_string(),
+            payload: serde_json::json!({"test": "data"}),
+            metadata: MessageMetadata::new("test-queue"),
+        };
+        let received = ReceivedMessage::new(
+            message,
+            Arc::new(CountingAckHandle {
+                ack_count: ack_count.clone(),
+                nack_count: nack_count.clone(),
+            }),
+        );
+
+        pool.dispatch(received).await.unwrap();
+
+        // Wait for processing
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Verify nack was called exactly once (by middleware)
+        assert_eq!(
+            nack_count.load(Ordering::SeqCst),
+            1,
+            "Nack should be called exactly once by middleware"
+        );
+        assert_eq!(
+            ack_count.load(Ordering::SeqCst),
+            0,
+            "Ack should not be called for failed message"
+        );
     }
 }

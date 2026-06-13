@@ -85,7 +85,7 @@ pub use crate::backends::{RabbitMqBackend, RabbitMqConsumerConfig};
 pub use crate::backends::{RedisStreamBackend, RedisStreamConsumerConfig};
 
 pub use crate::middleware::{
-    MessageHandler, Middleware, MiddlewareChain, ack_nack::AckNackMiddleware,
+    MessageHandler, Middleware, MiddlewareChain, MiddlewareResult, ack_nack::AckNackMiddleware,
     batch::BatchMiddleware, circuit_breaker::CircuitBreakerMiddleware,
     processing_timeout::ProcessingTimeoutMiddleware, retry_handler::RetryHandler,
     tracing::TracingMiddleware,
@@ -133,7 +133,7 @@ pub mod prelude {
     pub use crate::middleware::rate_limit::RateLimitMiddleware;
     pub use crate::middleware::retry_handler::RetryHandler;
     pub use crate::middleware::tracing::TracingMiddleware;
-    pub use crate::middleware::{MessageHandler, Middleware, MiddlewareChain};
+    pub use crate::middleware::{MessageHandler, Middleware, MiddlewareChain, MiddlewareResult};
 
     #[cfg(feature = "metrics")]
     pub use crate::metrics::MetricsCollector;

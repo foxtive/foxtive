@@ -217,7 +217,7 @@ struct PlaceholderHandler;
 
 #[async_trait::async_trait]
 impl MessageHandler for PlaceholderHandler {
-    async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+    async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<crate::middleware::MiddlewareResult, WorkerError> {
         // This should never be called in production
         // The WorkerPool's dispatch method wraps workers with proper handlers
         Err(WorkerError::ProcessingFailed(
@@ -232,7 +232,7 @@ struct ArcWrapper(Box<dyn MessageHandler>);
 
 #[async_trait::async_trait]
 impl MessageHandler for ArcWrapper {
-    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> Result<crate::middleware::MiddlewareResult, WorkerError> {
         self.0.handle(message).await
     }
 }

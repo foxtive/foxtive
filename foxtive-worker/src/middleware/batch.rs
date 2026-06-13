@@ -4,7 +4,7 @@ use tokio::sync::{Mutex, Notify};
 use tracing::{debug, error, info};
 
 use crate::batch::{BatchConfig, BatchHandler, BatchStatus, MessageBatch, ReceivedBatchMessage};
-use crate::error::WorkerResult;
+use crate::error::{WorkerError, WorkerResult};
 use crate::message::ReceivedMessage;
 use crate::middleware::{MessageHandler, Middleware};
 
@@ -98,7 +98,7 @@ impl BatchMiddleware {
     async fn enqueue_message(
         &self,
         message: ReceivedMessage<serde_json::Value>,
-    ) -> WorkerResult<()> {
+    ) -> Result<(), WorkerError> {
         let mut queue = self.queue.lock().await;
 
         let queued_msg = QueuedMessage {
@@ -318,9 +318,10 @@ impl Middleware for BatchMiddleware {
         &self,
         message: ReceivedMessage<serde_json::Value>,
         _next: Box<dyn MessageHandler>,
-    ) -> WorkerResult<()> {
+    ) -> Result<crate::middleware::MiddlewareResult, WorkerError> {
         // Enqueue the message for batching instead of processing immediately
         // The 'next' handler is not used because we're intercepting for batching
-        self.enqueue_message(message).await
+        self.enqueue_message(message).await?;
+        Ok(crate::middleware::MiddlewareResult::Acknowledged)
     }
 }

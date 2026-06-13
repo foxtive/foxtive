@@ -5,9 +5,9 @@ use tracing::{debug, error, info, warn};
 
 use crate::backends::{DeadLetterQueueBackend, create_dlq_message};
 use crate::dlq::PoisonPillTracker;
-use crate::error::{WorkerError, WorkerResult};
+use crate::error::WorkerError;
 use crate::message::ReceivedMessage;
-use crate::middleware::{MessageHandler, Middleware};
+use crate::middleware::{MessageHandler, Middleware, MiddlewareResult};
 
 /// Configuration for the RetryHandler middleware.
 #[derive(Clone)]
@@ -188,7 +188,7 @@ impl Middleware for RetryHandler {
         &self,
         mut message: ReceivedMessage<serde_json::Value>,
         next: Box<dyn MessageHandler>,
-    ) -> WorkerResult<()> {
+    ) -> Result<MiddlewareResult, WorkerError> {
         // Increment attempt count before processing
         message.message.metadata.increment_attempt();
         let current_attempts = message.message.metadata.attempt;
@@ -204,13 +204,13 @@ impl Middleware for RetryHandler {
         let result = next.handle(message.clone()).await;
 
         match result {
-            Ok(_) => {
+            Ok(middleware_result) => {
                 debug!(
                     "[{}] Message {} processed successfully.",
                     self.name(),
                     message.message.id
                 );
-                Ok(())
+                Ok(middleware_result)
             }
             Err(e) => {
                 warn!(
@@ -264,10 +264,10 @@ mod tests {
 
     #[async_trait::async_trait]
     impl AckHandle for MockAckHandle {
-        async fn ack(&self) -> WorkerResult<()> {
+        async fn ack(&self) -> crate::WorkerResult<()> {
             Ok(())
         }
-        async fn nack(&self, _requeue: bool) -> WorkerResult<()> {
+        async fn nack(&self, _requeue: bool) -> crate::WorkerResult<()> {
             Ok(())
         }
     }
@@ -279,14 +279,14 @@ mod tests {
 
     #[async_trait::async_trait]
     impl MessageHandler for FailingHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
             let count = self
                 .fail_count
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             if count < self.fail_until {
                 Err(WorkerError::ProcessingError("Simulated failure".into()))
             } else {
-                Ok(())
+                Ok(MiddlewareResult::Continue)
             }
         }
     }

@@ -5,9 +5,9 @@ use governor::clock::DefaultClock;
 use governor::state::{InMemoryState, NotKeyed};
 use governor::{Quota, RateLimiter};
 
-use crate::error::{WorkerError, WorkerResult};
+use crate::error::WorkerError;
 use crate::message::ReceivedMessage;
-use crate::middleware::{MessageHandler, Middleware};
+use crate::middleware::{MessageHandler, Middleware, MiddlewareResult};
 
 /// Middleware that rate limits message processing using a token bucket algorithm.
 ///
@@ -71,7 +71,7 @@ impl Middleware for RateLimitMiddleware {
         &self,
         message: ReceivedMessage<serde_json::Value>,
         next: Box<dyn MessageHandler>,
-    ) -> WorkerResult<()> {
+    ) -> Result<MiddlewareResult, WorkerError> {
         match self.limiter.check() {
             Ok(_) => next.handle(message).await,
             Err(_) => Err(WorkerError::ProcessingFailed(format!(
@@ -93,8 +93,8 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for SuccessHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-            Ok(())
+        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
+            Ok(MiddlewareResult::Continue)
         }
     }
 
@@ -104,11 +104,11 @@ mod tests {
 
         #[async_trait]
         impl AckHandle for MockAckHandle {
-            async fn ack(&self) -> WorkerResult<()> {
+            async fn ack(&self) -> crate::WorkerResult<()> {
                 Ok(())
             }
 
-            async fn nack(&self, _requeue: bool) -> WorkerResult<()> {
+            async fn nack(&self, _requeue: bool) -> crate::WorkerResult<()> {
                 Ok(())
             }
         }

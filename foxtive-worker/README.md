@@ -51,11 +51,13 @@ impl Worker for MyWorker {
     
     async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
         println!("Got message: {:?}", message.message.payload);
-        message.ack().await?;
-        Ok(())
+        // Process your message...
+        Ok(())  // Return Ok(()) and let middleware handle acknowledgment
     }
 }
 ```
+
+**Note:** In production, you'll typically add `AckNackMiddleware` to automatically acknowledge messages based on success/failure. See [Adding Reliability](#2-adding-reliability) below.
 
 ### 3. Run It
 
@@ -150,9 +152,10 @@ async fn send_email(to: &str, subject: &str) -> Result<(), Box<dyn std::error::E
 ```
 
 **Key concepts:**
-- `message.ack()` - Tells the broker "I processed this successfully"
-- Return `Err(...)` - Tells the broker "This failed, handle it"
-- Always validate your input—bad messages happen
+- **Return `Ok(())`** - Signals successful processing; middleware will ack the message
+- **Return `Err(...)`** - Signals failure; middleware will nack/retry based on configuration
+- **Always validate your input**—bad messages happen
+- **Don't manually ack/nack** when using `AckNackMiddleware`—let it handle acknowledgment automatically
 
 #### Try It
 
@@ -197,7 +200,7 @@ Let's add safety nets.
 Messages fail sometimes. Retry them with exponential backoff:
 
 ```rust
-use foxtive_worker::middleware::RetryHandler;
+use foxtive_worker::middleware::{RetryHandler, AckNackMiddleware};
 
 let retry_handler = RetryHandler::default()
     .with_max_retries(3)                    // Try 3 times total
@@ -206,18 +209,21 @@ let retry_handler = RetryHandler::default()
 
 let pool = WorkerPoolBuilder::new("email-pool")
     .add_worker(EmailWorker)
+    .with_middleware(AckNackMiddleware::default())  // Auto-ack/nack based on result
     .with_middleware(retry_handler)
     .build()
     .unwrap();
 ```
 
 **What happens:**
-1. First attempt fails → wait 1 second
-2. Second attempt fails → wait 2 seconds  
-3. Third attempt fails → wait 4 seconds
+1. First attempt fails → middleware nacks (requeues) → wait 1 second
+2. Second attempt fails → middleware nacks (requeues) → wait 2 seconds  
+3. Third attempt fails → middleware nacks (requeues) → wait 4 seconds
 4. All retries exhausted → send to dead letter queue (if configured)
 
 The backoff doubles each time (exponential) with random jitter to prevent thundering herds.
+
+**Important:** With `AckNackMiddleware`, you don't need to call `message.ack()` or `message.nack()` in your worker—just return `Ok(())` for success or `Err(...)` for failure!
 
 #### Dead Letter Queues
 
@@ -245,7 +251,7 @@ for msg in failed_messages {
 If your SMTP server is down, stop hammering it:
 
 ```rust
-use foxtive_worker::middleware::CircuitBreakerMiddleware;
+use foxtive_worker::middleware::{CircuitBreakerMiddleware, AckNackMiddleware};
 
 let circuit_breaker = CircuitBreakerMiddleware::new(
     5,                              // Open circuit after 5 failures
@@ -254,6 +260,7 @@ let circuit_breaker = CircuitBreakerMiddleware::new(
 
 let pool = WorkerPoolBuilder::new("email-pool")
     .add_worker(EmailWorker)
+    .with_middleware(AckNackMiddleware::default())
     .with_middleware(circuit_breaker)
     .with_middleware(RetryHandler::default())
     .build()
@@ -272,7 +279,7 @@ let pool = WorkerPoolBuilder::new("email-pool")
 See what's happening in production:
 
 ```rust
-use foxtive_worker::middleware::TracingMiddleware;
+use foxtive_worker::middleware::{TracingMiddleware, AckNackMiddleware};
 use tracing_subscriber;
 
 // Initialize tracing
@@ -280,6 +287,7 @@ tracing_subscriber::fmt::init();
 
 let pool = WorkerPoolBuilder::new("email-pool")
     .add_worker(EmailWorker)
+    .with_middleware(AckNackMiddleware::default())
     .with_middleware(TracingMiddleware::new())
     .with_middleware(RetryHandler::default())
     .build()
@@ -292,6 +300,7 @@ INFO Message msg-123 received from email-queue
 DEBUG Processing message msg-123 (attempt 1/3)
 INFO Sending Welcome! to alice@example.com
 DEBUG Message msg-123 processed successfully
+INFO ✓ Message msg-123 acked by middleware
 ```
 
 ---
@@ -498,6 +507,69 @@ Powered by the [`governor`](https://docs.rs/governor) crate—efficient, distrib
 
 ---
 
+### Acknowledgment Patterns
+
+Foxtive Worker provides two ways to handle message acknowledgment:
+
+#### 1. Automatic Acknowledgment (Recommended)
+
+Use `AckNackMiddleware` to automatically ack/nack based on worker result:
+
+```rust
+use foxtive_worker::middleware::AckNackMiddleware;
+
+let pool = WorkerPoolBuilder::new("my-pool")
+    .add_worker(MyWorker)
+    .with_middleware(AckNackMiddleware::default())  // Auto-ack on success, nack on failure
+    .build()?;
+```
+
+**Your worker just returns results:**
+```rust
+async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+    do_work().await?;  // If this fails, middleware will nack
+    Ok(())  // Middleware will ack
+}
+```
+
+**Benefits:**
+- ✅ Clean separation of concerns
+- ✅ No forgotten acknowledgments
+- ✅ Consistent error handling
+- ✅ Works with retries, circuit breakers, etc.
+
+#### 2. Manual Acknowledgment
+
+If you need fine-grained control, skip `AckNackMiddleware` and ack manually:
+
+```rust
+async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+    match do_work().await {
+        Ok(_) => {
+            message.ack().await?;  // Explicitly acknowledge
+            Ok(())
+        }
+        Err(e) => {
+            if should_retry(&e) {
+                message.nack(true).await?;  // Requeue for retry
+            } else {
+                message.nack(false).await?;  // Don't requeue (send to DLQ)
+            }
+            Err(e)
+        }
+    }
+}
+```
+
+**When to use manual ack:**
+- Conditional acknowledgment logic
+- Partial processing scenarios
+- Custom retry strategies per message
+
+**⚠️ Warning:** Never mix manual ack with `AckNackMiddleware`—you'll get double-ack errors!
+
+---
+
 ## Examples
 
 Complete, copy-paste ready examples for common scenarios.
@@ -522,14 +594,14 @@ impl Worker for PaymentWorker {
         let amount = message.message.payload["amount"].as_f64().unwrap();
         
         charge_payment(order_id, amount).await?;
-        message.ack().await?;
-        Ok(())
+        Ok(())  // AckNackMiddleware will ack automatically
     }
 }
 
 let pool = WorkerPoolBuilder::new("payment-pool")
     .with_concurrency_limit(20)  // Conservative—payments are critical
     .add_worker(PaymentWorker)
+    .with_middleware(AckNackMiddleware::default())
     .with_middleware(CircuitBreakerMiddleware::new(3, Duration::from_secs(60)))
     .with_middleware(RetryHandler::default().with_max_retries(2))
     .build()?;
@@ -846,14 +918,16 @@ That's production-ready.
    ```rust
    async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
        match self.do_work(&message).await {
-           Ok(_) => { message.ack().await?; Ok(()) }
+           Ok(_) => Ok(()),  // Middleware will ack
            Err(e) => {
                eprintln!("Worker error: {}", e);
-               Err(e)
+               Err(e)  // Middleware will nack
            }
        }
    }
    ```
+
+5. **Using manual ack with AckNackMiddleware?** This causes PRECONDITION_FAILED errors! Choose one pattern only.
 
 ### Messages retrying forever
 
@@ -932,10 +1006,11 @@ Message Broker (RabbitMQ/Redis)
 
 ### Design Decisions
 
-**Manual ack/nack**
-- You control when messages are acknowledged
-- No accidental message loss
-- Explicit error handling
+**Manual ack/nack via middleware**
+- `AckNackMiddleware` automatically acknowledges based on worker result
+- You control acknowledgment behavior through middleware configuration
+- No accidental message loss, explicit error handling
+- Workers focus on business logic, not infrastructure concerns
 
 **Middleware pipeline**
 - Composable, reusable components
