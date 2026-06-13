@@ -279,7 +279,10 @@ mod tests {
 
     #[async_trait::async_trait]
     impl MessageHandler for FailingHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
+        async fn handle(
+            &self,
+            _message: ReceivedMessage<serde_json::Value>,
+        ) -> Result<MiddlewareResult, WorkerError> {
             let count = self
                 .fail_count
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);

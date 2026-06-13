@@ -146,7 +146,10 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for SuccessHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, crate::error::WorkerError> {
+        async fn handle(
+            &self,
+            _message: ReceivedMessage<serde_json::Value>,
+        ) -> Result<MiddlewareResult, crate::error::WorkerError> {
             Ok(MiddlewareResult::Continue)
         }
     }
@@ -155,7 +158,10 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for FailureHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, crate::error::WorkerError> {
+        async fn handle(
+            &self,
+            _message: ReceivedMessage<serde_json::Value>,
+        ) -> Result<MiddlewareResult, crate::error::WorkerError> {
             Err(crate::error::WorkerError::ProcessingFailed(
                 "test error".to_string(),
             ))
