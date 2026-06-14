@@ -1,6 +1,6 @@
 use futures_util::StreamExt;
 use futures_util::future::BoxFuture;
-use lapin::types::{FieldTable, LongInt};
+use lapin::types::FieldTable;
 use lapin::{BasicProperties, Channel, ConnectionState};
 use std::future::Future;
 use std::sync::Arc;
@@ -116,6 +116,7 @@ pub struct RabbitMQ {
     max_reconnection_delay: Duration,
     /// Default publish options and properties
     default_publish_options: BasicPublishOptions,
+    #[allow(dead_code)]
     default_publish_props: BasicProperties,
     /// Default consume options
     default_consume_options: BasicConsumeOptions,
