@@ -3,10 +3,11 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use tokio::sync::Notify;
 
-use crate::backends::ReceiveResult;
 use crate::backends::contract::MessageBackend;
+use crate::backends::ReceiveResult;
 use crate::error::WorkerResult;
 use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
+use crate::MessageProperties;
 
 /// In-memory acknowledgment handle.
 #[derive(Debug)]
@@ -106,11 +107,32 @@ impl MemoryBackend {
     /// # Returns
     /// The message ID
     pub fn enqueue(&self, payload: serde_json::Value) -> String {
+        self.enqueue_with_properties(payload, None)
+    }
+
+    /// Enqueue a message with custom properties.
+    ///
+    /// # Arguments
+    /// * `payload` - The message payload
+    /// * `properties` - Optional message properties
+    ///
+    /// # Returns
+    /// The message ID
+    pub fn enqueue_with_properties(
+        &self,
+        payload: serde_json::Value,
+        properties: Option<MessageProperties>,
+    ) -> String {
         let message_id = uuid::Uuid::new_v4().to_string();
+        let mut metadata = MessageMetadata::new(&self.source);
+        if let Some(props) = properties {
+            metadata = metadata.with_properties(props);
+        }
+
         let message = Message {
             id: message_id.clone(),
             payload,
-            metadata: MessageMetadata::new(&self.source),
+            metadata,
         };
 
         let mut queue = self.inner.queue.lock().unwrap();
@@ -182,9 +204,9 @@ impl MessageBackend for MemoryBackend {
                         backend: self.inner.clone(),
                     });
 
-                    return Ok(ReceiveResult::Message(ReceivedMessage::new(
+                    return Ok(ReceiveResult::Message(Box::from(ReceivedMessage::new(
                         message, ack_handle,
-                    )));
+                    ))));
                 }
             }
 

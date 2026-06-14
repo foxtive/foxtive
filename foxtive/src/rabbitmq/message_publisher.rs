@@ -1,5 +1,5 @@
 use crate::prelude::{RabbitMQ, RmqError, RmqResult};
-use lapin::types::LongInt;
+use lapin::types::{AMQPValue, LongInt, ShortString};
 use lapin::BasicProperties;
 use std::time::Duration;
 use tracing::{debug, error};
@@ -86,14 +86,14 @@ impl<'a> MessagePublisher<'a> {
     }
 
     /// Add a header to the message
-    pub fn header(mut self, key: impl ToString, value: impl Into<lapin::types::AMQPValue>) -> Self {
+    pub fn header(mut self, key: impl ToString, value: impl Into<AMQPValue>) -> Self {
         let mut headers = self
             .properties
             .headers()
             .clone()
             .unwrap_or_default();
         headers.insert(
-            lapin::types::ShortString::from(key.to_string()),
+            ShortString::from(key.to_string()),
             value.into(),
         );
         self.properties = self.properties.with_headers(headers);
@@ -110,7 +110,7 @@ impl<'a> MessagePublisher<'a> {
     pub fn content_type(mut self, content_type: impl ToString) -> Self {
         self.properties = self
             .properties
-            .with_content_type(lapin::types::ShortString::from(content_type.to_string()));
+            .with_content_type(ShortString::from(content_type.to_string()));
         self
     }
 
@@ -118,7 +118,7 @@ impl<'a> MessagePublisher<'a> {
     pub fn correlation_id(mut self, correlation_id: impl ToString) -> Self {
         self.properties = self
             .properties
-            .with_correlation_id(lapin::types::ShortString::from(correlation_id.to_string()));
+            .with_correlation_id(ShortString::from(correlation_id.to_string()));
         self
     }
 
@@ -126,7 +126,7 @@ impl<'a> MessagePublisher<'a> {
     pub fn message_id(mut self, message_id: impl ToString) -> Self {
         self.properties = self
             .properties
-            .with_message_id(lapin::types::ShortString::from(message_id.to_string()));
+            .with_message_id(ShortString::from(message_id.to_string()));
         self
     }
 
@@ -150,8 +150,8 @@ impl<'a> MessagePublisher<'a> {
             let delay_ms = delay.as_millis() as i64;
             let mut headers = final_props.headers().clone().unwrap_or_default();
             headers.insert(
-                lapin::types::ShortString::from("x-delay"),
-                lapin::types::AMQPValue::LongInt(delay_ms as LongInt),
+                ShortString::from("x-delay"),
+                AMQPValue::LongInt(delay_ms as LongInt),
             );
             final_props = final_props.with_headers(headers);
             debug!(
@@ -293,8 +293,8 @@ mod tests {
         let props = BasicProperties::default();
         let mut headers = FieldTable::default();
         headers.insert(
-            lapin::types::ShortString::from("test_key"),
-            lapin::types::AMQPValue::LongString(lapin::types::LongString::from("test_value")),
+            ShortString::from("test_key"),
+            AMQPValue::LongString(lapin::types::LongString::from("test_value")),
         );
         let props_with_headers = props.with_headers(headers);
 
@@ -316,7 +316,7 @@ mod tests {
     #[test]
     fn test_content_type_property() {
         let props = BasicProperties::default()
-            .with_content_type(lapin::types::ShortString::from("application/json"));
+            .with_content_type(ShortString::from("application/json"));
 
         let content_type = props.content_type().clone();
 
@@ -327,7 +327,7 @@ mod tests {
     #[test]
     fn test_correlation_id_property() {
         let props = BasicProperties::default()
-            .with_correlation_id(lapin::types::ShortString::from("corr-123"));
+            .with_correlation_id(ShortString::from("corr-123"));
 
         let corr_id = props.correlation_id().clone();
 
@@ -338,7 +338,7 @@ mod tests {
     #[test]
     fn test_message_id_property() {
         let props =
-            BasicProperties::default().with_message_id(lapin::types::ShortString::from("msg-456"));
+            BasicProperties::default().with_message_id(ShortString::from("msg-456"));
         let msg_id = props.message_id().clone();
 
         assert!(msg_id.is_some());
@@ -349,16 +349,16 @@ mod tests {
     fn test_multiple_headers() {
         let mut headers = FieldTable::default();
         headers.insert(
-            lapin::types::ShortString::from("service_name"),
-            lapin::types::AMQPValue::LongString(lapin::types::LongString::from("user-service")),
+            ShortString::from("service_name"),
+            AMQPValue::LongString(lapin::types::LongString::from("user-service")),
         );
         headers.insert(
-            lapin::types::ShortString::from("correlation_id"),
-            lapin::types::AMQPValue::LongString(lapin::types::LongString::from("abc-123")),
+            ShortString::from("correlation_id"),
+            AMQPValue::LongString(lapin::types::LongString::from("abc-123")),
         );
         headers.insert(
-            lapin::types::ShortString::from("priority"),
-            lapin::types::AMQPValue::LongInt(1),
+            ShortString::from("priority"),
+            AMQPValue::LongInt(1),
         );
 
         assert_eq!(headers.inner().len(), 3);

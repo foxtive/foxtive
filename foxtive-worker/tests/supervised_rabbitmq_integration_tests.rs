@@ -43,7 +43,7 @@ impl SupervisedTask for SupervisedWorkerPool {
         loop {
             match backend.receive().await? {
                 ReceiveResult::Message(message) => {
-                    if let Err(e) = pool.dispatch(message).await {
+                    if let Err(e) = pool.dispatch(*message).await {
                         eprintln!("Failed to dispatch: {}", e);
                     }
                 }

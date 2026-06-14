@@ -65,6 +65,7 @@ pub mod pool;
 pub mod strategies;
 pub mod stress;
 pub mod worker;
+mod message_properties;
 
 // Re-exports for convenience
 pub use crate::backends::{MemoryBackend, MessageBackend};
@@ -73,6 +74,7 @@ pub use crate::error::{WorkerError, WorkerResult};
 pub use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
 pub use crate::pool::WorkerPool;
 pub use crate::strategies::LoadBalancingStrategy;
+pub use crate::message_properties::MessageProperties;
 pub use crate::worker::{BackoffStrategy, Worker};
 
 // Re-export resilient backend for all configurations
@@ -116,6 +118,7 @@ pub mod prelude {
     pub use crate::message::{
         AckHandle, Message, MessageMetadata, ReceivedJsonMessage, ReceivedMessage,
     };
+    pub use crate::message_properties::MessageProperties;
     pub use crate::pool::WorkerPool;
     pub use crate::strategies::LoadBalancingStrategy;
     pub use crate::worker::{BackoffStrategy, Worker};

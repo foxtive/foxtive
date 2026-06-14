@@ -108,7 +108,7 @@ async fn main() -> anyhow::Result<()> {
                 match backend_clone.receive().await {
                     Ok(ReceiveResult::Message(message)) => {
                         // Dispatch message to pool for processing
-                        if let Err(e) = pool_clone.dispatch(message).await {
+                        if let Err(e) = pool_clone.dispatch(*message).await {
                             eprintln!("Failed to dispatch message: {}", e);
                         }
                     }

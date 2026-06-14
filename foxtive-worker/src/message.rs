@@ -5,6 +5,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use crate::error::WorkerResult;
+use crate::MessageProperties;
 
 /// Pure message data (serializable, no backend references).
 ///
@@ -35,6 +36,9 @@ pub struct MessageMetadata {
     /// RabbitMQ routing key (if applicable)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub routing_key: Option<String>,
+    /// Backend-specific message properties
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub properties: Option<MessageProperties>,
 }
 
 impl MessageMetadata {
@@ -46,6 +50,7 @@ impl MessageMetadata {
             source: source.into(),
             correlation_id: None,
             routing_key: None,
+            properties: None,
         }
     }
 
@@ -58,6 +63,12 @@ impl MessageMetadata {
     /// Set the routing key (for RabbitMQ messages).
     pub fn with_routing_key(mut self, routing_key: impl Into<String>) -> Self {
         self.routing_key = Some(routing_key.into());
+        self
+    }
+    
+    /// Set message properties
+    pub fn with_properties(mut self, properties: MessageProperties) -> Self {
+        self.properties = Some(properties);
         self
     }
 

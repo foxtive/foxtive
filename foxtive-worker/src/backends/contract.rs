@@ -42,7 +42,7 @@ use crate::message::ReceivedMessage;
 pub enum ReceiveResult<T> {
     /// Message received successfully
     #[error("Message received")]
-    Message(ReceivedMessage<T>),
+    Message(Box<ReceivedMessage<T>>),
 
     /// Backend is shutting down gracefully (shutdown() was called)
     #[error("Backend shutting down")]
@@ -101,7 +101,7 @@ impl<T> ReceiveResult<T> {
     /// Extract the message if present
     pub fn into_message(self) -> Option<ReceivedMessage<T>> {
         match self {
-            ReceiveResult::Message(msg) => Some(msg),
+            ReceiveResult::Message(msg) => Some(*msg),
             _ => None,
         }
     }

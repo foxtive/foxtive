@@ -199,7 +199,7 @@ async fn main() -> anyhow::Result<()> {
             loop {
                 match backend_clone.receive().await {
                     Ok(ReceiveResult::Message(message)) => {
-                        if let Err(e) = pool_clone.dispatch(message).await {
+                        if let Err(e) = pool_clone.dispatch(*message).await {
                             eprintln!("Failed to dispatch DLQ message: {}", e);
                         }
                     }

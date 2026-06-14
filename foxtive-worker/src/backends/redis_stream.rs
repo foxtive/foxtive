@@ -6,6 +6,7 @@ use crate::backends::ReceiveResult;
 use crate::backends::contract::MessageBackend;
 use crate::error::{WorkerError, WorkerResult};
 use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
+use crate::MessageProperties;
 
 /// Redis Streams acknowledgment handle.
 #[derive(Debug)]
@@ -505,7 +506,20 @@ impl RedisStreamBackend {
                     }
                 };
 
-                let metadata = MessageMetadata::new(&self.config.stream_name);
+                // Extract additional fields as message properties
+                let mut properties = MessageProperties::new();
+                for (key, value) in fields.iter() {
+                    // Skip the 'data' field as it contains the payload
+                    if key == "data" {
+                        continue;
+                    }
+                    
+                    // Add other fields as custom headers
+                    properties = properties.with_header(key.clone(), value.clone());
+                }
+
+                let metadata = MessageMetadata::new(&self.config.stream_name)
+                    .with_properties(properties);
                 let message = Message {
                     id: message_id.clone(),
                     payload,
@@ -602,8 +616,21 @@ impl MessageBackend for RedisStreamBackend {
                 }
             };
 
-            // Build metadata
-            let metadata = MessageMetadata::new(&self.config.stream_name);
+            // Extract additional fields as message properties
+            let mut properties = MessageProperties::new();
+            for (key, value) in fields.iter() {
+                // Skip the 'data' field as it contains the payload
+                if key == "data" {
+                    continue;
+                }
+                
+                // Add other fields as custom headers
+                properties = properties.with_header(key.clone(), value.clone());
+            }
+
+            // Build metadata with properties
+            let metadata = MessageMetadata::new(&self.config.stream_name)
+                .with_properties(properties);
             // Note: stream_id, group, consumer could be added to MessageMetadata if needed
 
             // Create message
@@ -626,9 +653,9 @@ impl MessageBackend for RedisStreamBackend {
                 }),
             });
 
-            return Ok(ReceiveResult::Message(ReceivedMessage::new(
+            return Ok(ReceiveResult::Message(Box::new(ReceivedMessage::new(
                 message, ack_handle,
-            )));
+            ))));
         }
 
         // No messages (timeout or empty)

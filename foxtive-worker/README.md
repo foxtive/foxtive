@@ -6,7 +6,7 @@ Process messages from RabbitMQ, Redis Streams, or any queue system with confiden
 
 ---
 
-## Table of Contents Table of Contents
+## Table of Contents
 
 - [Quick Start](#-quick-start) - Get running in 5 minutes
 - [User Guide](#-user-guide) - Step-by-step learning path
@@ -14,6 +14,7 @@ Process messages from RabbitMQ, Redis Streams, or any queue system with confiden
   - [2. Adding Reliability](#2-adding-reliability)
   - [3. Scaling Up](#3-scaling-up)
   - [4. Production Ready](#4-production-ready)
+  - [5. Message Properties](#5-message-properties) - Microservices metadata & distributed tracing
 - [Examples](#-examples) - Real-world use cases
 - [Configuration Reference](#configuration-reference)
   - [Resilient Backends](#making-backends-refuse-to-die) - Survive network failures
@@ -504,6 +505,133 @@ let pool = WorkerPoolBuilder::new("email-pool")
 ```
 
 Powered by the [`governor`](https://docs.rs/governor) crate—efficient, distributed-ready rate limiting.
+
+---
+
+### 5. Message Properties
+
+Modern microservices architectures need rich metadata for distributed tracing, service identification, and message routing. Foxtive Worker provides standardized `MessageProperties` that work across all backends.
+
+#### Why Message Properties?
+
+- **Service Identification**: Track which service sent a message
+- **Distributed Tracing**: Correlate requests across services
+- **Priority Processing**: Handle urgent messages first
+- **TTL Management**: Auto-expire stale messages
+- **Custom Metadata**: Backend-specific headers and properties
+
+#### Basic Usage
+
+```rust
+use foxtive_worker::MessageProperties;
+
+// Create properties with builder pattern
+let properties = MessageProperties::new()
+    .with_content_type("application/json")
+    .with_app_id("user-service")
+    .with_message_type("user.created")
+    .with_priority(5)
+    .with_header("correlation_id", "trace-abc-123")
+    .with_header("environment", "production");
+```
+
+#### Accessing Properties in Workers
+
+```rust
+#[async_trait]
+impl Worker for MyWorker {
+    fn id(&self) -> &str { "my-worker" }
+    
+    async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+        // Access message properties
+        if let Some(props) = &message.message.metadata.properties {
+            // Get standard fields
+            if let Some(app_id) = &props.app_id {
+                tracing::info!("Message from: {}", app_id);
+            }
+            
+            // Get custom headers for distributed tracing
+            if let Some(headers) = &props.headers {
+                if let Some(correlation_id) = headers.get("correlation_id") {
+                    tracing::Span::current().record("correlation_id", correlation_id);
+                }
+            }
+            
+            // Priority-based processing
+            if let Some(priority) = props.priority {
+                if priority >= 8 {
+                    tracing::warn!("High priority message!");
+                }
+            }
+        }
+        
+        // Process message...
+        Ok(())
+    }
+}
+```
+
+#### Backend-Specific Behavior
+
+**RabbitMQ**: Automatically extracts AMQP BasicProperties:
+- Content type, encoding, priority, expiration
+- User ID, app ID, reply-to
+- Custom headers from FieldTable
+
+**Redis Streams**: Extracts additional stream fields as custom headers (all fields except 'data')
+
+**Memory Backend**: Use `enqueue_with_properties()` to set properties:
+
+```rust
+let backend = MemoryBackend::new();
+backend.enqueue_with_properties(
+    serde_json::json!({"key": "value"}),
+    Some(properties)
+);
+```
+
+#### Distributed Tracing Example
+
+Track a request flowing through multiple services:
+
+```rust
+// Service 1: API Gateway
+let props = MessageProperties::new()
+    .with_app_id("api-gateway")
+    .with_message_type("request.received")
+    .with_header("correlation_id", "trace-xyz-789");
+
+// Service 2: Auth Service
+let props = MessageProperties::new()
+    .with_app_id("auth-service")
+    .with_message_type("auth.validated")
+    .with_header("correlation_id", "trace-xyz-789");  // Same ID!
+
+// Service 3: Order Service
+let props = MessageProperties::new()
+    .with_app_id("order-service")
+    .with_message_type("order.created")
+    .with_header("correlation_id", "trace-xyz-789");  // Same ID!
+```
+
+All events share the same correlation ID for end-to-end tracing.
+
+#### Available Properties
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `content_type` | `Option<String>` | MIME type (e.g., "application/json") |
+| `content_encoding` | `Option<String>` | Encoding (e.g., "utf-8", "gzip") |
+| `priority` | `Option<u8>` | Priority level (0-255) |
+| `expiration` | `Option<u64>` | TTL in milliseconds |
+| `message_type` | `Option<String>` | Type identifier for routing |
+| `user_id` | `Option<String>` | Associated user ID |
+| `app_id` | `Option<String>` | Application/service identifier |
+| `cluster_id` | `Option<String>` | Cluster ID for federated systems |
+| `reply_to` | `Option<String>` | Reply address for responses |
+| `headers` | `Option<HashMap>` | Custom key-value pairs |
+
+See the [message_properties example](examples/message_properties.rs) for complete usage patterns.
 
 ---
 

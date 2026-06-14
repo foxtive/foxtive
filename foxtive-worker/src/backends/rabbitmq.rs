@@ -9,6 +9,7 @@ use crate::backends::ReceiveResult;
 use crate::backends::contract::MessageBackend;
 use crate::error::{WorkerError, WorkerResult};
 use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
+use crate::MessageProperties;
 
 /// RabbitMQ acknowledgment handle.
 #[derive(Debug)]
@@ -292,9 +293,58 @@ impl RabbitMqBackend {
                                 // Extract routing key from delivery info
                                 let routing_key = delivery.routing_key.clone();
 
-                                // Build metadata with routing key
+                                // Extract message properties from AMQP BasicProperties
+                                let mut properties = MessageProperties {
+                                    content_type: delivery.properties.content_type()
+                                        .as_ref()
+                                        .map(|v| v.to_string()),
+                                    content_encoding: delivery.properties.content_encoding()
+                                        .as_ref()
+                                        .map(|v| v.to_string()),
+                                    priority: *delivery.properties.priority(),
+                                    expiration: delivery.properties.expiration()
+                                        .as_ref()
+                                        .and_then(|v| v.to_string().parse::<u64>().ok()),
+                                    message_type: None, // Not available in lapin (use headers instead)
+                                    user_id: delivery.properties.user_id()
+                                        .as_ref()
+                                        .map(|v| v.to_string()),
+                                    app_id: delivery.properties.app_id()
+                                        .as_ref()
+                                        .map(|v| v.to_string()),
+                                    cluster_id: None, // Not available in lapin
+                                    reply_to: delivery.properties.reply_to()
+                                        .as_ref()
+                                        .map(|v| v.to_string()),
+                                    headers: None,
+                                };
+                                
+                                // Extract custom headers from FieldTable
+                                if let Some(field_table) = delivery.properties.headers() {
+                                    let mut headers_map = std::collections::HashMap::new();
+                                    // FieldTable has an inner() method that returns the HashMap
+                                    for (key, value) in field_table.inner().iter() {
+                                        // Convert AMQP values to strings
+                                        let value_str = match value {
+                                            lapin::types::AMQPValue::ShortString(s) => Some(s.to_string()),
+                                            lapin::types::AMQPValue::LongString(s) => Some(s.to_string()),
+                                            lapin::types::AMQPValue::LongInt(i) => Some(i.to_string()),
+                                            lapin::types::AMQPValue::Timestamp(t) => Some(t.to_string()),
+                                            _ => None, // Skip unsupported types
+                                        };
+                                        if let Some(v) = value_str {
+                                            headers_map.insert(key.to_string(), v);
+                                        }
+                                    }
+                                    if !headers_map.is_empty() {
+                                        properties.headers = Some(headers_map);
+                                    }
+                                };
+
+                                // Build metadata with routing key and properties
                                 let metadata = MessageMetadata::new(&queue_name)
-                                    .with_routing_key(routing_key);
+                                    .with_routing_key(routing_key)
+                                    .with_properties(properties);
 
                                 // Create worker message
                                 let message = Message {
@@ -448,7 +498,7 @@ impl MessageBackend for RabbitMqBackend {
                 });
 
                 let message = ReceivedMessage::new(envelope.message, ack_handle);
-                Ok(ReceiveResult::Message(message))
+                Ok(ReceiveResult::Message(Box::new(message)))
             }
             None => {
                 // Channel closed - determine why

@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.26.9 (2026-06-14)
+* feat(rabbitmq): export more RabbitMQ types
+
 ### 0.26.8 (2026-06-14)
 * feat(rabbitmq): add MessagePublisher builder for flexible, composable message publishing
 * feat(rabbitmq): support custom headers and metadata in messages for microservices architectures

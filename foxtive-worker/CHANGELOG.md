@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-14
+
+### Added
+- **MessageProperties**: Standardized message properties for microservices metadata and distributed tracing
+  - Support for content type, encoding, priority, expiration, and custom headers
+  - Builder pattern for easy construction: `MessageProperties::new().with_app_id("service")`
+  - Automatic extraction from RabbitMQ AMQP BasicProperties (content type, priority, headers, etc.)
+  - Redis Streams field extraction as custom headers
+  - Memory backend support via `enqueue_with_properties()` method
+  - Comprehensive serialization/deserialization with serde
+- **MessageMetadata.properties**: New optional field in MessageMetadata to store MessageProperties
+- **Examples**: Complete message_properties.rs example demonstrating:
+  - Custom properties with memory backend
+  - Microservice identification and tracking
+  - Distributed tracing with correlation IDs
+  - Priority-based processing
+  - TTL/expiration handling
+- **Tests**: 13 comprehensive edge-case tests covering:
+  - Empty properties initialization
+  - Multiple headers and header overwrites
+  - All standard fields (priority bounds, expiration values)
+  - Serialization/deserialization round-trips
+  - Unicode and empty string handling
+  - Clone behavior and chaining order independence
+
+### Changed
+- Refactored MessageProperties into dedicated module (`message_properties.rs`) for better organization
+- Updated all backends (RabbitMQ, Redis Streams, Memory) to populate message properties automatically
+- Enhanced documentation with complete MessageProperties usage guide in README
+
+---
+
 ## [0.2.0] - 2026-06-13
 
 ### Major Features
