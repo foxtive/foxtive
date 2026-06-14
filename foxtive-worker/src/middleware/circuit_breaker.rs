@@ -236,7 +236,9 @@ impl Middleware for CircuitBreakerMiddleware {
         {
             let mut state = self.state.lock().await;
             match &result {
-                Ok(MiddlewareResult::Continue) | Ok(MiddlewareResult::Acknowledged) => state.record_success(),
+                Ok(MiddlewareResult::Continue) | Ok(MiddlewareResult::Acknowledged) => {
+                    state.record_success()
+                }
                 Err(_) => state.record_failure(),
             }
         }
@@ -254,7 +256,10 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for SuccessHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
+        async fn handle(
+            &self,
+            _message: ReceivedMessage<serde_json::Value>,
+        ) -> Result<MiddlewareResult, WorkerError> {
             Ok(MiddlewareResult::Continue)
         }
     }
@@ -263,7 +268,10 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for FailureHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
+        async fn handle(
+            &self,
+            _message: ReceivedMessage<serde_json::Value>,
+        ) -> Result<MiddlewareResult, WorkerError> {
             Err(WorkerError::ProcessingFailed("test failure".to_string()))
         }
     }

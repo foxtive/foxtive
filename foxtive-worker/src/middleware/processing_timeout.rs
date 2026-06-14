@@ -174,7 +174,10 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for FastHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
+        async fn handle(
+            &self,
+            _message: ReceivedMessage<serde_json::Value>,
+        ) -> Result<MiddlewareResult, WorkerError> {
             // Completes immediately
             Ok(MiddlewareResult::Continue)
         }
@@ -186,7 +189,10 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for SlowHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
+        async fn handle(
+            &self,
+            _message: ReceivedMessage<serde_json::Value>,
+        ) -> Result<MiddlewareResult, WorkerError> {
             tokio::time::sleep(self.delay).await;
             Ok(MiddlewareResult::Continue)
         }
@@ -196,7 +202,10 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for FailingHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
+        async fn handle(
+            &self,
+            _message: ReceivedMessage<serde_json::Value>,
+        ) -> Result<MiddlewareResult, WorkerError> {
             Err(WorkerError::ProcessingFailed(
                 "intentional failure".to_string(),
             ))

@@ -233,7 +233,10 @@ impl WorkerPool {
                     match middleware_result {
                         crate::middleware::MiddlewareResult::Acknowledged => {
                             // Middleware (e.g., AckNackMiddleware) already handled acknowledgment
-                            tracing::debug!("Message {} already acknowledged by middleware", message_id);
+                            tracing::debug!(
+                                "Message {} already acknowledged by middleware",
+                                message_id
+                            );
                             metrics_collector_clone.record_message_processed(
                                 &worker_id,
                                 &queue_name,
@@ -478,7 +481,10 @@ struct WorkerHandler(Arc<dyn Worker>);
 
 #[async_trait::async_trait]
 impl MessageHandler for WorkerHandler {
-    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> Result<crate::middleware::MiddlewareResult, WorkerError> {
+    async fn handle(
+        &self,
+        message: ReceivedMessage<serde_json::Value>,
+    ) -> Result<crate::middleware::MiddlewareResult, WorkerError> {
         // Workers always return Continue - they don't handle acknowledgment directly
         self.0.process(message).await?;
         Ok(crate::middleware::MiddlewareResult::Continue)
@@ -508,7 +514,10 @@ struct ArcHandlerWrapper(Box<dyn MessageHandler>);
 
 #[async_trait::async_trait]
 impl MessageHandler for ArcHandlerWrapper {
-    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> Result<crate::middleware::MiddlewareResult, WorkerError> {
+    async fn handle(
+        &self,
+        message: ReceivedMessage<serde_json::Value>,
+    ) -> Result<crate::middleware::MiddlewareResult, WorkerError> {
         self.0.handle(message).await
     }
 }
@@ -942,7 +951,10 @@ mod tests {
                 "success-worker"
             }
 
-            async fn process(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+            async fn process(
+                &self,
+                _message: ReceivedMessage<serde_json::Value>,
+            ) -> WorkerResult<()> {
                 Ok(())
             }
         }
@@ -954,7 +966,8 @@ mod tests {
         );
 
         // Add AckNackMiddleware to auto-ack on success
-        pool.middlewares.push(Arc::new(AckNackMiddleware::default()));
+        pool.middlewares
+            .push(Arc::new(AckNackMiddleware::default()));
         pool.add_worker(Arc::new(SuccessWorker));
 
         // Create message with tracking ack handle
@@ -1026,7 +1039,10 @@ mod tests {
                 "success-worker"
             }
 
-            async fn process(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+            async fn process(
+                &self,
+                _message: ReceivedMessage<serde_json::Value>,
+            ) -> WorkerResult<()> {
                 Ok(())
             }
         }
@@ -1106,8 +1122,13 @@ mod tests {
                 "failing-worker"
             }
 
-            async fn process(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-                Err(WorkerError::ProcessingFailed("Simulated failure".to_string()))
+            async fn process(
+                &self,
+                _message: ReceivedMessage<serde_json::Value>,
+            ) -> WorkerResult<()> {
+                Err(WorkerError::ProcessingFailed(
+                    "Simulated failure".to_string(),
+                ))
             }
         }
 
@@ -1187,8 +1208,13 @@ mod tests {
                 "failing-worker"
             }
 
-            async fn process(&self, _message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-                Err(WorkerError::ProcessingFailed("Simulated failure".to_string()))
+            async fn process(
+                &self,
+                _message: ReceivedMessage<serde_json::Value>,
+            ) -> WorkerResult<()> {
+                Err(WorkerError::ProcessingFailed(
+                    "Simulated failure".to_string(),
+                ))
             }
         }
 
@@ -1199,7 +1225,8 @@ mod tests {
         );
 
         // Add AckNackMiddleware to auto-nack on failure
-        pool.middlewares.push(Arc::new(AckNackMiddleware::default()));
+        pool.middlewares
+            .push(Arc::new(AckNackMiddleware::default()));
         pool.add_worker(Arc::new(FailingWorker));
 
         let message = Message {

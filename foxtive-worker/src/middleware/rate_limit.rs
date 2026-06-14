@@ -93,7 +93,10 @@ mod tests {
 
     #[async_trait]
     impl MessageHandler for SuccessHandler {
-        async fn handle(&self, _message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
+        async fn handle(
+            &self,
+            _message: ReceivedMessage<serde_json::Value>,
+        ) -> Result<MiddlewareResult, WorkerError> {
             Ok(MiddlewareResult::Continue)
         }
     }

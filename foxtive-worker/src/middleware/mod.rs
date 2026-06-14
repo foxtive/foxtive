@@ -56,7 +56,10 @@ pub trait MessageHandler: Send + Sync {
     /// * `Ok(MiddlewareResult::Acknowledged)` if middleware handled acknowledgment
     /// * `Ok(MiddlewareResult::Continue)` if processing should continue normally
     /// * `Err(WorkerError)` if processing failed
-    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError>;
+    async fn handle(
+        &self,
+        message: ReceivedMessage<serde_json::Value>,
+    ) -> Result<MiddlewareResult, WorkerError>;
 }
 
 /// Middleware that wraps message handlers to add cross-cutting concerns.
@@ -164,7 +167,10 @@ struct MiddlewareWrapper {
 
 #[async_trait]
 impl MessageHandler for MiddlewareWrapper {
-    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
+    async fn handle(
+        &self,
+        message: ReceivedMessage<serde_json::Value>,
+    ) -> Result<MiddlewareResult, WorkerError> {
         let next = self.inner.clone();
         self.middleware
             .handle(message, Box::new(ArcHandler(next)))
@@ -177,7 +183,10 @@ struct ArcHandler(Arc<dyn MessageHandler>);
 
 #[async_trait]
 impl MessageHandler for ArcHandler {
-    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
+    async fn handle(
+        &self,
+        message: ReceivedMessage<serde_json::Value>,
+    ) -> Result<MiddlewareResult, WorkerError> {
         self.0.handle(message).await
     }
 }
@@ -187,7 +196,10 @@ struct ArcHandlerWrapper(Box<dyn MessageHandler>);
 
 #[async_trait]
 impl MessageHandler for ArcHandlerWrapper {
-    async fn handle(&self, message: ReceivedMessage<serde_json::Value>) -> Result<MiddlewareResult, WorkerError> {
+    async fn handle(
+        &self,
+        message: ReceivedMessage<serde_json::Value>,
+    ) -> Result<MiddlewareResult, WorkerError> {
         self.0.handle(message).await
     }
 }
