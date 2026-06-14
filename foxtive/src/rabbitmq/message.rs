@@ -32,6 +32,46 @@ impl Message {
         &self.delivery.routing_key
     }
 
+    /// Get message properties (headers, metadata, etc.)
+    ///
+    /// This allows you to access custom metadata attached to messages,
+    /// such as service identification, correlation IDs, and other contextual information.
+    pub fn properties(&self) -> &lapin::BasicProperties {
+        &self.delivery.properties
+    }
+
+    /// Get a specific header value from message properties
+    ///
+    /// # Arguments
+    /// * `key` - Header key to retrieve
+    ///
+    /// # Returns
+    /// * `Some(AMQPValue)` if the header exists
+    /// * `None` if the header doesn't exist or properties are not set
+    pub fn get_header(&self, key: &str) -> Option<&lapin::types::AMQPValue> {
+        self.delivery
+            .properties
+            .headers()
+            .as_ref()
+            .and_then(|headers| headers.inner().get(key))
+    }
+
+    /// Get a string header value
+    ///
+    /// # Arguments
+    /// * `key` - Header key to retrieve
+    ///
+    /// # Returns
+    /// * `Some(String)` if the header exists and is a valid string
+    /// * `None` if the header doesn't exist or is not a string type
+    pub fn get_string_header(&self, key: &str) -> Option<String> {
+        self.get_header(key).and_then(|value| match value {
+            lapin::types::AMQPValue::LongString(s) => Some(s.to_string()),
+            lapin::types::AMQPValue::ShortString(s) => Some(s.to_string()),
+            _ => None,
+        })
+    }
+
     pub fn deserialize<T>(&self) -> RmqResult<T>
     where
         T: serde::de::DeserializeOwned,

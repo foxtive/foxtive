@@ -1,6 +1,16 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.26.8 (2026-06-14)
+* feat(rabbitmq): add MessagePublisher builder for flexible, composable message publishing
+* feat(rabbitmq): support custom headers and metadata in messages for microservices architectures
+* feat(rabbitmq): add delayed message publishing with x-delay header support
+* feat(rabbitmq): add declare_delayed_exchange for setting up delayed message exchanges
+* feat(rabbitmq): builder supports content_type, correlation_id, message_id, and custom properties
+* refactor(rabbitmq): move MessagePublisher to separate module for better code organization
+* test(rabbitmq): add comprehensive unit tests for MessagePublisher builder pattern
+* docs(rabbitmq): add usage examples for builder pattern and delayed messages
+
 ### 0.26.7 (2026-04-04)
 * fix(zrangebyscore_withscores): adjust to use generic params
 

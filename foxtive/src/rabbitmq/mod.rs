@@ -1,6 +1,6 @@
 use futures_util::StreamExt;
 use futures_util::future::BoxFuture;
-use lapin::types::FieldTable;
+use lapin::types::{FieldTable, LongInt};
 use lapin::{BasicProperties, Channel, ConnectionState};
 use std::future::Future;
 use std::sync::Arc;
@@ -27,6 +27,9 @@ pub mod config;
 pub mod conn;
 mod error;
 mod message;
+mod message_publisher;
+
+pub use message_publisher::MessagePublisher;
 
 pub type RabbitMQSetupFn = Arc<dyn Fn(RabbitMQ) -> BoxFuture<'static, RmqResult<()>> + Send + Sync>;
 
@@ -239,6 +242,42 @@ impl RabbitMQ {
         self.cancellation_token.cancel();
     }
 
+    /// Create a message publisher builder for flexible message publishing.
+    ///
+    /// This provides a composable way to publish messages with various options
+    /// like custom properties, delays, headers, etc.
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// use foxtive::prelude::RabbitMQ;
+    /// use std::time::Duration;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut rmq = RabbitMQ::new_from_foxtive().await.unwrap();
+    ///     
+    ///     // Simple publish
+    ///     rmq.publisher()
+    ///         .exchange("events")
+    ///         .routing_key("user.created")
+    ///         .payload(b"{\"user_id\": 123}")
+    ///         .send().await.unwrap();
+    ///     
+    ///     // Publish with delay and custom headers
+    ///     rmq.publisher()
+    ///         .exchange("delayed-events")
+    ///         .routing_key("user.reminder")
+    ///         .payload(b"{\"reminder\": true}")
+    ///         .delay(Duration::from_secs(300))
+    ///         .header("service_name", "user-service")
+    ///         .header("correlation_id", "abc-123")
+    ///         .send().await.unwrap();
+    /// }
+    /// ```
+    pub fn publisher(&mut self) -> MessagePublisher<'_> {
+        MessagePublisher::new(self)
+    }
+
     /// Setup function to run after the connection is established.
     pub async fn setup_fn<F>(&mut self, func: F) -> &mut Self
     where
@@ -327,25 +366,13 @@ impl RabbitMQ {
         E: ToString,
         R: ToString,
     {
-        let exchange = exchange.to_string();
-
-        self.ensure_channel_is_usable(true).await?;
-
-        tokio::time::timeout(
-            self.operation_timeout,
-            self.publish_channel.basic_publish(
-                &exchange,
-                &routing_key.to_string(),
-                self.default_publish_options,
-                payload,
-                self.default_publish_props.clone(),
-            ),
-        )
-        .await
-        .map_err(|_| RmqError::timeout("basic_publish", self.operation_timeout))?
-        .inspect_err(|e| error!("Failed to publish message: {e:?}"))?;
-
-        Ok(())
+        // Use the new builder internally for consistency
+        self.publisher()
+            .exchange(exchange)
+            .routing_key(routing_key)
+            .payload(payload)
+            .send()
+            .await
     }
 
     pub async fn consume<F, Fut>(&mut self, queue: &str, tag: &str, func: F) -> RmqResult<()>
