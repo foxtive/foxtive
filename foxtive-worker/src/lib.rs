@@ -59,22 +59,22 @@ pub mod error;
 pub mod health;
 pub mod http;
 pub mod message;
+mod message_properties;
 pub mod metrics;
 pub mod middleware;
 pub mod pool;
 pub mod strategies;
 pub mod stress;
 pub mod worker;
-mod message_properties;
 
 // Re-exports for convenience
 pub use crate::backends::{MemoryBackend, MessageBackend};
 pub use crate::builder::WorkerPoolBuilder;
 pub use crate::error::{WorkerError, WorkerResult};
 pub use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
+pub use crate::message_properties::MessageProperties;
 pub use crate::pool::WorkerPool;
 pub use crate::strategies::LoadBalancingStrategy;
-pub use crate::message_properties::MessageProperties;
 pub use crate::worker::{BackoffStrategy, Worker};
 
 // Re-export resilient backend for all configurations

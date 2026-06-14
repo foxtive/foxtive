@@ -2,11 +2,11 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use crate::MessageProperties;
 use crate::backends::ReceiveResult;
 use crate::backends::contract::MessageBackend;
 use crate::error::{WorkerError, WorkerResult};
 use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
-use crate::MessageProperties;
 
 /// Redis Streams acknowledgment handle.
 #[derive(Debug)]
@@ -513,13 +513,13 @@ impl RedisStreamBackend {
                     if key == "data" {
                         continue;
                     }
-                    
+
                     // Add other fields as custom headers
                     properties = properties.with_header(key.clone(), value.clone());
                 }
 
-                let metadata = MessageMetadata::new(&self.config.stream_name)
-                    .with_properties(properties);
+                let metadata =
+                    MessageMetadata::new(&self.config.stream_name).with_properties(properties);
                 let message = Message {
                     id: message_id.clone(),
                     payload,
@@ -623,14 +623,14 @@ impl MessageBackend for RedisStreamBackend {
                 if key == "data" {
                     continue;
                 }
-                
+
                 // Add other fields as custom headers
                 properties = properties.with_header(key.clone(), value.clone());
             }
 
             // Build metadata with properties
-            let metadata = MessageMetadata::new(&self.config.stream_name)
-                .with_properties(properties);
+            let metadata =
+                MessageMetadata::new(&self.config.stream_name).with_properties(properties);
             // Note: stream_id, group, consumer could be added to MessageMetadata if needed
 
             // Create message

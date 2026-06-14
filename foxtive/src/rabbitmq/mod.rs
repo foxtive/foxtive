@@ -13,7 +13,7 @@ use tracing::{debug, error, info, warn};
 pub use {
     lapin::message::{Delivery, DeliveryResult},
     lapin::types::*,
-    lapin::{ChannelState, ExchangeKind, BasicProperties, options::*},
+    lapin::{BasicProperties, ChannelState, ExchangeKind, options::*},
 };
 
 pub use crate::rabbitmq::error::{IntoRmqError, RmqError, RmqResult};

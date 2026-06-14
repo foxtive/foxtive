@@ -3,11 +3,11 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use tokio::sync::Notify;
 
-use crate::backends::contract::MessageBackend;
+use crate::MessageProperties;
 use crate::backends::ReceiveResult;
+use crate::backends::contract::MessageBackend;
 use crate::error::WorkerResult;
 use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
-use crate::MessageProperties;
 
 /// In-memory acknowledgment handle.
 #[derive(Debug)]

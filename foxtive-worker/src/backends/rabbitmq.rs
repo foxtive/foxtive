@@ -5,11 +5,11 @@ use lapin::options::{
 use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
 
+use crate::MessageProperties;
 use crate::backends::ReceiveResult;
 use crate::backends::contract::MessageBackend;
 use crate::error::{WorkerError, WorkerResult};
 use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
-use crate::MessageProperties;
 
 /// RabbitMQ acknowledgment handle.
 #[derive(Debug)]
@@ -318,7 +318,7 @@ impl RabbitMqBackend {
                                         .map(|v| v.to_string()),
                                     headers: None,
                                 };
-                                
+
                                 // Extract custom headers from FieldTable
                                 if let Some(field_table) = delivery.properties.headers() {
                                     let mut headers_map = std::collections::HashMap::new();

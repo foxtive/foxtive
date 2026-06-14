@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use crate::error::WorkerResult;
 use crate::MessageProperties;
+use crate::error::WorkerResult;
 
 /// Pure message data (serializable, no backend references).
 ///
@@ -65,7 +65,7 @@ impl MessageMetadata {
         self.routing_key = Some(routing_key.into());
         self
     }
-    
+
     /// Set message properties
     pub fn with_properties(mut self, properties: MessageProperties) -> Self {
         self.properties = Some(properties);

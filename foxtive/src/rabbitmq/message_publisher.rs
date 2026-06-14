@@ -1,6 +1,6 @@
 use crate::prelude::{RabbitMQ, RmqError, RmqResult};
-use lapin::types::{AMQPValue, LongInt, ShortString};
 use lapin::BasicProperties;
+use lapin::types::{AMQPValue, LongInt, ShortString};
 use std::time::Duration;
 use tracing::{debug, error};
 
@@ -87,15 +87,8 @@ impl<'a> MessagePublisher<'a> {
 
     /// Add a header to the message
     pub fn header(mut self, key: impl ToString, value: impl Into<AMQPValue>) -> Self {
-        let mut headers = self
-            .properties
-            .headers()
-            .clone()
-            .unwrap_or_default();
-        headers.insert(
-            ShortString::from(key.to_string()),
-            value.into(),
-        );
+        let mut headers = self.properties.headers().clone().unwrap_or_default();
+        headers.insert(ShortString::from(key.to_string()), value.into());
         self.properties = self.properties.with_headers(headers);
         self
     }
@@ -183,8 +176,8 @@ impl<'a> MessagePublisher<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
     use lapin::types::FieldTable;
+    use std::time::Duration;
     // #[test]
     // fn test_message_publisher_creation() {
     //     // This test verifies the builder can be created (requires mock RabbitMQ)
@@ -315,8 +308,8 @@ mod tests {
 
     #[test]
     fn test_content_type_property() {
-        let props = BasicProperties::default()
-            .with_content_type(ShortString::from("application/json"));
+        let props =
+            BasicProperties::default().with_content_type(ShortString::from("application/json"));
 
         let content_type = props.content_type().clone();
 
@@ -326,8 +319,7 @@ mod tests {
 
     #[test]
     fn test_correlation_id_property() {
-        let props = BasicProperties::default()
-            .with_correlation_id(ShortString::from("corr-123"));
+        let props = BasicProperties::default().with_correlation_id(ShortString::from("corr-123"));
 
         let corr_id = props.correlation_id().clone();
 
@@ -337,8 +329,7 @@ mod tests {
 
     #[test]
     fn test_message_id_property() {
-        let props =
-            BasicProperties::default().with_message_id(ShortString::from("msg-456"));
+        let props = BasicProperties::default().with_message_id(ShortString::from("msg-456"));
         let msg_id = props.message_id().clone();
 
         assert!(msg_id.is_some());
@@ -356,10 +347,7 @@ mod tests {
             ShortString::from("correlation_id"),
             AMQPValue::LongString(lapin::types::LongString::from("abc-123")),
         );
-        headers.insert(
-            ShortString::from("priority"),
-            AMQPValue::LongInt(1),
-        );
+        headers.insert(ShortString::from("priority"), AMQPValue::LongInt(1));
 
         assert_eq!(headers.inner().len(), 3);
     }
