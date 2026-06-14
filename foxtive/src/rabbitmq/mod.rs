@@ -270,8 +270,12 @@ impl RabbitMQ {
     ///         .routing_key("user.reminder")
     ///         .payload(b"{\"reminder\": true}")
     ///         .delay(Duration::from_secs(300))
-    ///         .header("service_name", "user-service")
-    ///         .header("correlation_id", "abc-123")
+    ///         .header("service_name", lapin::types::AMQPValue::LongString(
+    ///             lapin::types::LongString::from("user-service")
+    ///         ))
+    ///         .header("correlation_id", lapin::types::AMQPValue::LongString(
+    ///             lapin::types::LongString::from("abc-123")
+    ///         ))
     ///         .send().await.unwrap();
     /// }
     /// ```

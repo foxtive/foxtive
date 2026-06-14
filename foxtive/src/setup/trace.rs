@@ -474,7 +474,10 @@ mod tests {
             let target = event.metadata().target();
             println!("Event callback triggered: level={level}, target={target}");
 
-            counter_clone.fetch_add(1, Ordering::SeqCst);
+            // Only count events from our test module
+            if target.contains("foxtive::setup::trace::tests") {
+                counter_clone.fetch_add(1, Ordering::SeqCst);
+            }
         });
 
         init_tracing(config).expect("Failed to initialize tracing");
