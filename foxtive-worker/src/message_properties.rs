@@ -145,7 +145,10 @@ mod tests {
         assert_eq!(props.app_id, Some("user-service".to_string()));
 
         let headers = props.headers.unwrap();
-        assert_eq!(headers.get("service_name"), Some(&"user-service".to_string()));
+        assert_eq!(
+            headers.get("service_name"),
+            Some(&"user-service".to_string())
+        );
         assert_eq!(headers.get("correlation_id"), Some(&"abc-123".to_string()));
     }
 
@@ -240,10 +243,10 @@ mod tests {
 
         // Serialize to JSON
         let json = serde_json::to_string(&props).unwrap();
-        
+
         // Deserialize back
         let deserialized: MessageProperties = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(deserialized.content_type, props.content_type);
         assert_eq!(deserialized.app_id, props.app_id);
         assert_eq!(deserialized.headers, props.headers);
@@ -253,7 +256,7 @@ mod tests {
     async fn test_serialization_skips_none_fields() {
         let props = MessageProperties::new().with_app_id("test");
         let json = serde_json::to_string(&props).unwrap();
-        
+
         // Verify that None fields are not in JSON
         assert!(json.contains("app_id"));
         assert!(!json.contains("content_type"));
@@ -313,7 +316,7 @@ mod tests {
 
         assert_eq!(props.content_type, Some("".to_string()));
         assert_eq!(props.app_id, Some("".to_string()));
-        
+
         let headers = props.headers.unwrap();
         assert_eq!(headers.get("empty_key"), Some(&"".to_string()));
     }
