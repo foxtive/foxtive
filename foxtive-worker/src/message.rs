@@ -195,16 +195,17 @@ impl<T: Send + Sync> ReceivedMessage<T> {
 /// Specialized implementation for JSON messages
 impl ReceivedMessage<serde_json::Value> {
     /// Retry message with a delay (if supported by backend).
-    pub async fn retry_with_delay(
-        &self,
-        delay_ms: u64,
-    ) -> WorkerResult<()> {
-        self.ack_handle.retry_with_delay(&self.message, delay_ms).await
+    pub async fn retry_with_delay(&self, delay_ms: u64) -> WorkerResult<()> {
+        self.ack_handle
+            .retry_with_delay(&self.message, delay_ms)
+            .await
     }
 
     /// Send message to Dead Letter Queue after retries are exhausted.
     pub async fn send_to_dlq(&self, error_message: &str) -> WorkerResult<()> {
-        self.ack_handle.send_to_dlq(&self.message, error_message).await
+        self.ack_handle
+            .send_to_dlq(&self.message, error_message)
+            .await
     }
 }
 

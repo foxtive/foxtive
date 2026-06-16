@@ -1,6 +1,8 @@
-use std::time::Duration;
-use foxtive_worker::{Message, MessageBackend, MessageMetadata, RabbitMqBackend, RabbitMqConsumerConfig};
 use foxtive_worker::prelude::ReceiveResult;
+use foxtive_worker::{
+    Message, MessageBackend, MessageMetadata, RabbitMqBackend, RabbitMqConsumerConfig,
+};
+use std::time::Duration;
 
 /// Test that retry infrastructure is set up correctly with DLX and TTL
 #[tokio::test]
@@ -53,7 +55,11 @@ async fn test_publish_to_retry_queue() {
 
     // Publish to retry queue with 1 second delay
     let result = backend.publish_to_retry_queue(&message, 1000).await;
-    assert!(result.is_ok(), "Failed to publish to retry queue: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "Failed to publish to retry queue: {:?}",
+        result
+    );
 
     // Wait for TTL to expire and message to be dead-lettered back
     tokio::time::sleep(Duration::from_millis(1500)).await;
@@ -89,7 +95,10 @@ async fn test_retry_without_delayed_retry_enabled() {
     };
 
     let result = backend.publish_to_retry_queue(&message, 1000).await;
-    assert!(result.is_err(), "Should fail when delayed retry is disabled");
+    assert!(
+        result.is_err(),
+        "Should fail when delayed retry is disabled"
+    );
 }
 
 /// Test custom retry queue and exchange names
@@ -177,8 +186,8 @@ async fn test_end_to_end_delayed_retry() {
     let conn = backend.pool.get().await.unwrap();
     let channel = conn.create_channel().await.unwrap();
 
-    use lapin::options::BasicPublishOptions;
     use lapin::BasicProperties;
+    use lapin::options::BasicPublishOptions;
 
     let payload = serde_json::to_vec(&message.payload).unwrap();
     channel
@@ -216,7 +225,7 @@ async fn test_end_to_end_delayed_retry() {
                 Ok(ReceiveResult::Message(retried)) => {
                     println!("Retried message received: {}", retried.message.id);
                     assert_eq!(retried.message.id, message.id);
-                    
+
                     // Acknowledge the retried message
                     retried.ack().await.unwrap();
                 }

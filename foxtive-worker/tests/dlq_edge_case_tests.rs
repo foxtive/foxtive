@@ -1,7 +1,9 @@
+use foxtive_worker::prelude::ReceiveResult;
+use foxtive_worker::{
+    Message, MessageBackend, MessageMetadata, RabbitMqBackend, RabbitMqConsumerConfig,
+};
 use std::sync::Arc;
 use std::time::Duration;
-use foxtive_worker::{Message, MessageBackend, MessageMetadata, RabbitMqBackend, RabbitMqConsumerConfig};
-use foxtive_worker::prelude::ReceiveResult;
 
 /// Test DLQ is created when delayed retry is enabled
 #[tokio::test]
@@ -19,10 +21,10 @@ async fn test_dlq_creation_with_delayed_retry() {
 
     // Verify DLQ name is set
     assert!(backend.dlq_name.is_some());
-    
+
     let dlq_name = backend.dlq_name.as_ref().unwrap();
     assert_eq!(dlq_name, "test_dlq_creation-dlq");
-    
+
     // Health check should pass
     assert!(backend.health_check().await.is_ok());
 }
@@ -44,7 +46,7 @@ async fn test_publish_to_dlq() {
     // Create a test message with attempt count
     let mut metadata = MessageMetadata::new("test_dlq_publish");
     metadata.attempt = 3; // Exhausted retries
-    
+
     let message = Message {
         id: "test-dlq-msg-1".to_string(),
         payload: serde_json::json!({"test": "failed_data"}),
@@ -74,7 +76,7 @@ async fn test_dlq_headers_metadata() {
     let mut metadata = MessageMetadata::new("test_dlq_headers");
     metadata.attempt = 2;
     metadata.routing_key = Some("test.routing.key".into());
-    
+
     let message = Message {
         id: "test-dlq-headers".to_string(),
         payload: serde_json::json!({"data": "value"}),
@@ -84,7 +86,7 @@ async fn test_dlq_headers_metadata() {
     // Publish to DLQ
     let result = backend.publish_to_dlq(&message, "Test failure").await;
     assert!(result.is_ok());
-    
+
     // In production, you'd verify headers via RabbitMQ management API
     // Headers should include:
     // - x-original-routing-key: "test.routing.key"
@@ -139,7 +141,7 @@ async fn test_retry_infrastructure_includes_dlq() {
     assert!(backend.retry_queue_name.is_some());
     assert!(backend.retry_exchange_name.is_some());
     assert!(backend.dlq_name.is_some());
-    
+
     println!("Retry queue: {:?}", backend.retry_queue_name);
     println!("Retry exchange: {:?}", backend.retry_exchange_name);
     println!("DLQ: {:?}", backend.dlq_name);
@@ -190,14 +192,16 @@ async fn test_multiple_messages_to_dlq() {
     for i in 0..5 {
         let mut metadata = MessageMetadata::new("test_multi_dlq");
         metadata.attempt = 3;
-        
+
         let message = Message {
             id: format!("failed-msg-{}", i),
             payload: serde_json::json!({"index": i}),
             metadata,
         };
 
-        let result = backend.publish_to_dlq(&message, &format!("Failure {}", i)).await;
+        let result = backend
+            .publish_to_dlq(&message, &format!("Failure {}", i))
+            .await;
         assert!(result.is_ok(), "Failed to publish message {} to DLQ", i);
     }
 }
@@ -260,7 +264,9 @@ async fn test_dlq_large_payloads() {
         metadata: MessageMetadata::new("test_dlq_large"),
     };
 
-    let result = backend.publish_to_dlq(&message, "Large payload failure").await;
+    let result = backend
+        .publish_to_dlq(&message, "Large payload failure")
+        .await;
     assert!(result.is_ok(), "Failed to publish large payload to DLQ");
 }
 
@@ -281,21 +287,25 @@ async fn test_dlq_preserves_properties() {
         .expect("Failed to create backend");
 
     let mut metadata = MessageMetadata::new("test_dlq_props");
-    metadata.properties = Some(MessageProperties::new()
-        .with_app_id("test-service")
-        .with_message_type("test.event")
-        .with_priority(5)
-        .with_header("correlation_id", "trace-123"));
-    
+    metadata.properties = Some(
+        MessageProperties::new()
+            .with_app_id("test-service")
+            .with_message_type("test.event")
+            .with_priority(5)
+            .with_header("correlation_id", "trace-123"),
+    );
+
     let message = Message {
         id: "props-msg".to_string(),
         payload: serde_json::json!({"test": "data"}),
         metadata,
     };
 
-    let result = backend.publish_to_dlq(&message, "Property preservation test").await;
+    let result = backend
+        .publish_to_dlq(&message, "Property preservation test")
+        .await;
     assert!(result.is_ok());
-    
+
     // Note: Properties are in message.metadata but DLQ headers focus on failure info
     // The full message payload (including metadata) is preserved in the DLQ message body
 }
@@ -326,8 +336,8 @@ async fn test_full_retry_flow_to_dlq() {
     let conn = backend.pool.get().await.unwrap();
     let channel = conn.create_channel().await.unwrap();
 
-    use lapin::options::BasicPublishOptions;
     use lapin::BasicProperties;
+    use lapin::options::BasicPublishOptions;
 
     let payload = serde_json::to_vec(&message.payload).unwrap();
     channel
@@ -347,7 +357,11 @@ async fn test_full_retry_flow_to_dlq() {
     for attempt in 0..3 {
         match backend.receive().await {
             Ok(ReceiveResult::Message(received)) => {
-                println!("Attempt {}: Received message {}", attempt + 1, received.message.id);
+                println!(
+                    "Attempt {}: Received message {}",
+                    attempt + 1,
+                    received.message.id
+                );
 
                 if attempt < 2 {
                     // First 2 attempts: retry with delay
@@ -355,7 +369,7 @@ async fn test_full_retry_flow_to_dlq() {
                         .retry_with_delay(1000) // 1 second delay
                         .await
                         .expect("Failed to schedule retry");
-                    
+
                     // Wait for TTL
                     tokio::time::sleep(Duration::from_millis(1500)).await;
                 } else {
@@ -364,7 +378,7 @@ async fn test_full_retry_flow_to_dlq() {
                         .send_to_dlq("All retries exhausted")
                         .await
                         .expect("Failed to send to DLQ");
-                    
+
                     println!("Message sent to DLQ after 3 attempts");
                 }
             }
@@ -422,13 +436,15 @@ async fn test_concurrent_dlq_publishing() {
         ..Default::default()
     };
 
-    let backend = Arc::new(RabbitMqBackend::new("amqp://localhost", config)
-        .await
-        .expect("Failed to create backend"));
+    let backend = Arc::new(
+        RabbitMqBackend::new("amqp://localhost", config)
+            .await
+            .expect("Failed to create backend"),
+    );
 
     // Spawn multiple tasks publishing to DLQ concurrently
     let mut handles = vec![];
-    
+
     for i in 0..10 {
         let backend_clone = backend.clone();
         let handle = tokio::spawn(async move {

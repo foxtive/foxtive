@@ -95,7 +95,7 @@ impl Middleware for AckNackMiddleware {
                     }
                     _ => {}
                 }
-                
+
                 // Negative-acknowledge other failed processing
                 if let Err(nack_err) = message.nack(self.requeue_on_nack).await {
                     tracing::error!(
@@ -291,8 +291,10 @@ mod tests {
         let middleware = AckNackMiddleware::new();
         let (message, acked, nacked, _) = create_test_message();
 
-        let result = middleware.handle(message, Box::new(RetryFailureHandler)).await;
-        
+        let result = middleware
+            .handle(message, Box::new(RetryFailureHandler))
+            .await;
+
         // Should return the RetryableFailure error without nacking
         assert!(result.is_err());
         if let Err(WorkerError::RetryableFailure { .. }) = result {
@@ -300,7 +302,7 @@ mod tests {
         } else {
             panic!("Expected RetryableFailure to be passed through");
         }
-        
+
         // Verify no ack or nack was called
         assert!(!acked.load(Ordering::SeqCst));
         assert!(!nacked.load(Ordering::SeqCst));
@@ -325,8 +327,10 @@ mod tests {
         let middleware = AckNackMiddleware::new();
         let (message, acked, nacked, _) = create_test_message();
 
-        let result = middleware.handle(message, Box::new(RetriesExhaustedHandler)).await;
-        
+        let result = middleware
+            .handle(message, Box::new(RetriesExhaustedHandler))
+            .await;
+
         // Should return the RetriesExhausted error without nacking
         assert!(result.is_err());
         if let Err(WorkerError::RetriesExhausted { .. }) = result {
@@ -334,7 +338,7 @@ mod tests {
         } else {
             panic!("Expected RetriesExhausted to be passed through");
         }
-        
+
         // Verify no ack or nack was called
         assert!(!acked.load(Ordering::SeqCst));
         assert!(!nacked.load(Ordering::SeqCst));

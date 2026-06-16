@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use tokio::sync::{Notify, Semaphore};
 use tokio::time::sleep;
@@ -557,10 +557,7 @@ impl MessageHandler for ArcHandlerWrapper {
 /// Retry ack with exponential backoff on failure.
 ///
 /// This helps handle transient network issues or broker unavailability.
-async fn retry_ack(
-    ack_handle: &Arc<dyn AckHandle>,
-    message_id: &str,
-) -> WorkerResult<()> {
+async fn retry_ack(ack_handle: &Arc<dyn AckHandle>, message_id: &str) -> WorkerResult<()> {
     let max_retries = 3;
     let base_delay_ms = 100;
 
