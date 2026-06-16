@@ -812,9 +812,9 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_nack_to_dlq() {
-        let dlq_stream = "worker_stream_dlq".to_string();
+        let dlq_stream = "worker-stream-dlq".to_string();
         let config = RedisStreamConsumerConfig {
-            stream_name: "worker_stream_dlq_test".to_string(),
+            stream_name: "worker-stream-dlq-test".to_string(),
             dlq_stream_name: Some(dlq_stream.clone()),
             ..Default::default()
         };

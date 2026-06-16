@@ -94,6 +94,48 @@ pub trait AckHandle: Send + Sync + Debug {
     /// * `requeue` - If true, the message should be requeued for redelivery.
     ///               If false, the message should be discarded or moved to a dead letter queue.
     async fn nack(&self, requeue: bool) -> WorkerResult<()>;
+
+    /// Retry message with a delay (backend-specific implementation).
+    ///
+    /// For backends that support delayed retries (e.g., RabbitMQ with DLX+TTL),
+    /// this publishes the message to a retry queue with the specified delay.
+    /// For other backends, this may fall back to immediate requeue or return an error.
+    ///
+    /// # Arguments
+    /// * `message` - The message to retry
+    /// * `delay_ms` - Delay in milliseconds before redelivery
+    ///
+    /// # Returns
+    /// Ok if retry was scheduled, Err if not supported or failed
+    async fn retry_with_delay(
+        &self,
+        _message: &Message<serde_json::Value>,
+        _delay_ms: u64,
+    ) -> WorkerResult<()> {
+        // Default implementation: fall back to immediate requeue
+        self.nack(true).await
+    }
+
+    /// Send message to Dead Letter Queue after retries are exhausted.
+    ///
+    /// This method publishes the message to a DLQ with failure metadata.
+    /// Only applicable for backends that support DLQ (e.g., RabbitMQ).
+    /// For other backends, this is a no-op.
+    ///
+    /// # Arguments
+    /// * `message` - The message that has exhausted all retries
+    /// * `error_message` - Description of why the message failed
+    ///
+    /// # Returns
+    /// Ok if published to DLQ or not supported, Err if publishing failed
+    async fn send_to_dlq(
+        &self,
+        _message: &Message<serde_json::Value>,
+        _error_message: &str,
+    ) -> WorkerResult<()> {
+        // Default implementation: no-op for backends without DLQ support
+        Ok(())
+    }
 }
 
 /// Wrapper combining message data with acknowledgment capability.
@@ -147,6 +189,22 @@ impl<T: Send + Sync> ReceivedMessage<T> {
     /// Extract the inner message, discarding the ack handle.
     pub fn into_message(self) -> Message<T> {
         self.message
+    }
+}
+
+/// Specialized implementation for JSON messages
+impl ReceivedMessage<serde_json::Value> {
+    /// Retry message with a delay (if supported by backend).
+    pub async fn retry_with_delay(
+        &self,
+        delay_ms: u64,
+    ) -> WorkerResult<()> {
+        self.ack_handle.retry_with_delay(&self.message, delay_ms).await
+    }
+
+    /// Send message to Dead Letter Queue after retries are exhausted.
+    pub async fn send_to_dlq(&self, error_message: &str) -> WorkerResult<()> {
+        self.ack_handle.send_to_dlq(&self.message, error_message).await
     }
 }
 

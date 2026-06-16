@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{Notify, Semaphore};
 use tokio::time::sleep;
@@ -7,9 +7,9 @@ use tokio_util::sync::CancellationToken;
 
 use crate::error::{WorkerError, WorkerResult};
 use crate::health::{HealthCheck, HealthStatus};
-use crate::message::ReceivedMessage;
+use crate::message::{AckHandle, ReceivedMessage};
 use crate::metrics::WorkerMetrics;
-use crate::middleware::{MessageHandler, Middleware, MiddlewareChain};
+use crate::middleware::{MessageHandler, Middleware, MiddlewareChain, MiddlewareResult};
 use crate::strategies::{
     LeastLoadedBalancer, LoadBalancingStrategy, RandomBalancer, RoundRobinBalancer,
 };
@@ -210,10 +210,12 @@ impl WorkerPool {
         // Track in-flight task count
         in_flight_tasks.fetch_add(1, Ordering::SeqCst);
 
-        // Extract ack_handle and metadata before moving message into task
+        // Extract ack_handle and message data before moving message into task
         let ack_handle = message.ack_handle.clone();
         let message_id = message.message.id.clone();
         let attempt = message.message.metadata.attempt;
+        // Clone the full message for retry (preserves routing_key and all metadata)
+        let retry_message = message.message.clone();
 
         tokio::spawn(async move {
             // Use tokio::select! to handle cancellation
@@ -231,7 +233,7 @@ impl WorkerPool {
             match result {
                 Ok(middleware_result) => {
                     match middleware_result {
-                        crate::middleware::MiddlewareResult::Acknowledged => {
+                        MiddlewareResult::Acknowledged => {
                             // Middleware (e.g., AckNackMiddleware) already handled acknowledgment
                             tracing::debug!(
                                 "Message {} already acknowledged by middleware",
@@ -247,7 +249,7 @@ impl WorkerPool {
                             task_completion_notify.notify_one();
                             return;
                         }
-                        crate::middleware::MiddlewareResult::Continue => {
+                        MiddlewareResult::Continue => {
                             // No middleware handled ack - pool should ack on success
                             tracing::debug!("Message {} processed successfully", message_id);
                             metrics_collector_clone.record_message_processed(
@@ -283,10 +285,28 @@ impl WorkerPool {
                         "RetryableFailure",
                         start_time,
                     );
-                    if let Err(e) = ack_handle.nack(true).await {
-                        tracing::error!("Failed to requeue message {}: {}", message_id, e);
+
+                    // Use delayed retry if supported by backend, otherwise nack with requeue
+                    // The retry_with_delay method will handle backend-specific retry logic
+                    // Pass the original message to preserve all metadata including routing_key
+                    if let Err(e) = ack_handle
+                        .retry_with_delay(&retry_message, delay_ms.as_millis() as u64)
+                        .await
+                    {
+                        tracing::error!(
+                            "Failed to schedule retry for message {}: {}",
+                            message_id,
+                            e
+                        );
+                        // Fallback to immediate nack with requeue if retry fails
+                        if let Err(nack_err) = ack_handle.nack(true).await {
+                            tracing::error!(
+                                "Fallback nack also failed for message {}: {}",
+                                message_id,
+                                nack_err
+                            );
+                        }
                     }
-                    sleep(delay_ms).await;
                 }
                 Err(WorkerError::RetriesExhausted { source }) => {
                     tracing::error!(
@@ -302,8 +322,20 @@ impl WorkerPool {
                         "RetriesExhausted",
                         start_time,
                     );
-                    if let Err(e) = ack_handle.nack(false).await {
+                    // Send to DLQ using the ack handle's send_to_dlq method
+                    if let Err(e) = ack_handle
+                        .send_to_dlq(&retry_message, &source.to_string())
+                        .await
+                    {
                         tracing::error!("Failed to send message {} to DLQ: {}", message_id, e);
+                        // Fallback: nack without requeue (message will be discarded)
+                        if let Err(nack_err) = ack_handle.nack(false).await {
+                            tracing::error!(
+                                "Fallback nack also failed for message {}: {}",
+                                message_id,
+                                nack_err
+                            );
+                        }
                     }
                 }
                 Err(e) => {
@@ -484,10 +516,10 @@ impl MessageHandler for WorkerHandler {
     async fn handle(
         &self,
         message: ReceivedMessage<serde_json::Value>,
-    ) -> Result<crate::middleware::MiddlewareResult, WorkerError> {
+    ) -> Result<MiddlewareResult, WorkerError> {
         // Workers always return Continue - they don't handle acknowledgment directly
         self.0.process(message).await?;
-        Ok(crate::middleware::MiddlewareResult::Continue)
+        Ok(MiddlewareResult::Continue)
     }
 }
 
@@ -504,7 +536,7 @@ impl Middleware for ArcMiddlewareWrapper {
         &self,
         message: ReceivedMessage<serde_json::Value>,
         next: Box<dyn MessageHandler>,
-    ) -> Result<crate::middleware::MiddlewareResult, WorkerError> {
+    ) -> Result<MiddlewareResult, WorkerError> {
         self.0.handle(message, next).await
     }
 }
@@ -517,7 +549,7 @@ impl MessageHandler for ArcHandlerWrapper {
     async fn handle(
         &self,
         message: ReceivedMessage<serde_json::Value>,
-    ) -> Result<crate::middleware::MiddlewareResult, WorkerError> {
+    ) -> Result<MiddlewareResult, WorkerError> {
         self.0.handle(message).await
     }
 }
@@ -526,7 +558,7 @@ impl MessageHandler for ArcHandlerWrapper {
 ///
 /// This helps handle transient network issues or broker unavailability.
 async fn retry_ack(
-    ack_handle: &Arc<dyn crate::message::AckHandle>,
+    ack_handle: &Arc<dyn AckHandle>,
     message_id: &str,
 ) -> WorkerResult<()> {
     let max_retries = 3;
@@ -563,7 +595,8 @@ mod tests {
     use crate::metrics::NoOpMetrics;
     use async_trait::async_trait;
     use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::time::Duration; // Use NoOpMetrics for tests
+    use std::time::Duration;
+    // Use NoOpMetrics for tests
 
     #[derive(Debug)]
     struct MockAckHandle;

@@ -4,6 +4,146 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-16
+
+### Major Features
+
+#### Dead Letter Queue (DLQ) Support for RabbitMQ
+We've added comprehensive DLQ support to prevent message loss when retries are exhausted! Failed messages are now automatically moved to a dedicated DLQ with rich failure metadata.
+
+**What's new:**
+- **Automatic DLQ creation**: When `enable_delayed_retry` is true, a DLQ named `{queue_name}-dlq` is automatically created
+- **Rich failure metadata**: DLQ messages include headers with:
+  - `x-original-routing-key`: Original message routing key
+  - `x-failure-reason`: Error message explaining why processing failed
+  - `x-final-attempt`: Final attempt count before exhaustion
+  - `x-failed-at`: ISO 8601 timestamp of failure
+- **Explicit DLQ publishing**: New `send_to_dlq()` method on `AckHandle` trait
+- **Graceful fallback**: If DLQ publishing fails, falls back to `nack(false)` (message discarded)
+
+**Why you'll love it:**
+```rust
+// Before: Messages lost after retries exhausted
+if let Err(e) = ack_handle.nack(false).await {
+    tracing::error!("Message lost: {}", e);
+}
+
+// After: Messages safely stored in DLQ with full context
+if let Err(e) = ack_handle.send_to_dlq(&message, &error.to_string()).await {
+    tracing::error!("Failed to send to DLQ: {}", e);
+    // Fallback still available
+}
+```
+
+No more lost messages! Inspect, debug, and reprocess failed messages at your convenience.
+
+#### Retry Attempt Count Preservation
+Retry attempts now correctly increment across retry cycles using message headers. Previously, all attempts showed `attempt: 0`, making it impossible to track retry progress.
+
+**How it works:**
+1. When publishing to retry queue: Store incremented attempt count in `x-retry-attempt` header
+2. When consuming redelivered message: Extract attempt count from header and restore in metadata
+3. Result: Accurate attempt tracking across multiple retry cycles
+
+**Example flow:**
+```
+Attempt 1: metadata.attempt = 0 → logs show "(attempt 1/3)"
+Attempt 2: metadata.attempt = 1 → logs show "(attempt 2/3)" ✅
+Attempt 3: metadata.attempt = 2 → logs show "(attempt 3/3)" ✅
+```
+
+#### Enhanced AckHandle Trait
+Added `send_to_dlq()` method to the `AckHandle` trait with default no-op implementation for backends without DLQ support.
+
+```rust
+#[async_trait]
+pub trait AckHandle: Send + Sync + Debug {
+    async fn ack(&self) -> WorkerResult<()>;
+    async fn nack(&self, requeue: bool) -> WorkerResult<()>;
+    async fn retry_with_delay(&self, message, delay_ms) -> WorkerResult<()>;
+    
+    // NEW: Send to DLQ after retries exhausted
+    async fn send_to_dlq(&self, message, error_message) -> WorkerResult<()> {
+        Ok(())  // Default: no-op for backends without DLQ
+    }
+}
+```
+
+### Improvements
+
+#### Better DLQ Naming Convention
+Changed DLQ naming from `{queue_name}_dlq` to `{queue_name}-dlq` for consistency with retry queue naming (`{queue_name}-retry`).
+
+#### Public Backend Fields
+Made `pool`, `retry_queue_name`, and `retry_exchange_name` fields public on `RabbitMqBackend` for better extensibility and testing.
+
+#### Comprehensive Test Coverage
+Added extensive edge case tests:
+- **DLQ edge cases** (15 tests): Creation, publishing, headers, concurrent access, special characters, large payloads
+- **Retry attempt preservation** (9 tests): Count accuracy, header storage, routing key preservation, overflow protection
+- All tests properly marked with `#[ignore]` flag (require RabbitMQ running)
+
+### Technical Changes
+
+**New Methods:**
+- `RabbitMqBackend::publish_to_dlq(message, error_message)` - Publish failed message to DLQ with metadata
+- `ReceivedMessage::send_to_dlq(error_message)` - Convenience method for sending to DLQ
+- `RetryPublisher::as_any()` - Enable downcasting for DLQ publishing
+
+**Breaking Changes:**
+- None! All changes are additive and backward compatible.
+
+**Updated Components:**
+- `RabbitMqBackend` - Added `dlq_name` field and DLQ infrastructure setup
+- `RabbitMqAckHandle` - Implemented `send_to_dlq()` method
+- `WorkerPool` - Updated to call `send_to_dlq()` when retries exhausted
+- `setup_retry_infrastructure()` - Now returns `(retry_queue, retry_exchange, dlq)` tuple
+
+### Testing
+
+**New Test Files:**
+- `tests/dlq_edge_case_tests.rs` - 15 comprehensive DLQ tests
+- `tests/retry_attempt_tests.rs` - 9 retry attempt preservation tests
+
+**Test Coverage:**
+- DLQ creation and configuration
+- DLQ message headers and metadata
+- Concurrent DLQ publishing
+- Special character handling in error messages
+- Large payload support
+- Attempt count preservation across retries
+- Routing key preservation with attempt counting
+- Overflow protection for high attempt counts
+
+### Documentation
+
+**README Updates:**
+- Added new section: "6. Dead Letter Queues" with complete DLQ guide
+- Documented DLQ architecture and message flow
+- Added monitoring and reprocessing examples
+- Included best practices and common pitfalls
+- Updated table of contents
+
+**Migration Guide:**
+
+No migration needed! The changes are fully backward compatible. To enable DLQ:
+
+```rust
+let config = RabbitMqConsumerConfig {
+    queue_name: "my-queue".to_string(),
+    enable_delayed_retry: true,  // This enables DLQ automatically
+    ..Default::default()
+};
+```
+
+That's it! Your failed messages will now be preserved in `{queue_name}-dlq`.
+
+### 🙏 Thanks
+
+This release brings critical production reliability improvements. No more lost messages—every failure is captured, inspected, and recoverable. The enhanced retry attempt tracking makes debugging retry issues significantly easier.
+
+---
+
 ## [0.3.0] - 2026-06-14
 
 ### Added

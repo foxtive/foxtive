@@ -2,7 +2,7 @@
 
 **A production-ready background worker framework for Rust.**
 
-Process messages from RabbitMQ, Redis Streams, or any queue system with confidence. Built-in retries, circuit breakers, dead letter queues, and observability—so you can focus on your business logic.
+Process messages from RabbitMQ, Redis Streams, or any queue system with confidence. Built-in retries, circuit breakers, dead letter queues, and observability-so you can focus on your business logic.
 
 ---
 
@@ -15,6 +15,7 @@ Process messages from RabbitMQ, Redis Streams, or any queue system with confiden
   - [3. Scaling Up](#3-scaling-up)
   - [4. Production Ready](#4-production-ready)
   - [5. Message Properties](#5-message-properties) - Microservices metadata & distributed tracing
+  - [6. Dead Letter Queues](#6-dead-letter-queues) - Handle exhausted retries
 - [Examples](#-examples) - Real-world use cases
 - [Configuration Reference](#configuration-reference)
   - [Resilient Backends](#making-backends-refuse-to-die) - Survive network failures
@@ -98,7 +99,7 @@ Follow this step-by-step guide to go from zero to production.
 
 ### 1. Your First Worker
 
-Let's build something real—an email notification service.
+Let's build something real-an email notification service.
 
 #### The Problem
 You have a queue of emails to send. Each message looks like:
@@ -155,8 +156,8 @@ async fn send_email(to: &str, subject: &str) -> Result<(), Box<dyn std::error::E
 **Key concepts:**
 - **Return `Ok(())`** - Signals successful processing; middleware will ack the message
 - **Return `Err(...)`** - Signals failure; middleware will nack/retry based on configuration
-- **Always validate your input**—bad messages happen
-- **Don't manually ack/nack** when using `AckNackMiddleware`—let it handle acknowledgment automatically
+- **Always validate your input**-bad messages happen
+- **Don't manually ack/nack** when using `AckNackMiddleware`-let it handle acknowledgment automatically
 
 #### Try It
 
@@ -224,11 +225,11 @@ let pool = WorkerPoolBuilder::new("email-pool")
 
 The backoff doubles each time (exponential) with random jitter to prevent thundering herds.
 
-**Important:** With `AckNackMiddleware`, you don't need to call `message.ack()` or `message.nack()` in your worker—just return `Ok(())` for success or `Err(...)` for failure!
+**Important:** With `AckNackMiddleware`, you don't need to call `message.ack()` or `message.nack()` in your worker-just return `Ok(())` for success or `Err(...)` for failure!
 
 #### Dead Letter Queues
 
-When retries are exhausted, don't lose the message—save it for later investigation:
+When retries are exhausted, don't lose the message-save it for later investigation:
 
 ```rust
 use foxtive_worker::dlq::DeadLetterQueueBackend;
@@ -504,7 +505,7 @@ let pool = WorkerPoolBuilder::new("email-pool")
     .unwrap();
 ```
 
-Powered by the [`governor`](https://docs.rs/governor) crate—efficient, distributed-ready rate limiting.
+Powered by the [`governor`](https://docs.rs/governor) crate-efficient, distributed-ready rate limiting.
 
 ---
 
@@ -694,7 +695,184 @@ async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerRe
 - Partial processing scenarios
 - Custom retry strategies per message
 
-**⚠️ Warning:** Never mix manual ack with `AckNackMiddleware`—you'll get double-ack errors!
+**⚠️ Warning:** Never mix manual ack with `AckNackMiddleware`-you'll get double-ack errors!
+
+---
+
+### 6. Dead Letter Queues
+
+When messages fail all retry attempts, you don't want to lose them-you want to inspect and debug them later. That's where **Dead Letter Queues (DLQ)** come in.
+
+#### What is a DLQ?
+
+A DLQ is a special queue that stores messages that have exhausted all retry attempts. Instead of discarding failed messages, they're moved to the DLQ for:
+- **Debugging**: Inspect why messages failed
+- **Reprocessing**: Fix issues and retry manually
+- **Monitoring**: Track failure rates and patterns
+- **Audit trail**: Keep record of all failed processing
+
+#### RabbitMQ DLQ Architecture
+
+Foxtive Worker automatically sets up DLQ infrastructure when you enable delayed retries:
+
+```
+Main Queue → Retry Queue (TTL) → Main Queue → [3 attempts] → DLQ
+```
+
+**Infrastructure created automatically:**
+- **Retry Queue**: `{queue_name}-retry` - Holds messages during TTL delay
+- **Retry Exchange**: `{queue_name}-retry_exchange` - Routes retried messages
+- **DLQ**: `{queue_name}-dlq` - Permanent storage for exhausted messages
+
+#### Enabling DLQ
+
+```rust
+use foxtive_worker::backends::{RabbitMqBackend, RabbitMqConsumerConfig};
+
+let config = RabbitMqConsumerConfig {
+    queue_name: "email-notifications".to_string(),
+    enable_delayed_retry: true,  // Enables retry queue + DLQ
+    ..Default::default()
+};
+
+let backend = Arc::new(
+    RabbitMqBackend::new("amqp://localhost", config).await?
+);
+
+// DLQ is automatically created as "email-notifications-dlq"
+println!("DLQ name: {:?}", backend.dlq_name);
+```
+
+#### How It Works
+
+1. **Message fails** → RetryHandler nacks with delay
+2. **Published to retry queue** with TTL (e.g., 60 seconds)
+3. **TTL expires** → Message dead-lettered back to main queue
+4. **Attempt count preserved** via message headers (`x-retry-attempt`)
+5. **After max retries** → Published to DLQ with failure metadata
+6. **Original message acknowledged** (removed from main queue)
+
+#### DLQ Message Headers
+
+Messages in the DLQ include rich metadata in their headers:
+
+| Header | Type | Description |
+|--------|------|-------------|
+| `x-original-routing-key` | String | Original message routing key |
+| `x-failure-reason` | String | Error message explaining failure |
+| `x-final-attempt` | Integer | Final attempt count before exhaustion |
+| `x-failed-at` | String | ISO 8601 timestamp of failure |
+
+Example DLQ message headers:
+```json
+{
+  "x-original-routing-key": "user.created",
+  "x-failure-reason": "Connection timeout after 3 retries",
+  "x-final-attempt": 3,
+  "x-failed-at": "2026-06-16T14:48:05.214409Z"
+}
+```
+
+#### Monitoring DLQ
+
+Check your DLQ size to detect systemic issues:
+
+```rust
+// Using RabbitMQ Management API
+let dlq_messages = rabbitmq_api.get_queue_messages("email-notifications-dlq").await?;
+
+if dlq_messages > 10 {
+    tracing::warn!("High DLQ count: {} messages need attention", dlq_messages);
+}
+```
+
+Or use RabbitMQ Management UI:
+1. Navigate to **Queues** tab
+2. Find `{your-queue}-dlq`
+3. Monitor **Total** column
+4. Click queue name to inspect individual messages
+
+#### Reprocessing DLQ Messages
+
+Manually reprocess failed messages after fixing the issue:
+
+```rust
+// Consume from DLQ
+let dlq_config = RabbitMqConsumerConfig {
+    queue_name: "email-notifications-dlq".to_string(),
+    ..Default::default()
+};
+
+let dlq_backend = Arc::new(
+    RabbitMqBackend::new("amqp://localhost", dlq_config).await?
+);
+
+// Process failed messages
+while let Some(msg) = dlq_backend.receive().await? {
+    println!("DLQ message: {}", msg.message.id);
+    
+    // Inspect failure reason from headers
+    if let Some(props) = &msg.message.metadata.properties {
+        if let Some(headers) = &props.headers {
+            if let Some(reason) = headers.get("x-failure-reason") {
+                println!("Failed because: {}", reason);
+            }
+        }
+    }
+    
+    // After fixing the issue, republish to main queue
+    // or handle based on your business logic
+    msg.ack().await?;
+}
+```
+
+#### Customizing DLQ Names
+
+By default, DLQ names follow the pattern `{queue_name}-dlq`. You can customize this:
+
+```rust
+let config = RabbitMqConsumerConfig {
+    queue_name: "emails".to_string(),
+    enable_delayed_retry: true,
+    retry_queue_name: Some("emails-delayed-retry".to_string()),
+    // DLQ will be "emails-dlq" (auto-generated)
+    ..Default::default()
+};
+```
+
+#### Best Practices
+
+✅ **Monitor DLQ growth** - Set up alerts when DLQ exceeds threshold  
+✅ **Include error context** - Use descriptive error messages in workers  
+✅ **Regular cleanup** - Archive or delete old DLQ messages  
+✅ **Root cause analysis** - Investigate patterns in DLQ failures  
+✅ **Automated reprocessing** - Build DLQ consumers for common failures  
+
+❌ **Don't ignore DLQ** - Growing DLQ indicates systemic issues  
+❌ **Don't store sensitive data** - DLQ messages persist indefinitely  
+❌ **Don't disable DLQ in production** - You'll lose failed messages  
+
+#### Example: Payment Processing with DLQ
+
+```rust
+use foxtive_worker::middleware::{RetryHandler, AckNackMiddleware};
+
+let retry_handler = RetryHandler::default()
+    .with_max_retries(3)
+    .with_initial_backoff(Duration::from_secs(5));
+
+let pool = WorkerPoolBuilder::new("payment-pool")
+    .add_worker(PaymentWorker)
+    .with_middleware(AckNackMiddleware::default())
+    .with_middleware(retry_handler)
+    .build()?;
+
+// If payment fails 3 times:
+// 1. Message moves to "payments-dlq"
+// 2. Headers contain failure reason
+// 3. You can inspect and reprocess manually
+// 4. No payment is lost!
+```
 
 ---
 
@@ -727,7 +905,7 @@ impl Worker for PaymentWorker {
 }
 
 let pool = WorkerPoolBuilder::new("payment-pool")
-    .with_concurrency_limit(20)  // Conservative—payments are critical
+    .with_concurrency_limit(20)  // Conservative-payments are critical
     .add_worker(PaymentWorker)
     .with_middleware(AckNackMiddleware::default())
     .with_middleware(CircuitBreakerMiddleware::new(3, Duration::from_secs(60)))
@@ -1087,7 +1265,7 @@ Then inspect the DLQ to see what's failing.
 ### Slow processing
 
 **Debug steps:**
-1. Profile your worker—the bottleneck is usually your code, not the framework
+1. Profile your worker-the bottleneck is usually your code, not the framework
 2. Increase concurrency if I/O-bound:
    ```rust
    .with_concurrency_limit(200)
@@ -1189,7 +1367,7 @@ Built with:
 - [governor](https://github.com/antifuchs/governor) - Rate limiting
 - [tracing](https://github.com/tokio-rs/tracing) - Structured logging
 
-Inspired by Celery, Sidekiq, and Bull—but faster because Rust.
+Inspired by Celery, Sidekiq, and Bull-but faster because Rust.
 
 ---
 

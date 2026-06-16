@@ -83,7 +83,20 @@ impl Middleware for AckNackMiddleware {
                 Ok(MiddlewareResult::Acknowledged)
             }
             Err(e) if self.nack_on_failure => {
-                // Negative-acknowledge failed processing
+                // Don't nack retry-related errors - let the pool handle delayed retry
+                match &e {
+                    WorkerError::RetryableFailure { .. } | WorkerError::RetriesExhausted { .. } => {
+                        tracing::debug!(
+                            "[AckNackMiddleware] Passing through retry error for message {}: {:?}",
+                            message.message.id,
+                            e
+                        );
+                        return Err(e);
+                    }
+                    _ => {}
+                }
+                
+                // Negative-acknowledge other failed processing
                 if let Err(nack_err) = message.nack(self.requeue_on_nack).await {
                     tracing::error!(
                         "Failed to nack message {}: {} (original error: {})",
@@ -256,5 +269,74 @@ mod tests {
 
         assert!(nacked.load(Ordering::SeqCst));
         assert!(!requeued.load(Ordering::SeqCst));
+    }
+
+    struct RetryFailureHandler;
+
+    #[async_trait]
+    impl MessageHandler for RetryFailureHandler {
+        async fn handle(
+            &self,
+            _message: ReceivedMessage<serde_json::Value>,
+        ) -> Result<MiddlewareResult, WorkerError> {
+            Err(WorkerError::RetryableFailure {
+                source: Box::new(WorkerError::ProcessingFailed("retry error".to_string())),
+                delay_ms: std::time::Duration::from_secs(1),
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn test_passthrough_retry_failure() {
+        let middleware = AckNackMiddleware::new();
+        let (message, acked, nacked, _) = create_test_message();
+
+        let result = middleware.handle(message, Box::new(RetryFailureHandler)).await;
+        
+        // Should return the RetryableFailure error without nacking
+        assert!(result.is_err());
+        if let Err(WorkerError::RetryableFailure { .. }) = result {
+            // Success - retry error was passed through
+        } else {
+            panic!("Expected RetryableFailure to be passed through");
+        }
+        
+        // Verify no ack or nack was called
+        assert!(!acked.load(Ordering::SeqCst));
+        assert!(!nacked.load(Ordering::SeqCst));
+    }
+
+    struct RetriesExhaustedHandler;
+
+    #[async_trait]
+    impl MessageHandler for RetriesExhaustedHandler {
+        async fn handle(
+            &self,
+            _message: ReceivedMessage<serde_json::Value>,
+        ) -> Result<MiddlewareResult, WorkerError> {
+            Err(WorkerError::RetriesExhausted {
+                source: Box::new(WorkerError::ProcessingFailed("exhausted".to_string())),
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn test_passthrough_retries_exhausted() {
+        let middleware = AckNackMiddleware::new();
+        let (message, acked, nacked, _) = create_test_message();
+
+        let result = middleware.handle(message, Box::new(RetriesExhaustedHandler)).await;
+        
+        // Should return the RetriesExhausted error without nacking
+        assert!(result.is_err());
+        if let Err(WorkerError::RetriesExhausted { .. }) = result {
+            // Success - retries exhausted error was passed through
+        } else {
+            panic!("Expected RetriesExhausted to be passed through");
+        }
+        
+        // Verify no ack or nack was called
+        assert!(!acked.load(Ordering::SeqCst));
+        assert!(!nacked.load(Ordering::SeqCst));
     }
 }
