@@ -141,7 +141,7 @@ async fn test_various_delay_values() {
         .await
         .expect("Failed to create backend");
 
-    let delays = vec![100, 1000, 5000, 60000]; // 100ms, 1s, 5s, 60s
+    let delays = [100, 1000, 5000, 60000]; // 100ms, 1s, 5s, 60s
 
     for (i, delay) in delays.iter().enumerate() {
         let message = Message {

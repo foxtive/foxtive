@@ -16,6 +16,8 @@ Process messages from RabbitMQ, Redis Streams, or any queue system with confiden
   - [4. Production Ready](#4-production-ready)
   - [5. Message Properties](#5-message-properties) - Microservices metadata & distributed tracing
   - [6. Dead Letter Queues](#6-dead-letter-queues) - Handle exhausted retries
+  - [7. Smart Retry Control](#7-smart-retry-control) - Worker-controlled retry decisions
+  - [8. DLQ Reprocessing](#8-dlq-reprocessing) - Requeue failed messages back to main queue
 - [Examples](#-examples) - Real-world use cases
 - [Configuration Reference](#configuration-reference)
   - [Resilient Backends](#making-backends-refuse-to-die) - Survive network failures
@@ -873,6 +875,362 @@ let pool = WorkerPoolBuilder::new("payment-pool")
 // 3. You can inspect and reprocess manually
 // 4. No payment is lost!
 ```
+
+---
+
+### 7. Smart Retry Control
+
+Not all errors are created equal. Sometimes you want to retry, sometimes you want to give up immediately. Foxtive Worker gives you fine-grained control with `should_requeue`.
+
+#### The Problem
+
+By default, when a message fails, it's retried until max retries are exhausted. But what if:
+- The message is malformed and will never succeed?
+- It's a validation error that won't be fixed by retrying?
+- The data is stale and no longer relevant?
+
+Retrying these messages wastes resources and delays processing of valid messages.
+
+#### The Solution: should_requeue
+
+Implement the optional `should_requeue` method on your Worker to decide whether failed messages should be retried or sent directly to DLQ:
+
+```rust
+use foxtive_worker::{Worker, ReceivedMessage, WorkerError, RetryInfo};
+use async_trait::async_trait;
+use serde_json::Value;
+
+struct OrderProcessor;
+
+#[async_trait]
+impl Worker for OrderProcessor {
+    fn id(&self) -> &str { "order-processor" }
+    
+    async fn process(&self, message: ReceivedMessage<Value>) -> WorkerResult<()> {
+        // Process order...
+        Ok(())
+    }
+    
+    // Optional: Control retry behavior
+    fn should_requeue(
+        &self,
+        message: &ReceivedMessage<Value>,
+        info: RetryInfo<'_>,
+    ) -> bool {
+        // Don't retry validation errors - they won't succeed
+        if let WorkerError::ProcessingError(msg) = info.error {
+            if msg.contains("validation failed") {
+                return false; // Send to DLQ immediately
+            }
+        }
+        
+        // Don't retry malformed messages - missing required fields
+        if let Some(payload) = message.message.payload.as_object() {
+            if !payload.contains_key("order_id") || !payload.contains_key("amount") {
+                return false;
+            }
+        }
+        
+        // Retry transient errors (network timeouts, etc.)
+        true
+    }
+}
+```
+
+#### Common Use Cases
+
+**1. Skip Validation Errors**
+```rust
+fn should_requeue(&self, _message: &ReceivedMessage<Value>, info: RetryInfo<'_>) -> bool {
+    if let WorkerError::ProcessingError(msg) = info.error {
+        // These errors indicate bad data that won't be fixed by retrying
+        if msg.contains("invalid email") || msg.contains("missing field") {
+            return false;
+        }
+    }
+    true
+}
+```
+
+**2. Check Message Age**
+```rust
+fn should_requeue(&self, message: &ReceivedMessage<Value>, _info: RetryInfo<'_>) -> bool {
+    // Don't retry messages older than 1 hour
+    if let Some(timestamp) = message.message.payload.get("created_at").and_then(|v| v.as_i64()) {
+        let age = chrono::Utc::now().timestamp() - timestamp;
+        if age > 3600 {
+            return false; // Too old, send to DLQ
+        }
+    }
+    true
+}
+```
+
+**3. Business Logic Rules**
+```rust
+fn should_requeue(&self, message: &ReceivedMessage<Value>, _info: RetryInfo<'_>) -> bool {
+    // Don't retry payments over $10,000 - requires manual review
+    if let Some(amount) = message.message.payload.get("amount").and_then(|v| v.as_f64()) {
+        if amount > 10000.0 {
+            return false; // Flag for manual review
+        }
+    }
+    true
+}
+```
+
+**4. Error Type Filtering**
+```rust
+fn should_requeue(&self, _message: &ReceivedMessage<Value>, _info: RetryInfo<'_>) -> bool {
+    match error {
+        // Retry network errors - they're usually transient
+        WorkerError::BackendError(_) => true,
+        
+        // Don't retry serialization errors - indicates bad data
+        WorkerError::SerializationError(_) => false,
+        
+        // Default: retry
+        _ => true,
+    }
+}
+```
+
+#### When to Use should_requeue
+
+✅ **Use it when:**
+- You can detect permanently failing messages early
+- Different error types need different retry strategies
+- Business logic determines retry eligibility
+- You want to prevent infinite retry loops
+
+❌ **Don't use it when:**
+- All errors should be retried (default behavior is fine)
+- You're using poison pill detection (automatic)
+- Your errors are always transient
+
+#### Best Practices
+
+1. **Be conservative**: When in doubt, return `true` and retry
+2. **Log decisions**: Help debugging by logging why you skip retries
+3. **Check message content**: Often the payload tells you if retry is futile
+4. **Consider error context**: Some errors are permanent, others transient
+5. **Test thoroughly**: Make sure your logic doesn't accidentally skip valid retries
+
+See [examples/worker_should_requeue.rs](examples/worker_should_requeue.rs) for complete working examples.
+
+---
+
+### 8. DLQ Reprocessing
+
+Sometimes you fix a bug and want to reprocess all the failed messages that accumulated in your DLQ. Foxtive Worker makes this easy with `DlqManager`.
+
+#### The Problem
+
+Your payment service had a bug that caused 500 messages to fail. After fixing the bug, you need to:
+1. Inspect each failed message in the DLQ
+2. Decide which ones to retry
+3. Republish them to the main queue
+4. Track progress
+
+Doing this manually is tedious and error-prone.
+
+#### The Solution: DlqManager
+
+`DlqManager` provides a high-level API for managing DLQ operations:
+
+```rust
+use foxtive_worker::dlq::DlqManager;
+use std::sync::Arc;
+
+// Create a DLQ manager
+let manager = Arc::new(
+    DlqManager::new(dlq_backend, main_backend)
+);
+
+// Reprocess all failed messages after fixing the bug
+let count = manager.reprocess_all().await?;
+println!("Requeued {} messages", count);
+```
+
+That's it! All messages in the DLQ are now back in the main queue for reprocessing.
+
+#### Smart Retry Filters
+
+Not all failed messages should be retried. Use filters to apply custom logic:
+
+```rust
+// Define a filter function
+fn smart_retry_filter(msg: &DeadLetterMessage) -> bool {
+    // Don't retry poison pills (messages that always fail)
+    if let serde_json::Value::Object(ref ctx) = msg.failure_context {
+        if let Some(poison_pill) = ctx.get("poison_pill") {
+            if poison_pill.as_bool() == Some(true) {
+                return false;
+            }
+        }
+    }
+    
+    // Don't retry very old messages
+    if let Some(failed_at) = msg.failed_at {
+        let age = chrono::Utc::now() - failed_at;
+        if age.num_hours() > 24 {
+            return false;
+        }
+    }
+    
+    true // Retry everything else
+}
+
+// Apply the filter
+let manager = Arc::new(
+    DlqManager::new(dlq_backend, main_backend)
+        .with_retry_filter(smart_retry_filter)
+);
+
+// Now reprocess_all will skip poison pills and old messages
+let count = manager.reprocess_all().await?;
+```
+
+#### Individual Message Processing
+
+For more control, process messages one at a time:
+
+```rust
+// Consume from DLQ
+while let Some(msg) = dlq_backend.receive().await? {
+    println!("Processing DLQ message: {}", msg.message.id);
+    
+    // Inspect failure reason
+    if let Some(props) = &msg.message.metadata.properties {
+        if let Some(headers) = &props.headers {
+            if let Some(reason) = headers.get("x-failure-reason") {
+                println!("Failed because: {}", reason);
+            }
+        }
+    }
+    
+    // Decide whether to requeue
+    match manager.reprocess_single(&msg).await {
+        Ok(true) => println!("✓ Requeued"),
+        Ok(false) => println!("⊘ Skipped (filter rejected)"),
+        Err(e) => eprintln!("✗ Error: {}", e),
+    }
+    
+    msg.ack().await?;
+}
+```
+
+#### Real-World Example: Bug Fix Recovery
+
+Here's a complete workflow for recovering from a production bug:
+
+```rust
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // 1. Connect to both DLQ and main queue
+    let dlq_config = RabbitMqConsumerConfig {
+        queue_name: "payments-dlq".to_string(),
+        ..Default::default()
+    };
+    let dlq_backend = Arc::new(
+        RabbitMqBackend::new("amqp://localhost", dlq_config).await?
+    );
+    
+    let main_config = RabbitMqConsumerConfig {
+        queue_name: "payments".to_string(),
+        ..Default::default()
+    };
+    let main_backend = Arc::new(
+        RabbitMqBackend::new("amqp://localhost", main_config).await?
+    );
+    
+    // 2. Create manager with smart filtering
+    let manager = Arc::new(
+        DlqManager::new(dlq_backend.clone(), main_backend)
+            .with_retry_filter(|msg| {
+                // Skip messages that failed due to invalid data
+                !is_validation_error(msg)
+            })
+    );
+    
+    // 3. Check how many messages we'll reprocess
+    let dlq_size = dlq_backend.queue_size().await?;
+    println!("DLQ contains {} messages", dlq_size);
+    
+    // 4. Reprocess all eligible messages
+    println!("Starting bulk reprocessing...");
+    let count = manager.reprocess_all().await?;
+    println!("✓ Successfully requeued {} messages", count);
+    
+    // 5. Verify DLQ is now empty (or has only skipped messages)
+    let remaining = dlq_backend.queue_size().await?;
+    println!("{} messages remain in DLQ", remaining);
+    
+    Ok(())
+}
+
+fn is_validation_error(msg: &DeadLetterMessage) -> bool {
+    if let serde_json::Value::Object(ref ctx) = msg.failure_context {
+        if let Some(reason) = ctx.get("error") {
+            return reason.as_str()
+                .map(|s| s.contains("validation"))
+                .unwrap_or(false);
+        }
+    }
+    false
+}
+```
+
+#### Monitoring Reprocessing
+
+Track reprocessing progress in production:
+
+```rust
+// Spawn a monitoring task
+let manager_clone = manager.clone();
+tokio::spawn(async move {
+    loop {
+        tokio::time::sleep(Duration::from_secs(10)).await;
+        
+        let dlq_size = dlq_backend.queue_size().await.unwrap_or(0);
+        let main_size = main_backend.queue_size().await.unwrap_or(0);
+        
+        tracing::info!(
+            "Reprocessing progress: DLQ={}, Main Queue={}",
+            dlq_size, main_size
+        );
+        
+        if dlq_size == 0 {
+            tracing::info!("DLQ reprocessing complete!");
+            break;
+        }
+    }
+});
+```
+
+#### When to Use DlqManager
+
+✅ **Use it when:**
+- You've fixed a bug and want to reprocess failed messages
+- You need to inspect and selectively retry DLQ messages
+- You want automated DLQ cleanup workflows
+- You need to apply business logic to retry decisions
+
+❌ **Don't use it when:**
+- Messages should stay in DLQ for manual inspection
+- You're still investigating the root cause
+- The bug isn't fixed yet (you'll just create more failures)
+
+#### Best Practices
+
+1. **Fix the bug first**: Don't reprocess until you're confident the issue is resolved
+2. **Use filters**: Not all failed messages should be retried
+3. **Monitor progress**: Watch queue sizes to track reprocessing
+4. **Test in staging**: Try reprocessing on a copy of production data first
+5. **Keep backups**: Archive DLQ messages before reprocessing
+6. **Rate limit**: If reprocessing thousands of messages, consider rate limiting
+
+See [examples/dlq_requeue.rs](examples/dlq_requeue.rs) for complete working examples.
 
 ---
 

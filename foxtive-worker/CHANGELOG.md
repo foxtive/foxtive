@@ -4,6 +4,211 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-06-18
+
+### Major Features
+
+#### DLQ Reprocessing with DlqManager
+We've added powerful DLQ management capabilities! Now you can easily requeue failed messages from the Dead Letter Queue back to the main queue for reprocessing.
+
+**What's new:**
+- **DlqManager utility**: High-level API for managing DLQ operations
+  - `reprocess_single()`: Reprocess individual DLQ messages with custom logic
+  - `reprocess_all()`: Bulk reprocess all messages in the DLQ
+  - Configurable retry filters for fine-grained control
+- **ReceivedMessage::requeue_to_source()**: Convenient method to requeue DLQ messages
+- **Smart retry filters**: Decide which messages to retry based on error type, message content, or business logic
+- **Poison pill detection integration**: Automatically skip consistently failing messages
+
+**Why you'll love it:**
+```rust
+use foxtive_worker::dlq::DlqManager;
+
+// Create a DLQ manager
+let manager = DlqManager::new(dlq_backend, main_backend)
+    .with_retry_filter(|msg| {
+        // Skip poison pills
+        !is_poison_pill(msg)
+    });
+
+// Reprocess all failed messages after fixing a bug
+let count = manager.reprocess_all().await?;
+println!("Requeued {} messages", count);
+```
+
+No more manual DLQ inspection and republishing-just call `reprocess_all()` and get back to business!
+
+#### Worker-Controlled Retry Decisions with should_requeue
+Workers can now decide whether failed messages should be retried or sent directly to DLQ. This gives you fine-grained control over retry policies based on error types and message content.
+
+**What's new:**
+- **Worker::should_requeue()**: Optional method to control retry behavior
+  - Access to both message payload and error details
+  - Return `true` to retry, `false` to send directly to DLQ
+  - Default implementation returns `true` (backward compatible)
+- **Error-type-based decisions**: Skip retries for validation errors, malformed data, etc.
+- **Content-based routing**: Inspect message payload to make retry decisions
+- **Business logic integration**: Apply domain-specific rules (e.g., payment limits, message age)
+
+**Why you'll love it:**
+```rust
+#[async_trait]
+impl Worker for SmartWorker {
+    fn id(&self) -> &str { "smart-worker" }
+    
+    async fn process(&self, message: ReceivedMessage<Value>) -> WorkerResult<()> {
+        // Your processing logic
+        Ok(())
+    }
+    
+    fn should_requeue(
+        &self,
+        message: &ReceivedMessage<Value>,
+        info: RetryInfo<'_>,
+    ) -> bool {
+        // Don't retry validation errors-they won't succeed on retry
+        if let WorkerError::ProcessingError(ref msg) = info.error {
+            if msg.contains("validation failed") {
+                return false; // Send to DLQ immediately
+            }
+        }
+        
+        // Don't retry malformed messages
+        if message.message.payload.get("required_field").is_none() {
+            return false;
+        }
+        
+        // Retry transient errors
+        true
+    }
+}
+```
+
+Prevent infinite retry loops for broken messages while automatically retrying transient failures!
+
+### Improvements
+
+#### Enhanced Error Handling
+- **RetryInfo struct**: Reference-based error context for retry decisions without cloning
+  - Preserves full error chains including backtraces (serde_json::Error, anyhow::Error)
+  - Provides retry metadata: attempt count, max retries, delay, poison pill status
+  - Enables safe error inspection in `should_requeue` without losing debug information
+- **Better error context**: More descriptive error messages throughout the codebase
+
+#### Comprehensive Documentation
+- **New guide**: `WORKER_SHOULD_REQUEUE.md` - Complete usage guide with 6+ real-world examples
+- **New guide**: `DLQ_REPROCESSING.md` - Step-by-step DLQ reprocessing tutorial
+- **Updated README**: Added sections on `should_requeue` and DlqManager
+- **Example code**: `worker_should_requeue.rs` - Production-ready examples
+- **Example code**: `dlq_requeue.rs` - Complete DLQ reprocessing workflow
+
+#### Code Quality
+- **Zero clippy warnings**: All code passes strict clippy linting with `--all-targets --all-features`
+- **Rust 2024 patterns**: Updated pattern matching to use implicit borrowing
+- **Comprehensive tests**: 117 tests passing including new `should_requeue` functionality
+
+### Technical Changes
+
+**New Types:**
+- `RetryInfo<'a>`: Reference-based error context for retry decisions
+  - `new(error)`: Create with reference to original error (preserves chain)
+  - `with_attempt()`, `with_max_retries()`, `with_retry_delay()`: Builder methods
+  - `retries_exhausted()`: Check if max retries reached
+- `DlqManager`: High-level DLQ management utility
+  - `new(dlq_backend, main_backend)`: Create manager with backends
+  - `with_retry_filter(filter)`: Configure custom retry logic
+  - `reprocess_single(message)`: Reprocess individual message
+  - `reprocess_all()`: Bulk reprocess all DLQ messages
+  
+**New Methods:**
+- `Worker::should_requeue(message, info) -> bool`: Control retry behavior with RetryInfo context
+- `ReceivedMessage::requeue_to_source(backend)`: Requeue DLQ message to source queue
+- `DlqManager::reprocess_single()`: Process single DLQ message with filtering
+- `DlqManager::reprocess_all()`: Bulk reprocess all DLQ messages
+
+**Breaking Changes:**
+- None! All changes are additive and backward compatible.
+  - `should_requeue` has default implementation (always returns `true`)
+  - Existing workers continue working without modifications
+  - DlqManager is optional-you can still handle DLQ manually
+
+**Updated Components:**
+- `Worker` trait: Added `should_requeue` method with RetryInfo parameter and default implementation
+- `WorkerPool`: Integrated `should_requeue` into error handling flow
+- `pool.rs`: Calls `should_requeue` before deciding on retry vs. DLQ
+
+### Testing
+
+**New Tests:**
+- `test_should_requeue_default`: Verifies default always-retry behavior
+- `test_dlq_manager_creation`: Tests DlqManager initialization
+- `test_dlq_manager_with_retry_filter`: Validates custom filter logic
+- `test_dlq_manager_default_retry_all`: Confirms default retry-all behavior
+
+**Test Coverage:**
+- Default `should_requeue` behavior
+- Custom retry filters with poison pill detection
+- DlqManager creation and configuration
+- Message reconstruction for `should_requeue` calls
+- Error reference preservation (no cloning)
+
+### Migration Guide
+
+No migration needed! The changes are fully backward compatible. To use the new features:
+
+**Enable smart retry decisions:**
+```rust
+use foxtive_worker::error::RetryInfo;
+
+struct MyWorker;
+
+#[async_trait]
+impl Worker for MyWorker {
+    fn id(&self) -> &str { "my-worker" }
+    
+    async fn process(&self, message: ReceivedMessage<Value>) -> WorkerResult<()> {
+        // Your processing logic
+        Ok(())
+    }
+    
+    // Optional: Add custom retry logic with full error context
+    fn should_requeue(&self, message: &ReceivedMessage<Value>, info: RetryInfo<'_>) -> bool {
+        // Access original error with full chain preserved
+        match info.error {
+            WorkerError::ProcessingError(msg) => {
+                if msg.contains("validation") {
+                    return false; // Don't retry validation errors
+                }
+            }
+            _ => {}
+        }
+        
+        // Use additional context
+        if info.retries_exhausted() {
+            return false;
+        }
+        
+        true // Retry by default
+    }
+}
+```
+
+**Use DlqManager for reprocessing:**
+```rust
+let manager = DlqManager::new(dlq_backend, main_backend);
+
+// Reprocess all failed messages
+let count = manager.reprocess_all().await?;
+```
+
+That's it! Your existing code continues working, and you can gradually adopt the new features.
+
+### 🙏 Thanks
+
+This release brings unprecedented control over message retry policies and DLQ management. You can now prevent infinite retry loops, implement sophisticated retry strategies, and easily reprocess failed messages-all while maintaining full backward compatibility. The reference-based error handling preserves complete debug information in production, making troubleshooting significantly easier.
+
+---
+
 ## [0.4.0] - 2026-06-16
 
 ### Major Features
@@ -140,7 +345,7 @@ That's it! Your failed messages will now be preserved in `{queue_name}-dlq`.
 
 ### 🙏 Thanks
 
-This release brings critical production reliability improvements. No more lost messages—every failure is captured, inspected, and recoverable. The enhanced retry attempt tracking makes debugging retry issues significantly easier.
+This release brings critical production reliability improvements. No more lost messages-every failure is captured, inspected, and recoverable. The enhanced retry attempt tracking makes debugging retry issues significantly easier.
 
 ---
 
@@ -186,7 +391,7 @@ We've introduced a new `MiddlewareResult` enum that makes middleware behavior mo
 **What changed:**
 - Middleware handlers now return `Result<MiddlewareResult, WorkerError>` instead of `WorkerResult<()>`
 - Two clear outcomes: `Acknowledged` (middleware handled ack/nack) or `Continue` (pool should handle it)
-- No more confusing `AlreadyAcknowledged` error codes — just clean, explicit control flow
+- No more confusing `AlreadyAcknowledged` error codes - just clean, explicit control flow
 
 **Why you'll love it:**
 ```rust
@@ -204,7 +409,7 @@ This makes it immediately obvious when your middleware has already acknowledged 
 #### Cleaner Acknowledgment Handling
 - **AckNackMiddleware** now returns `MiddlewareResult::Acknowledged` after successfully acking or nacking messages
 - **WorkerPool** intelligently detects when middleware has already handled acknowledgment and skips duplicate operations
-- Works seamlessly whether you use middleware or not — the pool handles both cases correctly
+- Works seamlessly whether you use middleware or not - the pool handles both cases correctly
 
 #### Better Type Safety
 - All middleware implementations updated to use the new `MiddlewareResult` enum

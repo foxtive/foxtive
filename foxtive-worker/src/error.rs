@@ -56,6 +56,79 @@ pub enum WorkerError {
 /// A type alias for results returned by worker operations.
 pub type WorkerResult<T> = Result<T, WorkerError>;
 
+/// Context information for retry decisions.
+///
+/// This struct provides comprehensive error context to workers when deciding
+/// whether a failed message should be retried or sent to the Dead Letter Queue.
+/// It preserves references to the original error chain without requiring cloning,
+/// ensuring full debugging capability is maintained.
+#[derive(Debug, Clone, Copy)]
+pub struct RetryInfo<'a> {
+    /// The original error that caused the failure.
+    /// This preserves the full error chain including backtraces.
+    pub error: &'a WorkerError,
+    
+    /// Number of retry attempts already made (0-indexed).
+    /// 0 means this is the first failure, 1 means first retry failed, etc.
+    pub attempt: u32,
+    
+    /// Maximum number of retries configured for this message.
+    pub max_retries: u32,
+    
+    /// Delay before the next retry will be attempted (if requeued).
+    pub retry_delay: Option<Duration>,
+    
+    /// Whether this message has been marked as a poison pill
+    /// (consistently failing across multiple attempts).
+    pub is_poison_pill: bool,
+}
+
+impl<'a> RetryInfo<'a> {
+    /// Create a new RetryInfo with the given error and context.
+    pub fn new(error: &'a WorkerError) -> Self {
+        Self {
+            error,
+            attempt: 0,
+            max_retries: 0,
+            retry_delay: None,
+            is_poison_pill: false,
+        }
+    }
+    
+    /// Set the current attempt number.
+    pub fn with_attempt(mut self, attempt: u32) -> Self {
+        self.attempt = attempt;
+        self
+    }
+    
+    /// Set the maximum retries allowed.
+    pub fn with_max_retries(mut self, max_retries: u32) -> Self {
+        self.max_retries = max_retries;
+        self
+    }
+    
+    /// Set the delay before next retry.
+    pub fn with_retry_delay(mut self, delay: Duration) -> Self {
+        self.retry_delay = Some(delay);
+        self
+    }
+    
+    /// Mark this message as a potential poison pill.
+    pub fn with_poison_pill(mut self, is_poison: bool) -> Self {
+        self.is_poison_pill = is_poison;
+        self
+    }
+    
+    /// Check if retries are exhausted.
+    pub fn retries_exhausted(&self) -> bool {
+        self.attempt >= self.max_retries
+    }
+}
+
+// Note: WorkerError does not implement Clone because it contains non-cloneable types
+// (serde_json::Error and anyhow::Error) that preserve important error context.
+// Use RetryInfo<'_> to pass error references for inspection without cloning.
+
 // Note: Removed generic From<anyhow::Error> implementation to avoid conflict with AppError variant.
 // Use WorkerError::AppError(err) or the ? operator with anyhow::Error directly.
 // The AppError variant preserves the full anyhow::Error with context chain and backtrace.

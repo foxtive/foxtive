@@ -177,7 +177,7 @@ async fn test_multiple_retries_count_sequence() {
         .unwrap();
 
     // Expected sequence: 0 -> 1 -> 2 -> 3 -> 4
-    let expected_attempts = vec![0, 1, 2, 3, 4];
+    let expected_attempts = [0, 1, 2, 3, 4];
 
     for (i, expected) in expected_attempts.iter().enumerate() {
         match backend.receive().await {
@@ -260,9 +260,7 @@ async fn test_attempt_count_with_routing_key() {
                 received
                     .message
                     .metadata
-                    .routing_key
-                    .as_ref()
-                    .map(|s| s.as_str()),
+                    .routing_key.as_deref(),
                 Some("custom.routing.key")
             );
 
@@ -283,9 +281,7 @@ async fn test_attempt_count_with_routing_key() {
                 received
                     .message
                     .metadata
-                    .routing_key
-                    .as_ref()
-                    .map(|s| s.as_str()),
+                    .routing_key.as_deref(),
                 Some("custom.routing.key"),
                 "Routing key should be preserved"
             );
@@ -377,7 +373,7 @@ async fn test_attempt_count_with_varying_delays() {
         .await
         .expect("Failed to create backend");
 
-    let delays = vec![500, 1000, 2000]; // Different delays
+    let delays = [500, 1000, 2000]; // Different delays
 
     // Publish initial message
     let message = Message {
