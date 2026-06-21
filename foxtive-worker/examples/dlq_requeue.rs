@@ -36,7 +36,10 @@ impl Worker for DlqRequeueWorker {
     }
 
     async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
-        println!("\n📬 DLQ Requeue Worker received message: {}", message.message.id);
+        println!(
+            "\n📬 DLQ Requeue Worker received message: {}",
+            message.message.id
+        );
 
         // Use the DlqManager to handle requeuing logic
         match self.manager.reprocess_single(&message).await {
@@ -59,23 +62,28 @@ impl Worker for DlqRequeueWorker {
 
 /// Custom filter function that determines which messages should be retried
 fn smart_retry_filter(dlq_msg: &DeadLetterMessage) -> bool {
-    println!("  🔍 Evaluating message {} for retry...", dlq_msg.original_id);
+    println!(
+        "  🔍 Evaluating message {} for retry...",
+        dlq_msg.original_id
+    );
 
     // Check if it's a poison pill
     if let serde_json::Value::Object(ref context) = dlq_msg.failure_context {
         if let Some(poison_pill) = context.get("poison_pill")
-            && poison_pill.as_bool() == Some(true) {
-                println!("  🚫 Skipping poison pill (failed {} times)", dlq_msg.attempt_count);
-                return false;
-            }
+            && poison_pill.as_bool() == Some(true)
+        {
+            println!(
+                "  🚫 Skipping poison pill (failed {} times)",
+                dlq_msg.attempt_count
+            );
+            return false;
+        }
 
         // Check error type
         if let Some(error_type) = context.get("error_type").and_then(|v| v.as_str()) {
             match error_type {
                 "RetriesExhausted" => {
-                    println!(
-                        "  ⚠️  Retries exhausted - will retry with fresh attempt counter"
-                    );
+                    println!("  ⚠️  Retries exhausted - will retry with fresh attempt counter");
                     // Allow retry but could implement additional logic here
                 }
                 "RetryableFailure" => {
@@ -121,9 +129,8 @@ async fn main() -> anyhow::Result<()> {
             consumer_tag: "main-consumer".to_string(),
             ..Default::default()
         };
-        let main_backend = Arc::new(
-            RabbitMqBackend::new("amqp://ahmard:Pass.1234@localhost", main_config).await?,
-        );
+        let main_backend =
+            Arc::new(RabbitMqBackend::new("amqp://ahmard:Pass.1234@localhost", main_config).await?);
         println!("✅ Main queue configured: orders\n");
 
         // 2. Set up the DLQ backend
@@ -134,9 +141,8 @@ async fn main() -> anyhow::Result<()> {
             prefetch_count: 5, // Process slowly to allow inspection
             ..Default::default()
         };
-        let dlq_backend = Arc::new(
-            RabbitMqBackend::new("amqp://ahmard:Pass.1234@localhost", dlq_config).await?,
-        );
+        let dlq_backend =
+            Arc::new(RabbitMqBackend::new("amqp://ahmard:Pass.1234@localhost", dlq_config).await?);
         println!("✅ DLQ configured: orders-dlq\n");
 
         // 3. Create DlqManager with smart retry filter

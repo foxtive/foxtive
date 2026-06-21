@@ -297,7 +297,7 @@ impl WorkerPool {
                         .with_attempt(retry_message.metadata.attempt)
                         .with_retry_delay(delay_ms);
                     let should_requeue = worker.should_requeue(&received_msg, info);
-                    
+
                     if should_requeue {
                         // Use delayed retry if supported by backend, otherwise nack with requeue
                         // The retry_with_delay method will handle backend-specific retry logic
@@ -327,7 +327,10 @@ impl WorkerPool {
                             worker_id,
                             message_id
                         );
-                        if let Err(e) = ack_handle.send_to_dlq(&retry_message, &source.to_string()).await {
+                        if let Err(e) = ack_handle
+                            .send_to_dlq(&retry_message, &source.to_string())
+                            .await
+                        {
                             tracing::error!("Failed to send message {} to DLQ: {}", message_id, e);
                             // Fallback: nack without requeue
                             if let Err(nack_err) = ack_handle.nack(false).await {
@@ -379,18 +382,18 @@ impl WorkerPool {
                         &error_type,
                         start_time,
                     );
-                    
+
                     // Reconstruct ReceivedMessage for should_requeue check
                     let received_msg = crate::message::ReceivedMessage::new(
                         retry_message.clone(),
                         ack_handle.clone(),
                     );
-                    
+
                     // Check if worker wants to requeue this message
                     let info = crate::error::RetryInfo::new(&e)
                         .with_attempt(retry_message.metadata.attempt);
                     let should_requeue = worker.should_requeue(&received_msg, info);
-                    
+
                     if should_requeue {
                         // Requeue for retry
                         if let Err(nack_err) = ack_handle.nack(true).await {
@@ -403,11 +406,21 @@ impl WorkerPool {
                             worker_id,
                             message_id
                         );
-                        if let Err(dlq_err) = ack_handle.send_to_dlq(&retry_message, &error_type).await {
-                            tracing::error!("Failed to send message {} to DLQ: {}", message_id, dlq_err);
+                        if let Err(dlq_err) =
+                            ack_handle.send_to_dlq(&retry_message, &error_type).await
+                        {
+                            tracing::error!(
+                                "Failed to send message {} to DLQ: {}",
+                                message_id,
+                                dlq_err
+                            );
                             // Fallback: nack without requeue
                             if let Err(nack_err) = ack_handle.nack(false).await {
-                                tracing::error!("Failed to nack message {}: {}", message_id, nack_err);
+                                tracing::error!(
+                                    "Failed to nack message {}: {}",
+                                    message_id,
+                                    nack_err
+                                );
                             }
                         }
                     }

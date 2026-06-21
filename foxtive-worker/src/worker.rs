@@ -1,8 +1,8 @@
-use async_trait::async_trait;
-use std::time::Duration;
-use serde_json::Value;
-use crate::error::{WorkerResult, RetryInfo};
+use crate::error::{RetryInfo, WorkerResult};
 use crate::message::ReceivedMessage;
+use async_trait::async_trait;
+use serde_json::Value;
+use std::time::Duration;
 
 /// Backoff strategy for retries and restarts.
 #[derive(Debug, Clone)]
@@ -280,11 +280,7 @@ pub trait Worker: Send + Sync {
     ///     }
     /// }
     /// ```
-    fn should_requeue(
-        &self,
-        _message: &ReceivedMessage<Value>,
-        _info: RetryInfo<'_>,
-    ) -> bool {
+    fn should_requeue(&self, _message: &ReceivedMessage<Value>, _info: RetryInfo<'_>) -> bool {
         // Default: always requeue for retry
         true
     }
@@ -336,10 +332,7 @@ mod tests {
                 "test-worker"
             }
 
-            async fn process(
-                &self,
-                _message: ReceivedMessage<Value>,
-            ) -> WorkerResult<()> {
+            async fn process(&self, _message: ReceivedMessage<Value>) -> WorkerResult<()> {
                 Ok(())
             }
         }
@@ -366,8 +359,8 @@ mod tests {
 
     #[test]
     fn test_should_requeue_default() {
-        use crate::message::{AckHandle, Message, MessageMetadata};
         use crate::WorkerError;
+        use crate::message::{AckHandle, Message, MessageMetadata};
         use std::sync::Arc;
 
         struct DefaultWorker;
@@ -378,10 +371,7 @@ mod tests {
                 "default-worker"
             }
 
-            async fn process(
-                &self,
-                _message: ReceivedMessage<Value>,
-            ) -> WorkerResult<()> {
+            async fn process(&self, _message: ReceivedMessage<Value>) -> WorkerResult<()> {
                 Ok(())
             }
         }

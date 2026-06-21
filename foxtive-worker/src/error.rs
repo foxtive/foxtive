@@ -67,17 +67,17 @@ pub struct RetryInfo<'a> {
     /// The original error that caused the failure.
     /// This preserves the full error chain including backtraces.
     pub error: &'a WorkerError,
-    
+
     /// Number of retry attempts already made (0-indexed).
     /// 0 means this is the first failure, 1 means first retry failed, etc.
     pub attempt: u32,
-    
+
     /// Maximum number of retries configured for this message.
     pub max_retries: u32,
-    
+
     /// Delay before the next retry will be attempted (if requeued).
     pub retry_delay: Option<Duration>,
-    
+
     /// Whether this message has been marked as a poison pill
     /// (consistently failing across multiple attempts).
     pub is_poison_pill: bool,
@@ -94,31 +94,31 @@ impl<'a> RetryInfo<'a> {
             is_poison_pill: false,
         }
     }
-    
+
     /// Set the current attempt number.
     pub fn with_attempt(mut self, attempt: u32) -> Self {
         self.attempt = attempt;
         self
     }
-    
+
     /// Set the maximum retries allowed.
     pub fn with_max_retries(mut self, max_retries: u32) -> Self {
         self.max_retries = max_retries;
         self
     }
-    
+
     /// Set the delay before next retry.
     pub fn with_retry_delay(mut self, delay: Duration) -> Self {
         self.retry_delay = Some(delay);
         self
     }
-    
+
     /// Mark this message as a potential poison pill.
     pub fn with_poison_pill(mut self, is_poison: bool) -> Self {
         self.is_poison_pill = is_poison;
         self
     }
-    
+
     /// Check if retries are exhausted.
     pub fn retries_exhausted(&self) -> bool {
         self.attempt >= self.max_retries

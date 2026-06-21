@@ -257,10 +257,7 @@ async fn test_attempt_count_with_routing_key() {
         Ok(ReceiveResult::Message(received)) => {
             assert_eq!(received.message.metadata.attempt, 0);
             assert_eq!(
-                received
-                    .message
-                    .metadata
-                    .routing_key.as_deref(),
+                received.message.metadata.routing_key.as_deref(),
                 Some("custom.routing.key")
             );
 
@@ -278,10 +275,7 @@ async fn test_attempt_count_with_routing_key() {
                 "Attempt count should increment"
             );
             assert_eq!(
-                received
-                    .message
-                    .metadata
-                    .routing_key.as_deref(),
+                received.message.metadata.routing_key.as_deref(),
                 Some("custom.routing.key"),
                 "Routing key should be preserved"
             );
