@@ -70,7 +70,7 @@ pub mod worker;
 // Re-exports for convenience
 pub use crate::backends::{MemoryBackend, MessageBackend};
 pub use crate::builder::WorkerPoolBuilder;
-pub use crate::error::{WorkerError, WorkerResult};
+pub use crate::error::{RetryInfo, WorkerError, WorkerResult};
 pub use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
 pub use crate::message_properties::MessageProperties;
 pub use crate::pool::WorkerPool;
@@ -105,7 +105,7 @@ pub use crate::batch::{
     BatchConfig, BatchHandler, BatchMetadata, BatchStatus, MessageBatch, ReceivedBatchMessage,
 };
 pub use crate::batch_processor::BatchProcessor;
-pub use crate::dlq::{DeadLetterMessage, PoisonPillConfig, PoisonPillTracker};
+pub use crate::dlq::{DeadLetterMessage, DlqManager, PoisonPillConfig, PoisonPillTracker};
 pub use crate::health::{HealthCheck, HealthStatus, WorkerHealth, WorkerPoolHealth};
 
 /// Common types and traits used throughout the crate.
@@ -114,7 +114,7 @@ pub mod prelude {
     pub use crate::backends::{MemoryBackend, MessageBackend};
     pub use crate::backends::{ReconnectStrategy, ResilientBackend, ResilientBackendBuilder};
     pub use crate::builder::WorkerPoolBuilder;
-    pub use crate::error::{WorkerError, WorkerResult};
+    pub use crate::error::{RetryInfo, WorkerError, WorkerResult};
     pub use crate::message::{
         AckHandle, Message, MessageMetadata, ReceivedJsonMessage, ReceivedMessage,
     };

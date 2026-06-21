@@ -767,7 +767,7 @@ impl RabbitMqBackend {
 
         // Serialize message payload
         let payload =
-            serde_json::to_vec(&message.payload).map_err(|e| WorkerError::SerializationError(e))?;
+            serde_json::to_vec(&message.payload).map_err(WorkerError::SerializationError)?;
 
         // Preserve the original routing key from message metadata, or fall back to queue name
         tracing::info!(
@@ -893,7 +893,7 @@ impl RabbitMqBackend {
 
         // Serialize message payload
         let payload =
-            serde_json::to_vec(&message.payload).map_err(|e| WorkerError::SerializationError(e))?;
+            serde_json::to_vec(&message.payload).map_err(WorkerError::SerializationError)?;
 
         // Create headers with failure metadata
         let mut headers = FieldTable::default();

@@ -220,15 +220,13 @@ async fn test_dlq_various_error_messages() {
         .await
         .expect("Failed to create backend");
 
-    let errors = vec![
-        "Connection timeout",
+    let errors = ["Connection timeout",
         "Database connection refused",
         "HTTP 500 Internal Server Error",
         "Serialization error: invalid JSON",
         "Authentication failed: invalid token",
         "Rate limit exceeded",
-        "Out of memory",
-    ];
+        "Out of memory"];
 
     for (i, error) in errors.iter().enumerate() {
         let message = Message {
@@ -404,15 +402,13 @@ async fn test_dlq_special_characters() {
         .await
         .expect("Failed to create backend");
 
-    let special_errors = vec![
-        "Error with \"quotes\"",
+    let special_errors = ["Error with \"quotes\"",
         "Error with 'apostrophes'",
         "Error with \\ backslashes",
         "Error with\nnewlines",
         "Error with\ttabs",
         "Error with unicode: 你好世界 🦊",
-        "Error with emojis: ❌💥🔥",
-    ];
+        "Error with emojis: ❌💥🔥"];
 
     for (i, error) in special_errors.iter().enumerate() {
         let message = Message {

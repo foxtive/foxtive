@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use std::time::Duration;
-
-use crate::error::WorkerResult;
+use serde_json::Value;
+use crate::error::{WorkerResult, RetryInfo};
 use crate::message::ReceivedMessage;
 
 /// Backoff strategy for retries and restarts.
@@ -67,7 +67,7 @@ impl BackoffStrategy {
 /// impl Worker for MyWorker {
 ///     fn id(&self) -> &str { "my-worker" }
 ///     
-///     async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()> {
+///     async fn process(&self, message: ReceivedMessage<Value>) -> WorkerResult<()> {
 ///         println!("Processing message: {}", message.message.id);
 ///         // Your processing logic here
 ///         message.ack().await?;
@@ -101,7 +101,7 @@ pub trait Worker: Send + Sync {
     /// # Returns
     /// * `Ok(())` if processing succeeded
     /// * `Err(WorkerError)` if processing failed
-    async fn process(&self, message: ReceivedMessage<serde_json::Value>) -> WorkerResult<()>;
+    async fn process(&self, message: ReceivedMessage<Value>) -> WorkerResult<()>;
 
     /// Optional setup before worker starts.
     ///
@@ -196,7 +196,7 @@ pub trait Worker: Send + Sync {
     ///         Some(Duration::from_secs(120))
     ///     }
     ///     
-    ///     async fn process(&self, message: foxtive_worker::ReceivedMessage<serde_json::Value>)
+    ///     async fn process(&self, message: foxtive_worker::ReceivedMessage<Value>)
     ///         -> foxtive_worker::error::WorkerResult<()> {
     ///         // Long-running processing...
     ///         Ok(())
@@ -205,6 +205,85 @@ pub trait Worker: Send + Sync {
     /// ```
     fn processing_timeout(&self) -> Option<Duration> {
         None
+    }
+
+    /// Determine whether a failed message should be requeued for retry.
+    ///
+    /// This method is called when message processing fails, allowing you to implement
+    /// custom logic for deciding whether to retry the message (requeue) or send it
+    /// directly to the Dead Letter Queue (no requeue).
+    ///
+    /// # Arguments
+    /// * `message` - The message that failed processing
+    /// * `error` - The error that caused the failure
+    ///
+    /// # Returns
+    /// * `true` - Requeue the message for retry (default behavior)
+    /// * `false` - Don't requeue; send directly to DLQ if configured
+    ///
+    /// # Use Cases
+    /// - Skip retry for certain error types (e.g., validation errors, data corruption)
+    /// - Implement content-based routing decisions
+    /// - Apply business logic to determine retry eligibility
+    /// - Prevent infinite retry loops for specific failure patterns
+    ///
+    /// # Default Implementation
+    /// Returns `true` (always requeue), maintaining backward compatibility.
+    ///
+    /// # Example
+    /// ```rust
+    /// use foxtive_worker::{Worker, ReceivedMessage};
+    /// use foxtive_worker::error::{WorkerError, WorkerResult};
+    /// use async_trait::async_trait;
+    ///
+    /// struct SmartWorker;
+    ///
+    /// #[async_trait]
+    /// impl Worker for SmartWorker {
+    ///     fn id(&self) -> &str { "smart-worker" }
+    ///     
+    ///     async fn process(&self, message: ReceivedMessage<Value>) -> WorkerResult<()> {
+    ///         // Your processing logic
+    ///         message.ack().await?;
+    ///         Ok(())
+    ///     }
+    ///     
+    ///     fn should_requeue(
+    ///         &self,
+    ///         message: &ReceivedMessage<Value>,
+    ///         info: RetryInfo<'_>,
+    ///     ) -> bool {
+    ///         // Don't retry validation errors
+    ///         if let WorkerError::ProcessingError(ref msg) = info.error {
+    ///             if msg.contains("validation failed") {
+    ///                 return false; // Send to DLQ immediately
+    ///             }
+    ///         }
+    ///         
+    ///         // Don't retry messages with invalid payload structure
+    ///         if let Some(payload) = message.message.payload.as_object() {
+    ///             if !payload.contains_key("required_field") {
+    ///                 return false; // Malformed message, don't retry
+    ///             }
+    ///         }
+    ///         
+    ///         // Check if retries are exhausted
+    ///         if info.retries_exhausted() {
+    ///             return false;
+    ///         }
+    ///         
+    ///         // Retry all other errors
+    ///         true
+    ///     }
+    /// }
+    /// ```
+    fn should_requeue(
+        &self,
+        _message: &ReceivedMessage<Value>,
+        _info: RetryInfo<'_>,
+    ) -> bool {
+        // Default: always requeue for retry
+        true
     }
 }
 
@@ -256,7 +335,7 @@ mod tests {
 
             async fn process(
                 &self,
-                _message: ReceivedMessage<serde_json::Value>,
+                _message: ReceivedMessage<Value>,
             ) -> WorkerResult<()> {
                 Ok(())
             }
@@ -280,5 +359,57 @@ mod tests {
             }
             _ => panic!("Expected Exponential strategy"),
         }
+    }
+
+    #[test]
+    fn test_should_requeue_default() {
+        use crate::message::{AckHandle, Message, MessageMetadata};
+        use crate::WorkerError;
+        use std::sync::Arc;
+
+        struct DefaultWorker;
+
+        #[async_trait]
+        impl Worker for DefaultWorker {
+            fn id(&self) -> &str {
+                "default-worker"
+            }
+
+            async fn process(
+                &self,
+                _message: ReceivedMessage<Value>,
+            ) -> WorkerResult<()> {
+                Ok(())
+            }
+        }
+
+        #[derive(Debug)]
+        struct MockAck;
+
+        #[async_trait]
+        impl AckHandle for MockAck {
+            async fn ack(&self) -> WorkerResult<()> {
+                Ok(())
+            }
+
+            async fn nack(&self, _requeue: bool) -> WorkerResult<()> {
+                Ok(())
+            }
+        }
+
+        let worker = DefaultWorker;
+        let message = ReceivedMessage::new(
+            Message {
+                id: "test-msg".to_string(),
+                payload: serde_json::json!({}),
+                metadata: MessageMetadata::new("test-queue"),
+            },
+            Arc::new(MockAck),
+        );
+
+        // Default implementation should always return true (requeue)
+        let error = WorkerError::ProcessingError("test error".to_string());
+        let info = RetryInfo::new(&error);
+        assert!(worker.should_requeue(&message, info));
     }
 }
