@@ -60,6 +60,7 @@ impl BackoffStrategy {
 /// use foxtive_worker::{Worker, ReceivedMessage};
 /// use foxtive_worker::error::WorkerResult;
 /// use async_trait::async_trait;
+/// use serde_json::Value;
 ///
 /// struct MyWorker;
 ///
@@ -184,6 +185,7 @@ pub trait Worker: Send + Sync {
     /// ```rust
     /// use foxtive_worker::Worker;
     /// use std::time::Duration;
+    /// use serde_json::Value;
     ///
     /// struct SlowWorker;
     ///
@@ -232,9 +234,10 @@ pub trait Worker: Send + Sync {
     ///
     /// # Example
     /// ```rust
-    /// use foxtive_worker::{Worker, ReceivedMessage};
+    /// use foxtive_worker::{Worker, ReceivedMessage, RetryInfo};
     /// use foxtive_worker::error::{WorkerError, WorkerResult};
     /// use async_trait::async_trait;
+    /// use serde_json::Value;
     ///
     /// struct SmartWorker;
     ///
@@ -254,7 +257,7 @@ pub trait Worker: Send + Sync {
     ///         info: RetryInfo<'_>,
     ///     ) -> bool {
     ///         // Don't retry validation errors
-    ///         if let WorkerError::ProcessingError(ref msg) = info.error {
+    ///         if let WorkerError::ProcessingError(msg) = info.error {
     ///             if msg.contains("validation failed") {
     ///                 return false; // Send to DLQ immediately
     ///             }

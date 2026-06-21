@@ -171,7 +171,7 @@ impl PoisonPillTracker {
 ///
 /// # Example
 /// ```rust,no_run
-/// use foxtive_worker::dlq::DlqManager;
+/// use foxtive_worker::{dlq::DlqManager, MessageBackend};
 /// use std::sync::Arc;
 ///
 /// async fn setup_dlq_manager(
