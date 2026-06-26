@@ -292,7 +292,11 @@ impl DlqManager {
         let dlq_msg = match DeadLetterMessage::from_json(&payload_str) {
             Ok(msg) => msg,
             Err(e) => {
-                tracing::error!("Failed to parse DLQ message {}: {}", dlq_message.message.id, e);
+                tracing::error!(
+                    "Failed to parse DLQ message {}: {}",
+                    dlq_message.message.id,
+                    e
+                );
                 // Acknowledge malformed messages to avoid blocking the queue
                 dlq_message.ack().await?;
                 return Ok(false);
@@ -354,7 +358,7 @@ impl DlqManager {
     /// ```
     pub async fn reprocess_all(&self) -> WorkerResult<usize> {
         use crate::backends::ReceiveResult;
-        
+
         let mut requeued_count = 0;
         let mut consecutive_empty = 0;
         let max_consecutive_empty = 3; // Stop after 3 consecutive empty receives
@@ -384,7 +388,10 @@ impl DlqManager {
                     // No message or transient error
                     consecutive_empty += 1;
                     if consecutive_empty >= max_consecutive_empty {
-                        tracing::info!("DLQ appears empty ({} consecutive empty receives)", consecutive_empty);
+                        tracing::info!(
+                            "DLQ appears empty ({} consecutive empty receives)",
+                            consecutive_empty
+                        );
                         break;
                     }
                     // Small delay before retrying
@@ -393,7 +400,10 @@ impl DlqManager {
             }
         }
 
-        tracing::info!("DLQ reprocessing complete. Requeued {} messages", requeued_count);
+        tracing::info!(
+            "DLQ reprocessing complete. Requeued {} messages",
+            requeued_count
+        );
         Ok(requeued_count)
     }
 
@@ -493,14 +503,15 @@ mod tests {
         // Create a filter that rejects poison pills
         fn reject_poison_pills(msg: &DeadLetterMessage) -> bool {
             if let serde_json::Value::Object(ref ctx) = msg.failure_context
-                && let Some(poison) = ctx.get("poison_pill") {
-                    return !poison.as_bool().unwrap_or(false);
-                }
+                && let Some(poison) = ctx.get("poison_pill")
+            {
+                return !poison.as_bool().unwrap_or(false);
+            }
             true
         }
 
-        let manager = DlqManager::new(dlq_backend, main_backend)
-            .with_retry_filter(reject_poison_pills);
+        let manager =
+            DlqManager::new(dlq_backend, main_backend).with_retry_filter(reject_poison_pills);
 
         // Test with a normal message
         let normal_msg = DeadLetterMessage::new(

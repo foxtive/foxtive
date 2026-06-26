@@ -234,24 +234,27 @@ impl ReceivedMessage<serde_json::Value> {
     ///     }
     /// }
     /// ```
-    pub async fn requeue_to_source(&self, _main_backend: &dyn crate::backends::MessageBackend) -> WorkerResult<()> {
+    pub async fn requeue_to_source(
+        &self,
+        _main_backend: &dyn crate::backends::MessageBackend,
+    ) -> WorkerResult<()> {
         // Extract the original payload
         let _payload = &self.message.payload;
-        
+
         // Get the source queue from metadata
         let source_queue = &self.message.metadata.source;
-        
+
         tracing::info!(
             "Requeuing message {} to source queue {}",
             self.message.id,
             source_queue
         );
-        
+
         // Publish the message back to the source queue
         // Note: This requires the backend to support publishing
         // For RabbitMQ, this would use basic_publish
         // For other backends, they need to implement their own publish logic
-        
+
         // For now, we nack with requeue=true as a fallback
         // Backends that support DLQ requeue should override this behavior
         self.nack(true).await
