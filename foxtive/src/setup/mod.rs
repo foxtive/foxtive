@@ -1,6 +1,6 @@
 #[cfg(feature = "cache")]
 #[allow(unused_imports)]
-use crate::cache::{Cache, contract::CacheDriverContract};
+use crate::cache::{contract::CacheDriverContract, Cache};
 #[cfg(feature = "database")]
 use crate::database::create_db_pool;
 #[cfg(feature = "jwt")]
@@ -17,7 +17,7 @@ use crate::rabbitmq::conn::create_rmq_conn_pool;
 use crate::redis::conn::create_redis_conn_pool;
 use crate::results::AppResult;
 use crate::setup::state::{FoxtiveHelpers, FoxtiveState};
-use crate::{Environment, internal_server_error};
+use crate::{internal_server_error, Environment};
 use std::path::Path;
 #[allow(unused_imports)]
 use std::sync::Arc;
@@ -124,7 +124,10 @@ async fn create_state(setup: FoxtiveSetup) -> AppResult<FoxtiveState> {
             setup.template_directory
         );
 
-        Tera::new(&setup.template_directory)
+        let mut tera = Tera::default();
+        tera.load_from_glob(&setup.template_directory)?;
+
+        Ok::<_, tera::Error>(tera)
     }?;
 
     #[cfg(feature = "cache")]

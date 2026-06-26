@@ -1,6 +1,9 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 0.26.10 (2026-06-26)
+* bump(tera): now using v2.0.0
+
 ### 0.26.9 (2026-06-14)
 * feat(rabbitmq): export more RabbitMQ types
 
