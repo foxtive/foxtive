@@ -25,7 +25,7 @@ async fn test_cron_scheduled_task() {
             Some("*/1 * * * * * *")
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.run_count.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
@@ -66,7 +66,7 @@ async fn test_cron_with_immediate_execution() {
             Some("*/2 * * * * * *")
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.run_count.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
@@ -114,7 +114,7 @@ async fn test_cron_task_can_be_stopped() {
             Some("*/1 * * * * * *")
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.run_count.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
@@ -167,7 +167,7 @@ async fn test_initial_delay() {
             Some(Duration::from_millis(500))
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             let mut first_run = self.first_run_time.lock().await;
             if first_run.is_none() {
                 *first_run = Some(Instant::now());
@@ -232,7 +232,7 @@ async fn test_initial_delay_with_jitter() {
             Some((Duration::from_millis(0), Duration::from_millis(200)))
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             let mut first_run = self.first_run_time.lock().await;
             if first_run.is_none() {
                 *first_run = Some(Instant::now());
@@ -300,14 +300,14 @@ async fn test_rate_limiting_restart_interval() {
             Some(Duration::from_millis(500))
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             let now = Instant::now();
             self.run_times.lock().await.push(now);
 
             // Fail first 2 times to trigger restarts
             let count = self.fail_count.fetch_add(1, Ordering::SeqCst);
             if count < 2 {
-                anyhow::bail!("Intentional failure {}", count);
+                return Err(foxtive_supervisor::SupervisorError::from(format!("Intentional failure {}", count)));
             }
             Ok(())
         }
@@ -372,7 +372,7 @@ async fn test_time_window_configuration() {
             Some((Some(9), Some(17)))
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.run_count.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
@@ -411,7 +411,7 @@ async fn test_cron_with_invalid_expression() {
             Some("* * *") // Too few fields
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             Ok(())
         }
     }
@@ -448,7 +448,7 @@ async fn test_multiple_cron_tasks_different_schedules() {
             Some(self.schedule)
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.run_count.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
@@ -509,7 +509,7 @@ async fn test_initial_delay_zero_duration() {
             Some(Duration::ZERO)
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.run_count.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
@@ -551,7 +551,7 @@ async fn test_cron_task_with_very_frequent_schedule() {
             Some("*/100 * * * * * *")
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.run_count.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
@@ -604,10 +604,10 @@ async fn test_combined_initial_delay_and_restart_backoff() {
             BackoffStrategy::Fixed(Duration::from_millis(100))
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             let mut times = self.run_times.lock().await;
             times.push(Instant::now());
-            Err(anyhow::anyhow!("Intentional failure"))
+            Err(foxtive_supervisor::SupervisorError::internal("Intentional failure"))
         }
     }
 

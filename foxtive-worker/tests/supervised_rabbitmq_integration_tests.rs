@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use common::create_test_message;
 use foxtive_supervisor::contracts::SupervisedTask;
+use foxtive_supervisor::SupervisorError;
 use foxtive_worker::backends::{MemoryBackend, MessageBackend, ReceiveResult};
 use foxtive_worker::error::WorkerResult;
 use foxtive_worker::{AckNackMiddleware, ReceivedMessage, Worker, WorkerPool, WorkerPoolBuilder};
@@ -35,13 +36,13 @@ impl SupervisedTask for SupervisedWorkerPool {
         self.name
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         let backend = self.backend.clone();
         let pool = self.pool.clone();
 
         // Process messages from backend
         loop {
-            match backend.receive().await? {
+            match backend.receive().await.map_err(SupervisorError::wrap)? {
                 ReceiveResult::Message(message) => {
                     if let Err(e) = pool.dispatch(*message).await {
                         eprintln!("Failed to dispatch: {}", e);

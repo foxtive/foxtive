@@ -1,4 +1,4 @@
-use anyhow::Result;
+use foxtive_supervisor::SupervisorResult;
 use async_trait::async_trait;
 use foxtive_supervisor::{persistence::FsStateStore, SupervisedTask, Supervisor};
 use std::path::PathBuf;
@@ -25,14 +25,14 @@ impl SupervisedTask for MessageProcessor {
         }
     }
 
-    async fn setup(&self) -> Result<()> {
+    async fn setup(&self) -> SupervisorResult<()> {
         info!("Setting up message processor");
         // Simulate connection to message queue
         sleep(Duration::from_millis(500)).await;
         Ok(())
     }
 
-    async fn run(&self) -> Result<()> {
+    async fn run(&self) -> SupervisorResult<()> {
         // Simulate processing a message
         sleep(Duration::from_millis(200)).await;
 
@@ -41,7 +41,7 @@ impl SupervisedTask for MessageProcessor {
 
         // Simulate occasional failures
         if count.is_multiple_of(5) {
-            anyhow::bail!("Simulated processing error at message {}", count);
+            return Err(foxtive_supervisor::SupervisorError::from(format!("Simulated processing error at message {}", count)));
         }
 
         Ok(())
@@ -53,7 +53,7 @@ impl SupervisedTask for MessageProcessor {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 

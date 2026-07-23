@@ -5,6 +5,8 @@ use tokio::sync::{Notify, Semaphore};
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 
+use foxtive::App;
+
 use crate::error::{WorkerError, WorkerResult};
 use crate::health::{HealthCheck, HealthStatus};
 use crate::message::{AckHandle, ReceivedMessage};
@@ -52,6 +54,8 @@ pub struct WorkerPool {
     task_completion_notify: Arc<Notify>,
     /// Track number of in-flight tasks for monitoring
     in_flight_tasks: Arc<AtomicUsize>,
+    /// Optional application container for DI access
+    app: Option<Arc<App>>,
 }
 
 impl std::fmt::Debug for WorkerPool {
@@ -109,6 +113,7 @@ impl WorkerPool {
             cancellation_token: CancellationToken::new(),
             task_completion_notify: Arc::new(Notify::new()),
             in_flight_tasks: Arc::new(AtomicUsize::new(0)),
+            app: None,
         }
     }
 
@@ -148,6 +153,17 @@ impl WorkerPool {
     /// Get the pool name.
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    /// Returns a reference to the attached application container, if any.
+    pub fn app(&self) -> Option<&Arc<App>> {
+        self.app.as_ref()
+    }
+
+    /// Set the application container for this pool.
+    pub fn with_app(mut self, app: Arc<App>) -> Self {
+        self.app = Some(app);
+        self
     }
 
     /// Dispatch a message to a worker based on the load balancing strategy.

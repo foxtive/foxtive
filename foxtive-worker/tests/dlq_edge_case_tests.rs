@@ -1,3 +1,5 @@
+#![cfg(feature = "rabbitmq")]
+
 use foxtive_worker::prelude::ReceiveResult;
 use foxtive_worker::{
     Message, MessageBackend, MessageMetadata, RabbitMqBackend, RabbitMqConsumerConfig,

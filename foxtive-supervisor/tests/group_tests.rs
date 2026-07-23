@@ -22,7 +22,7 @@ async fn test_task_groups_start_stop() {
             Some(self.group)
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.run_count.fetch_add(1, Ordering::SeqCst);
             // Run for a while so we can stop it
             tokio::time::sleep(Duration::from_secs(10)).await;
@@ -101,7 +101,7 @@ async fn test_list_group_tasks() {
             Some(self.group)
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_secs(1)).await;
             Ok(())
         }
@@ -154,7 +154,7 @@ async fn test_restart_group() {
             Some(self.group)
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             // Task runs once and completes
             Ok(())
         }
@@ -206,7 +206,7 @@ async fn test_group_health_aggregation() {
             self.status.clone()
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_secs(1)).await;
             Ok(())
         }

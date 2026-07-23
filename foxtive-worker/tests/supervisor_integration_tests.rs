@@ -32,7 +32,7 @@ impl SupervisedTask for SupervisedWorkerPool {
         self.name
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         // In a real scenario, this would consume messages from a backend
         // For testing, we just keep the task alive
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -83,10 +83,9 @@ async fn test_supervisor_restart_on_failure() {
             "failing-pool"
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.restarts.fetch_add(1, Ordering::SeqCst);
-            // Fail immediately
-            Err(anyhow::anyhow!("Intentional failure"))
+            Err(foxtive_supervisor::SupervisorError::internal("Intentional failure"))
         }
 
         fn restart_policy(&self) -> RestartPolicy {
@@ -293,13 +292,11 @@ async fn test_supervisor_recovers_from_panic() {
             "panicking-pool"
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             let count = self.panics.fetch_add(1, Ordering::SeqCst);
             if count == 0 {
-                // Panic on first run
                 panic!("Intentional panic for testing");
             }
-            // Succeed on subsequent runs
             tokio::time::sleep(Duration::from_millis(10)).await;
             Ok(())
         }
@@ -345,7 +342,7 @@ async fn test_priority_based_ordering() {
             self.name
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(100)).await;
             Ok(())
         }

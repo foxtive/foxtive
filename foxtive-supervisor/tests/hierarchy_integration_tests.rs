@@ -15,7 +15,7 @@ impl SupervisedTask for SimpleTask {
         self.id
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         self.started.store(true, Ordering::SeqCst);
         // Run until stopped
         loop {
@@ -134,7 +134,7 @@ async fn test_deep_nested_hierarchy() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.started.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(100)).await;
             Ok(())
@@ -200,7 +200,7 @@ async fn test_hierarchy_shutdown_order() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_secs(60)).await;
             Ok(())
         }
@@ -256,9 +256,9 @@ async fn test_hierarchy_with_failing_task() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.attempts.fetch_add(1, Ordering::SeqCst);
-            Err(anyhow::anyhow!("Intentional failure"))
+            Err(foxtive_supervisor::SupervisorError::internal("Intentional failure"))
         }
     }
 
@@ -272,7 +272,7 @@ async fn test_hierarchy_with_failing_task() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(100)).await;
             Ok(())
         }

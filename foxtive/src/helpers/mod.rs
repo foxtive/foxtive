@@ -24,7 +24,6 @@
 //! * `once_lock` - Thread-safe initialization primitives
 //! * `string` - String manipulation utilities
 //! * `time` - Time and date handling functions
-//! * `blk` - Re-exported tokio blocking operations
 //!
 //! ### Feature-Gated Modules
 //!
@@ -76,8 +75,8 @@
 //!
 //! ## Error Handling
 //!
-//! Operations that can fail return `Result` types. It's recommended to use the
-//! `anyhow` crate for error handling when working with this library.
+//! Operations that can fail return `Result` types. It's recommended to use
+//! `AppResult` / `AppMessage` for error handling when working with this library.
 //!
 //! ## Async Support
 //!
@@ -92,6 +91,8 @@ pub mod hmac;
 pub mod json;
 #[cfg(feature = "jwt")]
 pub mod jwt;
+#[cfg(feature = "jwe")]
+pub mod jwe;
 pub mod number;
 #[cfg(feature = "crypto")]
 pub mod password;
@@ -99,7 +100,7 @@ pub mod password;
 pub mod reqwest;
 pub mod string;
 pub mod time;
-mod tokio;
+pub(crate) mod tokio;
 
 pub mod env;
 mod file_ext;
@@ -107,10 +108,22 @@ pub mod file_size;
 mod input_sanitizer;
 #[cfg(feature = "regex")]
 pub mod regex;
+pub mod serde;
 pub mod serde_json;
 
-pub use tokio::{blk, block, run_async};
+pub use tokio::RuntimeConfig;
+pub(crate) use tokio::set_runtime_config;
 
-pub use file_ext::{COMPOUND_EXTENSIONS, FileExtHelper};
+pub use file_ext::{FileExtHelper, COMPOUND_EXTENSIONS};
 
 pub use input_sanitizer::*;
+
+pub use string::StringHelper;
+
+#[cfg(feature = "base64")]
+pub use base64::Base64;
+use crate::enums::AppMessage;
+
+pub fn fox_wrap(e: impl std::error::Error + Send + Sync + 'static) -> AppMessage {
+    AppMessage::wrap(e)
+}

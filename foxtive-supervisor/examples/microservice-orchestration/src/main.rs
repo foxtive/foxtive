@@ -28,13 +28,13 @@ impl SupervisedTask for DatabasePool {
         100
     } // Start first
 
-    async fn setup(&self) -> anyhow::Result<()> {
+    async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
         info!("[Database] Establishing connection pool...");
         tokio::time::sleep(Duration::from_millis(500)).await;
         Ok(())
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         info!("[Database] Connection pool is active.");
         // Keep-alive loop
         loop {
@@ -61,13 +61,13 @@ impl SupervisedTask for CacheService {
         90
     }
 
-    async fn setup(&self) -> anyhow::Result<()> {
+    async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
         info!("[Cache] Connecting to Redis...");
         tokio::time::sleep(Duration::from_millis(300)).await;
         Ok(())
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         info!("[Cache] Connected and listening.");
         tokio::time::sleep(Duration::MAX).await;
         Ok(())
@@ -87,13 +87,13 @@ impl SupervisedTask for ApiGateway {
         &["database", "cache"]
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         info!("[API Gateway] Listening on :8080 (DB and Cache ready)");
 
         // Simulate a crash after some time
         tokio::time::sleep(Duration::from_secs(15)).await;
         warn!("[API Gateway] Encountered a memory leak, crashing...");
-        anyhow::bail!("Out of memory");
+        return Err(foxtive_supervisor::SupervisorError::from("Out of memory"));
     }
 
     fn restart_policy(&self) -> RestartPolicy {
@@ -118,7 +118,7 @@ impl SupervisedTask for OrderConsumer {
         &["database"]
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         info!("[Order Consumer] Starting message processing...");
         let mut count = 0;
         loop {
@@ -155,7 +155,7 @@ impl SupervisorEventListener for MetricsListener {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
     info!("Initializing Microservice Orchestrator...");
@@ -184,7 +184,7 @@ async fn main() -> anyhow::Result<()> {
             fn id(&self) -> &'static str {
                 "analytics"
             }
-            async fn run(&self) -> anyhow::Result<()> {
+            async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
                 info!("[Analytics] Aggregating data...");
                 loop {
                     tokio::time::sleep(Duration::from_secs(5)).await;

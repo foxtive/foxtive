@@ -24,7 +24,7 @@ impl SupervisedTask for LeaderOnlyTask {
         self.name
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         info!("Leader-only task '{}' is running", self.name);
 
         // Simulate work
@@ -46,7 +46,7 @@ impl SupervisedTask for BackgroundWorker {
         "background-worker"
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         info!("Background worker {} running on this instance", self.id);
 
         loop {
@@ -58,7 +58,7 @@ impl SupervisedTask for BackgroundWorker {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt().with_env_filter("info").init();
 
     let instance_id = format!("instance-{}", std::process::id());

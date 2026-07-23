@@ -11,10 +11,7 @@ pub trait ToLocalRedisResult<T> {
 
 impl<T> RedisResultToAppResult<T> for RedisResult<T> {
     fn into_app_result(self) -> AppResult<T> {
-        match self {
-            Ok(value) => Ok(value),
-            Err(err) => Err(err.into()),
-        }
+        self.map_err(|e| e.into())
     }
 }
 

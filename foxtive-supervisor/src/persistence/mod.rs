@@ -1,4 +1,5 @@
 use crate::enums::TaskState;
+use crate::error::SupervisorResult;
 use serde::{Deserialize, Serialize};
 
 mod fs;
@@ -22,14 +23,14 @@ pub struct PersistedTaskState {
 #[async_trait::async_trait]
 pub trait TaskStateStore: Send + Sync {
     /// Save the state of a task
-    async fn save_state(&self, state: PersistedTaskState) -> anyhow::Result<()>;
+    async fn save_state(&self, state: PersistedTaskState) -> SupervisorResult<()>;
 
     /// Load the state of a task by ID
-    async fn load_state(&self, task_id: &str) -> anyhow::Result<Option<PersistedTaskState>>;
+    async fn load_state(&self, task_id: &str) -> SupervisorResult<Option<PersistedTaskState>>;
 
     /// Load all saved task states
-    async fn load_all_states(&self) -> anyhow::Result<Vec<PersistedTaskState>>;
+    async fn load_all_states(&self) -> SupervisorResult<Vec<PersistedTaskState>>;
 
     /// Delete the state of a task
-    async fn delete_state(&self, task_id: &str) -> anyhow::Result<()>;
+    async fn delete_state(&self, task_id: &str) -> SupervisorResult<()>;
 }

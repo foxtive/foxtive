@@ -74,10 +74,10 @@ impl SupervisedTask for MockTask {
         self.name.clone()
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         let count = self.fail_count.fetch_add(1, Ordering::SeqCst);
         if count < self.max_fails {
-            anyhow::bail!("Simulated failure {}", count);
+            return Err(foxtive_supervisor::SupervisorError::from(format!("Simulated failure {}", count)));
         }
         Ok(())
     }
@@ -116,7 +116,7 @@ impl SupervisedTask for PanickingTask {
         self.name.clone()
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         let count = self.panic_count.fetch_add(1, Ordering::SeqCst);
         if count < self.max_panics {
             panic!("Intentional panic {}", count);
@@ -171,14 +171,14 @@ impl SupervisedTask for HookTrackingTask {
         BackoffStrategy::Fixed(Duration::from_millis(10))
     }
 
-    async fn setup(&self) -> anyhow::Result<()> {
+    async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
         self.setup_called.store(true, Ordering::SeqCst);
         Ok(())
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         if self.fail_once.swap(false, Ordering::SeqCst) {
-            anyhow::bail!("First attempt fails")
+            return Err(foxtive_supervisor::SupervisorError::from("First attempt fails"));
         }
         Ok(())
     }

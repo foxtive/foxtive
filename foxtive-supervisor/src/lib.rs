@@ -27,7 +27,7 @@ use std::sync::Arc;
 
 pub use crate::contracts::{SupervisedTask, SupervisorEventListener};
 pub use crate::enums::TaskConfig;
-pub use crate::error::{SupervisorError, ValidationError};
+pub use crate::error::{SupervisorError, SupervisorResult, ValidationError};
 pub use crate::persistence::TaskStateStore;
 pub use crate::runtime::{SupervisionResult, TaskRuntime, spawn_supervised, spawn_supervised_many};
 
@@ -45,7 +45,7 @@ pub use crate::runtime::{SupervisionResult, TaskRuntime, spawn_supervised, spawn
 /// #[async_trait::async_trait]
 /// impl SupervisedTask for MyTask {
 ///     fn id(&self) -> &'static str { "my-task" }
-///     async fn run(&self) -> anyhow::Result<()> { Ok(()) }
+///     async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> { Ok(()) }
 /// }
 ///
 /// #[tokio::main]
@@ -109,6 +109,24 @@ impl Supervisor {
         self
     }
 
+    /// Set the event broadcast channel capacity.
+    ///
+    /// The default is 1024. Increase this if you have many tasks emitting
+    /// events rapidly and observe lagged event warnings.
+    pub fn with_event_channel_capacity(mut self, capacity: usize) -> Self {
+        self.runtime.with_event_channel_capacity(capacity);
+        self
+    }
+
+    /// Attach an application container for DI access within supervised tasks.
+    ///
+    /// Requires the `foxtive-app` feature to be enabled.
+    #[cfg(feature = "foxtive-app")]
+    pub fn app(mut self, app: std::sync::Arc<foxtive::App>) -> Self {
+        self.runtime.with_app(app);
+        self
+    }
+
     /// Register an event listener to observe lifecycle events.
     ///
     /// Event listeners receive notifications for task starts, failures, restarts, etc.
@@ -132,7 +150,7 @@ impl Supervisor {
     /// If any prerequisite fails, the supervisor aborts startup.
     pub fn require<F>(mut self, name: &'static str, fut: F) -> Self
     where
-        F: Future<Output = anyhow::Result<()>> + Send + 'static,
+        F: Future<Output = SupervisorResult<()>> + Send + 'static,
     {
         self.runtime.add_prerequisite(name, Box::pin(fut));
         self
@@ -142,7 +160,7 @@ impl Supervisor {
     pub fn require_fn<F, Fut>(mut self, name: &'static str, f: F) -> Self
     where
         F: FnOnce() -> Fut + Send + 'static,
-        Fut: Future<Output = Result<(), anyhow::Error>> + Send + 'static,
+        Fut: Future<Output = SupervisorResult<()>> + Send + 'static,
     {
         self.runtime.add_prerequisite_fn(name, f);
         self

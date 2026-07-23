@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use foxtive::App;
+
 use crate::error::{WorkerError, WorkerResult};
 use crate::message::ReceivedMessage;
 use crate::metrics::{NoOpMetrics, WorkerMetrics};
@@ -44,6 +46,7 @@ pub struct WorkerPoolBuilder {
     workers: Vec<Arc<dyn Worker>>,
     middlewares: Vec<Arc<dyn Middleware>>,
     metrics_collector: Option<Arc<dyn WorkerMetrics>>,
+    app: Option<Arc<App>>,
 }
 
 impl WorkerPoolBuilder {
@@ -56,7 +59,20 @@ impl WorkerPoolBuilder {
             workers: Vec::new(),
             middlewares: Vec::new(),
             metrics_collector: None,
+            app: None,
         }
+    }
+
+    /// Attach an [`Arc<App>`] to the worker pool builder.
+    ///
+    /// This allows workers and middleware to access the DI container,
+    /// database pools, Redis, and other application services via `app.get::<T>()`.
+    ///
+    /// # Arguments
+    /// * `app` - The application container to share with the worker pool
+    pub fn app(mut self, app: Arc<App>) -> Self {
+        self.app = Some(app);
+        self
     }
 
     /// Set the load balancing strategy.
@@ -184,6 +200,11 @@ impl WorkerPoolBuilder {
             pool = pool.with_middlewares(self.middlewares);
         }
 
+        // Attach app container if provided
+        if let Some(app) = self.app {
+            pool = pool.with_app(app);
+        }
+
         Ok(pool)
     }
 
@@ -204,6 +225,11 @@ impl WorkerPoolBuilder {
 
         for worker in self.workers {
             pool.add_worker(worker);
+        }
+
+        // Attach app container if provided
+        if let Some(app) = self.app {
+            pool = pool.with_app(app);
         }
 
         pool

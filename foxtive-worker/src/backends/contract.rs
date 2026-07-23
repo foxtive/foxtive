@@ -14,7 +14,7 @@ use crate::message::ReceivedMessage;
 /// ```no_run
 /// use foxtive_worker::backends::ReceiveResult;
 ///
-/// async fn process_messages(backend: &dyn foxtive_worker::backends::MessageBackend) -> anyhow::Result<()> {
+/// async fn process_messages(backend: &dyn foxtive_worker::backends::MessageBackend) -> foxtive_worker::WorkerResult<()> {
 ///     loop {
 ///         match backend.receive().await? {
 ///             ReceiveResult::Message(msg) => {
@@ -28,7 +28,7 @@ use crate::message::ReceivedMessage;
 ///             ReceiveResult::ConnectionLost { reason } => {
 ///                 // Connection lost - trigger reconnection
 ///                 eprintln!("Connection lost: {}", reason);
-///                 return Err(anyhow::anyhow!("Connection lost: {}", reason));
+///                 return Err(foxtive_worker::WorkerError::BackendError(reason));
 ///             }
 ///             _ => {
 ///                 // Handle other cases

@@ -29,7 +29,7 @@ async fn test_diamond_dependency_graph() {
             self.deps
         }
 
-        async fn setup(&self) -> anyhow::Result<()> {
+        async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
             {
                 let mut order = self.setup_order.lock().unwrap();
                 order.push(self.id.to_string());
@@ -38,7 +38,7 @@ async fn test_diamond_dependency_graph() {
             Ok(())
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }
@@ -108,7 +108,7 @@ async fn test_deep_linear_chain() {
             self.deps
         }
 
-        async fn setup(&self) -> anyhow::Result<()> {
+        async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
             {
                 let mut order = self.execution_order.lock().unwrap();
                 order.push(format!("{}-setup", self.id));
@@ -116,7 +116,7 @@ async fn test_deep_linear_chain() {
             Ok(())
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             {
                 let mut order = self.execution_order.lock().unwrap();
                 order.push(format!("{}-run", self.id));
@@ -202,7 +202,7 @@ async fn test_multiple_independent_chains() {
             self.deps
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.completed.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
@@ -291,7 +291,7 @@ async fn test_complex_dag_with_conditional_deps() {
             }
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.execution_count.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(30)).await;
             Ok(())
@@ -367,12 +367,12 @@ async fn test_dependency_with_groups() {
             self.group
         }
 
-        async fn setup(&self) -> anyhow::Result<()> {
+        async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.setup_complete.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }
@@ -442,7 +442,7 @@ async fn test_fan_out_fan_in_pattern() {
             self.deps
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.processed.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())

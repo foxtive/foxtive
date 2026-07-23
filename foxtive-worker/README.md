@@ -10,17 +10,17 @@ Process messages from RabbitMQ, Redis Streams, or any queue system with confiden
 
 - [Quick Start](#-quick-start) - Get running in 5 minutes
 - [User Guide](#-user-guide) - Step-by-step learning path
-  - [1. Your First Worker](#1-your-first-worker)
-  - [2. Adding Reliability](#2-adding-reliability)
-  - [3. Scaling Up](#3-scaling-up)
-  - [4. Production Ready](#4-production-ready)
-  - [5. Message Properties](#5-message-properties) - Microservices metadata & distributed tracing
-  - [6. Dead Letter Queues](#6-dead-letter-queues) - Handle exhausted retries
-  - [7. Smart Retry Control](#7-smart-retry-control) - Worker-controlled retry decisions
-  - [8. DLQ Reprocessing](#8-dlq-reprocessing) - Requeue failed messages back to main queue
+    - [1. Your First Worker](#1-your-first-worker)
+    - [2. Adding Reliability](#2-adding-reliability)
+    - [3. Scaling Up](#3-scaling-up)
+    - [4. Production Ready](#4-production-ready)
+    - [5. Message Properties](#5-message-properties) - Microservices metadata & distributed tracing
+    - [6. Dead Letter Queues](#6-dead-letter-queues) - Handle exhausted retries
+    - [7. Smart Retry Control](#7-smart-retry-control) - Worker-controlled retry decisions
+    - [8. DLQ Reprocessing](#8-dlq-reprocessing) - Requeue failed messages back to main queue
 - [Examples](#-examples) - Real-world use cases
 - [Configuration Reference](#configuration-reference)
-  - [Resilient Backends](#making-backends-refuse-to-die) - Survive network failures
+    - [Resilient Backends](#making-backends-refuse-to-die) - Survive network failures
 - [Troubleshooting](#troubleshooting)
 - [Architecture](#architecture)
 
@@ -221,7 +221,7 @@ let pool = WorkerPoolBuilder::new("email-pool")
 
 **What happens:**
 1. First attempt fails → middleware nacks (requeues) → wait 1 second
-2. Second attempt fails → middleware nacks (requeues) → wait 2 seconds  
+2. Second attempt fails → middleware nacks (requeues) → wait 2 seconds
 3. Third attempt fails → middleware nacks (requeues) → wait 4 seconds
 4. All retries exhausted → send to dead letter queue (if configured)
 
@@ -275,8 +275,8 @@ let pool = WorkerPoolBuilder::new("email-pool")
 - **Closed** (normal): Messages flow through
 - **Open** (after 5 failures): Reject immediately, fail fast
 - **Half-Open** (after 30s): Allow one test message through
-  - Success → Close circuit
-  - Failure → Reopen circuit
+    - Success → Close circuit
+    - Failure → Reopen circuit
 
 #### Tracing
 
@@ -848,11 +848,11 @@ let config = RabbitMqConsumerConfig {
 ✅ **Include error context** - Use descriptive error messages in workers  
 ✅ **Regular cleanup** - Archive or delete old DLQ messages  
 ✅ **Root cause analysis** - Investigate patterns in DLQ failures  
-✅ **Automated reprocessing** - Build DLQ consumers for common failures  
+✅ **Automated reprocessing** - Build DLQ consumers for common failures
 
 ❌ **Don't ignore DLQ** - Growing DLQ indicates systemic issues  
 ❌ **Don't store sensitive data** - DLQ messages persist indefinitely  
-❌ **Don't disable DLQ in production** - You'll lose failed messages  
+❌ **Don't disable DLQ in production** - You'll lose failed messages
 
 #### Example: Payment Processing with DLQ
 

@@ -33,13 +33,13 @@ async fn test_conditional_dependencies_enabled() {
             }
         }
 
-        async fn setup(&self) -> anyhow::Result<()> {
+        async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
             let mut order = self.setup_order.lock().unwrap();
             order.push(self.id.to_string());
             Ok(())
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }
@@ -100,7 +100,7 @@ async fn test_conditional_dependencies_disabled() {
             }
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.executed.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
@@ -158,7 +158,7 @@ async fn test_active_dependencies_combination() {
             }
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }

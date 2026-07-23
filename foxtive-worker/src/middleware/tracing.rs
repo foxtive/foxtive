@@ -11,8 +11,7 @@ use crate::middleware::{MessageHandler, Middleware, MiddlewareResult};
 /// - Success/failure status
 /// - Error details (if any)
 ///
-/// When the `tracing` feature is enabled, it uses the `tracing` crate
-/// to emit structured events. Otherwise, it logs to stdout.
+/// Uses the `tracing` crate to emit structured events.
 ///
 /// # Example
 /// ```rust,no_run
@@ -59,24 +58,13 @@ impl Middleware for TracingMiddleware {
         let source = message.message.metadata.source.clone();
 
         // Log message reception
-        #[cfg(feature = "tracing")]
-        {
-            tracing::info!(
-                service = self.service_name.as_str(),
-                message_id = message_id.as_str(),
-                source = source.as_str(),
-                attempt = message.message.metadata.attempt,
-                "Processing message"
-            );
-        }
-
-        #[cfg(not(feature = "tracing"))]
-        {
-            println!(
-                "[{}] Processing message {} from {} (attempt {})",
-                self.service_name, message_id, source, message.message.metadata.attempt
-            );
-        }
+        tracing::info!(
+            service = self.service_name.as_str(),
+            message_id = message_id.as_str(),
+            source = source.as_str(),
+            attempt = message.message.metadata.attempt,
+            "Processing message"
+        );
 
         let start_time = std::time::Instant::now();
 
@@ -88,48 +76,21 @@ impl Middleware for TracingMiddleware {
         // Log completion
         match &result {
             Ok(MiddlewareResult::Continue) | Ok(MiddlewareResult::Acknowledged) => {
-                #[cfg(feature = "tracing")]
-                {
-                    tracing::info!(
-                        service = self.service_name.as_str(),
-                        message_id = message_id.as_str(),
-                        duration_ms = elapsed.as_millis(),
-                        "Message processed successfully"
-                    );
-                }
-
-                #[cfg(not(feature = "tracing"))]
-                {
-                    println!(
-                        "[{}] ✓ Message {} processed in {}ms",
-                        self.service_name,
-                        message_id,
-                        elapsed.as_millis()
-                    );
-                }
+                tracing::info!(
+                    service = self.service_name.as_str(),
+                    message_id = message_id.as_str(),
+                    duration_ms = elapsed.as_millis(),
+                    "Message processed successfully"
+                );
             }
             Err(e) => {
-                #[cfg(feature = "tracing")]
-                {
-                    tracing::error!(
-                        service = self.service_name.as_str(),
-                        message_id = message_id.as_str(),
-                        duration_ms = elapsed.as_millis(),
-                        error = e.to_string().as_str(),
-                        "Message processing failed"
-                    );
-                }
-
-                #[cfg(not(feature = "tracing"))]
-                {
-                    println!(
-                        "[{}] ✗ Message {} failed after {}ms: {}",
-                        self.service_name,
-                        message_id,
-                        elapsed.as_millis(),
-                        e
-                    );
-                }
+                tracing::error!(
+                    service = self.service_name.as_str(),
+                    message_id = message_id.as_str(),
+                    duration_ms = elapsed.as_millis(),
+                    error = e.to_string().as_str(),
+                    "Message processing failed"
+                );
             }
         }
 

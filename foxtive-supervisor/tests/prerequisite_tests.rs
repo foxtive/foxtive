@@ -25,13 +25,17 @@ async fn test_prerequisite_satisfaction() {
 #[tokio::test]
 async fn test_prerequisite_failure_prevents_startup() {
     let supervisor = Supervisor::new()
-        .require("gate", async move { anyhow::bail!("Gate failed") })
+        .require("gate", async move { Err(foxtive_supervisor::SupervisorError::from("Gate failed")) })
         .add(MockTask::new("task1"));
 
     let result = supervisor.start().await;
     match result {
         Ok(_) => panic!("Supervisor should not have started"),
-        Err(e) => assert!(e.to_string().contains("Gate failed")),
+        Err(e) => {
+            // Check the error chain: PrerequisiteFailed wraps the source error
+            let debug_str = format!("{:?}", e);
+            assert!(debug_str.contains("Gate failed"), "Expected 'Gate failed' in error chain, got: {debug_str}");
+        }
     }
 }
 

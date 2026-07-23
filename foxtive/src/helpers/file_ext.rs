@@ -9,6 +9,8 @@ pub const COMPOUND_EXTENSIONS: &[&str] = &[
 
 pub struct FileExtHelper {
     known_exts: HashSet<String>,
+    /// Pre-sorted extensions by length descending (longest first for greedy matching)
+    sorted_exts: Vec<String>,
 }
 
 impl FileExtHelper {
@@ -17,7 +19,9 @@ impl FileExtHelper {
         for ext in COMPOUND_EXTENSIONS {
             known_exts.insert(ext.to_string());
         }
-        Self { known_exts }
+        let mut sorted_exts: Vec<String> = known_exts.iter().cloned().collect();
+        sorted_exts.sort_by_key(|b| std::cmp::Reverse(b.len()));
+        Self { known_exts, sorted_exts }
     }
 
     /// Create a new handler with default extensions plus custom ones
@@ -34,7 +38,11 @@ impl FileExtHelper {
 
     /// Add a custom extension to the handler
     pub fn add_extension(&mut self, ext: &str) {
-        self.known_exts.insert(ext.to_string());
+        if self.known_exts.insert(ext.to_string()) {
+            // Rebuild sorted list when a new extension is added
+            self.sorted_exts = self.known_exts.iter().cloned().collect();
+            self.sorted_exts.sort_by_key(|b| std::cmp::Reverse(b.len()));
+        }
     }
 
     /// Extract extension from filename, handling known compression extensions
@@ -46,11 +54,8 @@ impl FileExtHelper {
             return None;
         }
 
-        // Check for known extensions (try longest matches first)
-        let mut sorted_exts: Vec<_> = self.known_exts.iter().collect();
-        sorted_exts.sort_by_key(|b| std::cmp::Reverse(b.len())); // Sort by length descending
-
-        for ext in sorted_exts {
+        // Check for known extensions (pre-sorted by length descending)
+        for ext in &self.sorted_exts {
             if filename.to_lowercase().ends_with(&format!(".{ext}")) {
                 return Some(ext.to_string());
             }
@@ -84,11 +89,8 @@ impl FileExtHelper {
             return filename.to_string();
         }
 
-        // Check for known extensions (try longest matches first)
-        let mut sorted_exts: Vec<_> = self.known_exts.iter().collect();
-        sorted_exts.sort_by_key(|b| std::cmp::Reverse(b.len())); // Sort by length descending
-
-        for ext in sorted_exts {
+        // Check for known extensions (pre-sorted by length descending)
+        for ext in &self.sorted_exts {
             let full_ext = format!(".{ext}");
             if filename.to_lowercase().ends_with(&full_ext) {
                 return filename[..filename.len() - full_ext.len()].to_string();

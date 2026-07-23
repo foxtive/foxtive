@@ -29,11 +29,11 @@ impl SupervisedTask for FailingTask {
         self.id
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         let mut count = self.fail_count.lock().unwrap();
         if *count < self.max_failures {
             *count += 1;
-            return Err(anyhow::anyhow!("Intentional failure #{}", *count));
+            return Err(foxtive_supervisor::SupervisorError::from(format!("Intentional failure #{}", *count)));
         }
         Ok(())
     }
@@ -473,13 +473,13 @@ async fn test_disabled_task_no_restart() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             let count = self.run_count.fetch_add(1, Ordering::SeqCst);
             // Succeed on first run, fail on subsequent runs
             if count == 0 {
                 Ok(())
             } else {
-                Err(anyhow::anyhow!("Intentional failure"))
+                Err(foxtive_supervisor::SupervisorError::internal("Intentional failure"))
             }
         }
 
@@ -591,7 +591,7 @@ async fn test_update_during_execution() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             // Run for a while
             for _ in 0..10 {
                 self.iterations.fetch_add(1, Ordering::SeqCst);

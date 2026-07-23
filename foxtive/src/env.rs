@@ -1,16 +1,21 @@
+//! Application environment detection.
+//!
+//! Provides the [`Environment`] enum (`Local`, `Development`, `Staging`, `Production`)
+//! with parsing from strings, serde support, and convenience predicates.
+
 use crate::enums::AppMessage;
-use crate::internal_server_error;
 use crate::prelude::AppResult;
 use std::fmt;
 use std::str::FromStr;
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Environment {
-    #[default]
     Local,
     Development,
     Staging,
+    #[default]
     Production,
+    Test,
 }
 
 impl Environment {
@@ -21,6 +26,7 @@ impl Environment {
             Environment::Development => "development",
             Environment::Staging => "staging",
             Environment::Production => "production",
+            Environment::Test => "test",
         }
     }
 
@@ -31,6 +37,7 @@ impl Environment {
             Environment::Development => "dev",
             Environment::Staging => "staging",
             Environment::Production => "prod",
+            Environment::Test => "test",
         }
     }
 
@@ -46,7 +53,7 @@ impl Environment {
 
     /// Checks if the environment is a development-like environment (local or dev)
     pub fn is_dev_like(&self) -> bool {
-        matches!(self, Environment::Local | Environment::Development)
+        matches!(self, Environment::Local | Environment::Development | Environment::Test)
     }
 
     /// Checks if the environment allows debug features
@@ -57,10 +64,8 @@ impl Environment {
     /// Gets the environment from environment variable or returns default
     pub fn from_env(var_name: &str) -> AppResult<Environment> {
         std::env::var(var_name)
-            .map_err(|e| {
-                AppMessage::MissingEnvironmentVariable(var_name.to_string(), e).into_anyhow()
-            })
-            .and_then(|val: String| val.parse())
+            .map_err(|e| AppMessage::MissingEnvironmentVariable(var_name.to_string(), e))
+            .and_then(|val: String| val.parse().map_err(|e: String| AppMessage::InternalServerError(e)))
     }
 
     /// Gets the environment from environment variable or returns default
@@ -78,6 +83,7 @@ impl Environment {
             Environment::Development,
             Environment::Staging,
             Environment::Production,
+            Environment::Test,
         ]
     }
 }
@@ -89,18 +95,27 @@ impl fmt::Display for Environment {
 }
 
 impl FromStr for Environment {
-    type Err = crate::Error;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "local" => Ok(Environment::Local),
-            "development" | "dev" => Ok(Environment::Development),
-            "staging" | "stage" => Ok(Environment::Staging),
-            "production" | "prod" => Ok(Environment::Production),
-            _ => Err(internal_server_error!(
-                "Invalid environment value: '{s}'. Valid values are: local, development (dev), staging (stage), production (prod)"
-            )),
+        if s.eq_ignore_ascii_case("local") {
+            return Ok(Environment::Local);
         }
+        if s.eq_ignore_ascii_case("development") || s.eq_ignore_ascii_case("dev") {
+            return Ok(Environment::Development);
+        }
+        if s.eq_ignore_ascii_case("staging") || s.eq_ignore_ascii_case("stage") {
+            return Ok(Environment::Staging);
+        }
+        if s.eq_ignore_ascii_case("production") || s.eq_ignore_ascii_case("prod") {
+            return Ok(Environment::Production);
+        }
+        if s.eq_ignore_ascii_case("test") {
+            return Ok(Environment::Test);
+        }
+        Err(format!(
+            "Invalid environment value: '{s}'. Valid values are: local, development (dev), staging (stage), production (prod), test"
+        ))
     }
 }
 
@@ -214,16 +229,17 @@ mod tests {
 
     #[test]
     fn test_default() {
-        assert_eq!(Environment::default(), Environment::Local);
+        assert_eq!(Environment::default(), Environment::Production);
     }
 
     #[test]
     fn test_all() {
         let all = Environment::all();
-        assert_eq!(all.len(), 4);
+        assert_eq!(all.len(), 5);
         assert!(all.contains(&Environment::Local));
         assert!(all.contains(&Environment::Development));
         assert!(all.contains(&Environment::Staging));
         assert!(all.contains(&Environment::Production));
+        assert!(all.contains(&Environment::Test));
     }
 }

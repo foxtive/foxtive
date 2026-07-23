@@ -265,8 +265,9 @@ pub enum BackoffStrategy {
 
     /// Custom backoff with user-defined delay calculation
     ///
-    /// Receives attempt number, returns delay duration
-    Custom(Box<dyn Fn(usize) -> Duration + Send + Sync>),
+    /// Receives attempt number, returns delay duration.
+    /// Wrapped in Arc for correct cloning behavior.
+    Custom(std::sync::Arc<dyn Fn(usize) -> Duration + Send + Sync>),
 }
 
 // Manual Debug implementation
@@ -321,10 +322,9 @@ impl Clone for BackoffStrategy {
                 initial: *initial,
                 max: *max,
             },
-            Self::Custom(_) => {
-                // For Custom variant, we clone with default exponential strategy
-                // This is a limitation - custom functions can't be cloned
-                Self::default()
+            Self::Custom(func) => {
+                // Arc clone - custom function is preserved
+                Self::Custom(func.clone())
             }
         }
     }
@@ -437,7 +437,7 @@ impl BackoffStrategy {
     where
         F: Fn(usize) -> Duration + Send + Sync + 'static,
     {
-        Self::Custom(Box::new(func))
+        Self::Custom(std::sync::Arc::new(func))
     }
 }
 

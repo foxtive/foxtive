@@ -1,4 +1,4 @@
-use anyhow::Result;
+use foxtive_supervisor::SupervisorResult;
 use async_trait::async_trait;
 use foxtive_supervisor::task_pool::{LoadBalancingStrategy, TaskPool};
 use foxtive_supervisor::SupervisedTask;
@@ -29,13 +29,13 @@ impl SupervisedTask for MessageWorker {
         Box::leak(format!("message-worker-{}", self.worker_id).into_boxed_str())
     }
 
-    async fn setup(&self) -> Result<()> {
+    async fn setup(&self) -> SupervisorResult<()> {
         info!(worker = self.worker_id, "Setting up message worker");
         sleep(Duration::from_millis(100)).await;
         Ok(())
     }
 
-    async fn run(&self) -> Result<()> {
+    async fn run(&self) -> SupervisorResult<()> {
         // Simulate processing a message
         sleep(Duration::from_millis(500)).await;
 
@@ -51,7 +51,7 @@ impl SupervisedTask for MessageWorker {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 

@@ -32,7 +32,7 @@ mod tests {
             fn id(&self) -> &'static str {
                 "test"
             }
-            async fn run(&self) -> anyhow::Result<()> {
+            async fn run(&self) -> crate::error::SupervisorResult<()> {
                 Ok(())
             }
         }

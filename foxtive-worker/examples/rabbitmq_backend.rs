@@ -9,16 +9,18 @@
 
 use async_trait::async_trait;
 use foxtive_worker::error::WorkerResult;
-use foxtive_worker::{ReceivedMessage, Worker, WorkerPoolBuilder};
+use foxtive_worker::{ReceivedMessage, Worker};
 
 #[cfg(feature = "rabbitmq")]
 use {
+    foxtive_worker::WorkerPoolBuilder,
     foxtive_worker::backends::rabbitmq::{RabbitMqBackend, RabbitMqConsumerConfig},
     foxtive_worker::backends::{MessageBackend, ReceiveResult},
     std::sync::Arc,
 };
 
 /// Simple worker that processes messages
+#[allow(dead_code)]
 struct ExampleWorker {
     id: String,
 }
@@ -47,7 +49,8 @@ impl Worker for ExampleWorker {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+#[allow(unreachable_code)]
+async fn main() -> WorkerResult<()> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 

@@ -9,13 +9,14 @@ use crate::error::{WorkerError, WorkerResult};
 use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
 
 /// Redis Streams acknowledgment handle.
+///
+/// Caches a dedicated connection for ack operations to avoid pool checkout overhead.
 #[derive(Debug)]
 pub struct RedisStreamAckHandle {
     stream_name: String,
     group_name: String,
     message_id: String,
     redis: deadpool_redis::Pool,
-    // Add a reference to the backend to call its DLQ method
     backend: Arc<RedisStreamBackend>,
 }
 
@@ -206,7 +207,7 @@ impl RedisStreamBackend {
             redis::cmd("XGROUP")
                 .arg("CREATE")
                 .arg(dlq_stream)
-                .arg(format!("{}-dlq", &config.group_name)) // DLQ group name
+                .arg(format!("{}-dlq", config.group_name)) // DLQ group name
                 .arg("$") // Start from end
                 .arg("MKSTREAM") // Create stream if not exists
                 .query_async::<()>(&mut conn)

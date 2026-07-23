@@ -21,7 +21,7 @@ mod tests {
     }
 
     /// Helper to create a Redis coordination backend
-    async fn create_backend(instance_id: &str) -> anyhow::Result<RedisCoordination> {
+    async fn create_backend(instance_id: &str) -> foxtive_supervisor::SupervisorResult<RedisCoordination> {
         let config = test_config(instance_id);
         RedisCoordination::new(config).await
     }

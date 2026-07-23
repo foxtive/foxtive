@@ -1,4 +1,5 @@
 use super::{PersistedTaskState, TaskStateStore};
+use crate::error::SupervisorResult;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -10,7 +11,7 @@ pub struct FsStateStore {
 }
 
 impl FsStateStore {
-    pub async fn new(base_path: impl AsRef<Path>) -> anyhow::Result<Self> {
+    pub async fn new(base_path: impl AsRef<Path>) -> SupervisorResult<Self> {
         let path = base_path.as_ref().to_path_buf();
         fs::create_dir_all(&path).await?;
         Ok(Self { base_path: path })
@@ -23,22 +24,25 @@ impl FsStateStore {
 
 #[async_trait::async_trait]
 impl TaskStateStore for FsStateStore {
-    async fn save_state(&self, state: PersistedTaskState) -> anyhow::Result<()> {
+    async fn save_state(&self, state: PersistedTaskState) -> SupervisorResult<()> {
         let file_path = self.state_file_path(&state.task_id);
-        let json = serde_json::to_string_pretty(&state)?;
+        let json = serde_json::to_string(&state)?;  // Compact JSON for production
         let mut file = fs::File::create(&file_path).await?;
         file.write_all(json.as_bytes()).await?;
-        file.sync_all().await?; // Ensure data is written to disk
+        file.sync_data().await?; // Sync data only (faster than sync_all)
         Ok(())
     }
 
-    async fn load_state(&self, task_id: &str) -> anyhow::Result<Option<PersistedTaskState>> {
+    async fn load_state(&self, task_id: &str) -> SupervisorResult<Option<PersistedTaskState>> {
         let file_path = self.state_file_path(task_id);
-        if !file_path.exists() {
-            return Ok(None);
-        }
+        
+        // Open directly and handle NotFound to avoid TOCTOU race
+        let mut file = match fs::File::open(&file_path).await {
+            Ok(file) => file,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
 
-        let mut file = fs::File::open(&file_path).await?;
         let mut json = String::new();
         file.read_to_string(&mut json).await?;
 
@@ -50,7 +54,7 @@ impl TaskStateStore for FsStateStore {
         Ok(Some(state))
     }
 
-    async fn load_all_states(&self) -> anyhow::Result<Vec<PersistedTaskState>> {
+    async fn load_all_states(&self) -> SupervisorResult<Vec<PersistedTaskState>> {
         let mut states = Vec::new();
         let mut entries = fs::read_dir(&self.base_path).await?;
 
@@ -76,11 +80,14 @@ impl TaskStateStore for FsStateStore {
         Ok(states)
     }
 
-    async fn delete_state(&self, task_id: &str) -> anyhow::Result<()> {
+    async fn delete_state(&self, task_id: &str) -> SupervisorResult<()> {
         let file_path = self.state_file_path(task_id);
-        if file_path.exists() {
-            fs::remove_file(&file_path).await?;
+        
+        // Remove directly and handle NotFound to avoid TOCTOU race
+        match fs::remove_file(&file_path).await {
+            Ok(_) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(e.into()),
         }
-        Ok(())
     }
 }

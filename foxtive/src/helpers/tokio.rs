@@ -1,595 +1,146 @@
-use crate::prelude::AppResult;
-use anyhow::Context;
-use std::future::Future;
 use std::sync::OnceLock;
 use tokio::runtime::Runtime;
-use tokio::task::{JoinHandle, spawn_blocking};
 
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 
-fn runtime() -> &'static Runtime {
-    RUNTIME.get_or_init(|| Runtime::new().expect("Failed to create Tokio runtime"))
-}
-
-/// Spawns a blocking function on the tokio blocking thread pool.
+/// Configuration for the global fallback Tokio runtime.
 ///
-/// This is a convenience wrapper around `spawn_blocking` for executing
-/// CPU-intensive or blocking operations without blocking the async runtime's
-/// worker threads.
+/// Set via [`AppBuilder::runtime_config()`] before calling `build()`.
+/// Once the runtime is created, configuration changes have no effect.
 ///
-/// The function is executed on a dedicated thread pool designed for blocking
-/// operations, allowing the async runtime to continue processing other tasks.
-///
-/// # Arguments
-///
-/// * `f` - A closure or function to execute on the blocking thread pool.
-///   Must be `Send + 'static` to safely transfer across threads.
-///
-/// # Returns
-///
-/// Returns a `JoinHandle<R>` that can be awaited to get the result of the
-/// blocking operation.
-///
-/// # Examples
+/// # Example
 ///
 /// ```no_run
-/// use foxtive::helpers::run_async;
-/// use foxtive::helpers::blk;
+/// use foxtive::App;
+/// use foxtive::helpers::RuntimeConfig;
 ///
-/// // Run a CPU-intensive calculation
-/// run_async(async {
-///     let handle = blk(|| {
-///         // Some expensive calculation
-///         (1..=1000).sum::<i32>()
-///     });
-///     let result = handle.await.unwrap();
-///     assert_eq!(result, 500500);
-/// });
+/// # async fn run() -> foxtive::results::AppResult<()> {
+/// let app = App::builder("my-app", "MYAPP")
+///     .runtime_config(RuntimeConfig::new()
+///         .worker_threads(4)
+///         .max_blocking_threads(64)
+///         .thread_name("my-app-worker"))
+///     .build()
+///     .await?;
+/// # Ok(())
+/// # }
 /// ```
-///
-/// ```no_run
-/// use foxtive::helpers::run_async;
-/// use foxtive::helpers::blk;
-///
-/// // Perform blocking I/O
-/// run_async(async {
-///     let handle = blk(|| {
-///         std::fs::read_to_string("Cargo.toml")
-///     }).await;
-///     let contents = handle;
-///     assert!(contents.is_ok() || contents.is_err());
-/// });
-/// ```
-///
-/// # Notes
-///
-/// - Use this for synchronous blocking operations (file I/O, CPU work, sync APIs)
-/// - Don't use this for async operations - use regular `spawn` instead
-/// - The blocking pool has a large but finite number of threads
-pub fn blk<F, R>(f: F) -> JoinHandle<R>
-where
-    F: FnOnce() -> R + Send + 'static,
-    R: Send + 'static,
-{
-    spawn_blocking(f)
+#[derive(Debug, Clone)]
+pub struct RuntimeConfig {
+    /// Number of worker threads (default: number of CPU cores).
+    pub worker_threads: Option<usize>,
+    /// Maximum number of blocking threads (default: 512).
+    pub max_blocking_threads: Option<usize>,
+    /// Name prefix for worker threads (default: "foxtive-worker").
+    pub thread_name: Option<String>,
+    /// Enable the I/O driver (default: true).
+    pub enable_io: bool,
+    /// Enable the timer (default: true).
+    pub enable_time: bool,
+    /// Maximum concurrent `Tokio::block()` calls (default: 512).
+    /// Bounds `spawn_blocking` usage across all callers.
+    pub max_concurrent_blocking_tasks: Option<usize>,
+    /// Maximum concurrent `Tokio::run_async()` calls (default: 128).
+    /// Bounds `block_on` usage on the global fallback runtime.
+    pub max_concurrent_async_bridges: Option<usize>,
 }
 
-/// Spawns a blocking function, intelligently handling tokio runtime contexts.
-///
-/// This function intelligently handles tokio runtime contexts:
-/// - If called from within an existing tokio runtime, it uses `spawn_blocking`
-/// - If no runtime exists, it creates a new runtime and runs the blocking function
-///
-/// This is useful for executing CPU-intensive or blocking operations (like Diesel queries)
-/// without blocking the async runtime's worker threads, while also working correctly
-/// when called from non-async contexts.
-///
-/// # Arguments
-///
-/// * `f` - A closure or function to execute. Must be `Send + 'static` to safely
-///   transfer across threads when using spawn_blocking.
-///
-/// # Returns
-///
-/// Returns the output value produced by the blocking function.
-///
-/// # Panics
-///
-/// Panics if the tokio runtime cannot be created (e.g., due to system resource constraints)
-/// or if the blocking task itself panics.
-///
-/// # Examples
-///
-/// ```no_run
-/// use foxtive::helpers::block;
-/// use foxtive::prelude::AppResult;
-///
-/// fn expensive_computation() -> AppResult<()> {
-///     println!("Expensively computing...");
-///     Ok(())
-/// }
-///
-/// // From within an async context (uses existing runtime)
-/// async fn example() {
-///     let result = block(|| {
-///         // Diesel query or other blocking operation
-///         expensive_computation()
-///     }).await;
-/// }
-/// ```
-///
-/// ```
-/// use foxtive::helpers::block;
-///
-/// // From synchronous context (creates new runtime)
-/// fn sync_example() {
-///     let result = futures::executor::block_on(block(|| {
-///         // Blocking operation
-///         Ok(42)
-///     }));
-/// }
-/// ```
-///
-/// # Notes
-///
-/// - Use this for synchronous blocking operations (Diesel queries, file I/O, CPU work)
-/// - When runtime exists, runs on Tokio's blocking thread pool
-/// - When no runtime exists, creates a temporary runtime
-/// - Maintains runtime context, so nested `tokio::spawn` calls work correctly
-pub async fn block<F, R>(f: F) -> AppResult<R>
-where
-    F: FnOnce() -> AppResult<R> + Send + Sync + 'static,
-    R: Send + 'static,
-{
-    if tokio::runtime::Handle::try_current().is_ok() {
-        tracing::debug!("Using existing tokio runtime for blocking task");
-        spawn_blocking(f)
-            .await
-            .context("Failed to spawn blocking task")
-            .flatten()
-    } else {
-        tracing::debug!("Using Foxtive's dedicated tokio runtime for blocking task");
-
-        runtime()
-            .spawn_blocking(f)
-            .await
-            .map_err(crate::Error::from)
-            .flatten()
-    }
-}
-
-/// Runs an async future to completion, blocking the current thread until it finishes.
-///
-/// This function intelligently handles tokio runtime contexts:
-/// - If called from within an existing tokio runtime, it reuses that runtime
-/// - If no runtime exists, it creates a new single-threaded runtime
-///
-/// Both execution paths use a `LocalSet` to support `!Send` futures.
-///
-/// # Arguments
-///
-/// * `fut` - The future to execute. Can be any future type with any output.
-///
-/// # Returns
-///
-/// Returns the output value produced by the future.
-///
-/// # Panics
-///
-/// Panics if the tokio runtime cannot be created (e.g., due to system resource constraints).
-///
-/// # Examples
-///
-/// ```
-/// use foxtive::helpers::run_async;
-///
-/// let result = run_async(async {
-///     // Some async work
-///     42
-/// });
-/// assert_eq!(result, 42);
-/// ```
-///
-/// ```
-/// use foxtive::helpers::run_async;
-///
-/// let data = run_async(async {
-///     // Simulate fetching data
-///     tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
-///     "data".to_string()
-/// });
-/// assert_eq!(data, "data");
-/// ```
-pub fn run_async<F: Future>(fut: F) -> F::Output {
-    runtime().block_on(fut)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::{Arc, Mutex};
-    use std::time::Duration;
-
-    #[test]
-    fn test_run_async_returns_value() {
-        let result = run_async(async { 42 });
-        assert_eq!(result, 42);
-    }
-
-    #[test]
-    fn test_run_async_returns_string() {
-        let result = run_async(async { "hello world".to_string() });
-        assert_eq!(result, "hello world");
-    }
-
-    #[test]
-    fn test_run_async_with_computation() {
-        let result = run_async(async {
-            let a = 10;
-            let b = 20;
-            a + b
-        });
-        assert_eq!(result, 30);
-    }
-
-    #[test]
-    fn test_run_async_with_await() {
-        let result = run_async(async {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-            "completed"
-        });
-        assert_eq!(result, "completed");
-    }
-
-    #[test]
-    fn test_run_async_nested_calls() {
-        // First call creates runtime
-        let result1 = run_async(async { 1 });
-
-        // Second call should also work
-        let result2 = run_async(async { 2 });
-
-        assert_eq!(result1, 1);
-        assert_eq!(result2, 2);
-    }
-
-    #[test]
-    fn test_run_async_with_existing_runtime() {
-        // Use run_async to create the runtime, then test nested async behavior
-        #[allow(clippy::redundant_async_block)]
-        let result = run_async(async {
-            // Nested async operations within the same runtime
-            async { 99 }.await
-        });
-        assert_eq!(result, 99);
-    }
-
-    #[test]
-    fn test_run_async_with_result_type() {
-        let result: Result<i32, &str> = run_async(async { Ok(42) });
-        assert_eq!(result, Ok(42));
-
-        let error: Result<i32, &str> = run_async(async { Err("failed") });
-        assert_eq!(error, Err("failed"));
-    }
-
-    #[test]
-    fn test_blk_returns_value() {
-        run_async(async {
-            let handle = blk(|| 42);
-            let result = handle.await.unwrap();
-            assert_eq!(result, 42);
-        });
-    }
-
-    #[test]
-    fn test_blk_with_computation() {
-        run_async(async {
-            let handle = blk(|| {
-                let mut sum = 0;
-                for i in 1..=10 {
-                    sum += i;
-                }
-                sum
-            });
-
-            let result = handle.await.unwrap();
-            assert_eq!(result, 55);
-        });
-    }
-
-    #[test]
-    fn test_blk_with_string() {
-        run_async(async {
-            let handle = blk(|| "blocking result".to_string());
-            let result = handle.await.unwrap();
-            assert_eq!(result, "blocking result");
-        });
-    }
-
-    #[test]
-    fn test_blk_multiple_tasks() {
-        run_async(async {
-            let handle1 = blk(|| 1);
-            let handle2 = blk(|| 2);
-            let handle3 = blk(|| 3);
-
-            let r1 = handle1.await.unwrap();
-            let r2 = handle2.await.unwrap();
-            let r3 = handle3.await.unwrap();
-            let result = r1 + r2 + r3;
-
-            assert_eq!(result, 6);
-        });
-    }
-
-    #[test]
-    fn test_blk_with_sleep() {
-        use std::thread;
-
-        run_async(async {
-            let handle = blk(|| {
-                thread::sleep(Duration::from_millis(10));
-                "done"
-            });
-
-            let result = handle.await.unwrap();
-            assert_eq!(result, "done");
-        });
-    }
-
-    #[test]
-    fn test_blk_captures_variables() {
-        run_async(async {
-            let value = 100;
-            let handle = blk(move || value * 2);
-
-            let result = handle.await.unwrap();
-            assert_eq!(result, 200);
-        });
-    }
-
-    #[test]
-    fn test_blk_with_shared_state() {
-        run_async(async {
-            let counter = Arc::new(Mutex::new(0));
-            let counter_clone = counter.clone();
-
-            let handle = blk(move || {
-                let mut count = counter_clone.lock().unwrap();
-                *count += 1;
-                *count
-            });
-
-            let result = handle.await.unwrap();
-            assert_eq!(result, 1);
-            assert_eq!(*counter.lock().unwrap(), 1);
-        });
-    }
-
-    #[test]
-    fn test_blk_concurrent_execution() {
-        run_async(async {
-            let handles: Vec<_> = (0..5).map(|i| blk(move || i * 2)).collect();
-
-            let mut results = Vec::new();
-            for handle in handles {
-                results.push(handle.await.unwrap());
-            }
-
-            assert_eq!(results, vec![0, 2, 4, 6, 8]);
-        });
-    }
-
-    #[test]
-    fn test_run_async_and_blk_integration() {
-        let result = run_async(async {
-            let blocking_result = blk(|| {
-                // Simulate blocking work
-                std::thread::sleep(Duration::from_millis(10));
-                42
-            })
-            .await
-            .unwrap();
-
-            tokio::time::sleep(Duration::from_millis(10)).await;
-
-            blocking_result + 8
-        });
-
-        assert_eq!(result, 50);
-    }
-
-    #[test]
-    fn test_blk_with_result_type() {
-        run_async(async {
-            let handle = blk(|| -> Result<i32, String> { Ok(42) });
-
-            let result = handle.await.unwrap();
-            assert_eq!(result, Ok(42));
-        });
-    }
-
-    #[test]
-    fn test_blk_with_panic_recovery() {
-        run_async(async {
-            let handle = blk(|| {
-                // This will panic
-                panic!("intentional panic");
-            });
-
-            let result = handle.await;
-            assert!(result.is_err());
-        });
-    }
-
-    #[tokio::test]
-    async fn test_block_with_runtime() {
-        let result = block(|| Ok(42)).await.unwrap();
-        assert_eq!(result, 42);
-    }
-
-    #[tokio::test]
-    async fn test_block_with_computation() {
-        let result = block(|| {
-            let mut sum = 0;
-            for i in 1..=100 {
-                sum += i;
-            }
-            Ok(sum)
-        })
-        .await
-        .unwrap();
-        assert_eq!(result, 5050);
-    }
-
-    #[tokio::test]
-    async fn test_block_with_string() {
-        let result = block(|| Ok("blocking result".to_string())).await.unwrap();
-        assert_eq!(result, "blocking result");
-    }
-
-    #[tokio::test]
-    async fn test_block_with_sleep() {
-        use std::thread;
-
-        let result = block(|| {
-            thread::sleep(Duration::from_millis(10));
-            Ok("done")
-        })
-        .await
-        .unwrap();
-
-        assert_eq!(result, "done");
-    }
-
-    #[tokio::test]
-    async fn test_block_captures_variables() {
-        let value = 100;
-        let result = block(move || Ok(value * 2)).await.unwrap();
-        assert_eq!(result, 200);
-    }
-
-    #[tokio::test]
-    async fn test_block_with_shared_state() {
-        let counter = Arc::new(Mutex::new(0));
-        let counter_clone = counter.clone();
-
-        let result = block(move || {
-            let mut count = counter_clone.lock().unwrap();
-            *count += 1;
-            Ok(*count)
-        })
-        .await
-        .unwrap();
-
-        assert_eq!(result, 1);
-        assert_eq!(*counter.lock().unwrap(), 1);
-    }
-
-    #[tokio::test]
-    async fn test_block_concurrent_execution() {
-        let handles: Vec<_> = (0..5)
-            .map(|i| tokio::spawn(block(move || Ok(i * 2))))
-            .collect();
-
-        let mut results = Vec::new();
-        for handle in handles {
-            results.push(handle.await.unwrap().unwrap());
+impl Default for RuntimeConfig {
+    fn default() -> Self {
+        Self {
+            worker_threads: None,
+            max_blocking_threads: None,
+            thread_name: None,
+            enable_io: true,
+            enable_time: true,
+            max_concurrent_blocking_tasks: None,
+            max_concurrent_async_bridges: None,
         }
+    }
+}
 
-        assert_eq!(results, vec![0, 2, 4, 6, 8]);
+#[allow(dead_code)]
+impl RuntimeConfig {
+    /// Create a new configuration with default values.
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    #[tokio::test]
-    async fn test_block_with_result_type() {
-        let result: AppResult<i32> = block(|| Ok(42)).await;
-        assert_eq!(result.unwrap(), 42);
+    /// Set the number of worker threads.
+    pub fn worker_threads(mut self, count: usize) -> Self {
+        self.worker_threads = Some(count);
+        self
     }
 
-    #[tokio::test]
-    async fn test_block_with_nested_spawn() {
-        // This tests that runtime context is maintained
-        let result = block(|| {
-            // This should work because we maintain runtime context
-            tokio::runtime::Handle::current().block_on(async {
-                tokio::time::sleep(Duration::from_millis(1)).await;
-                Ok(42)
-            })
-        })
-        .await
-        .unwrap();
-
-        assert_eq!(result, 42);
+    /// Set the maximum number of blocking threads.
+    pub fn max_blocking_threads(mut self, count: usize) -> Self {
+        self.max_blocking_threads = Some(count);
+        self
     }
 
-    #[test]
-    fn test_block_without_runtime() {
-        // This test runs without #[tokio::test], so no runtime exists
-        // block should create its own runtime
-        let result = futures::executor::block_on(block(|| Ok(99))).unwrap();
-        assert_eq!(result, 99);
+    /// Set the thread name prefix.
+    pub fn thread_name(mut self, name: impl Into<String>) -> Self {
+        self.thread_name = Some(name.into());
+        self
     }
 
-    #[test]
-    fn test_block_creates_runtime_when_needed() {
-        // Verify it works in pure sync context
-        let result = futures::executor::block_on(block(|| {
-            std::thread::sleep(Duration::from_millis(10));
-            Ok(42)
-        }))
-        .unwrap();
-        assert_eq!(result, 42);
+    /// Set the maximum number of concurrent `Tokio::block()` calls.
+    ///
+    /// Controls the semaphore that bounds `Tokio::block()`. When the limit
+    /// is reached, new calls wait until a slot frees up (backpressure).
+    ///
+    /// Default: 512. Set based on expected concurrent blocking operations
+    /// (e.g., database queries). Should not exceed `max_blocking_threads`.
+    pub fn max_concurrent_blocking_tasks(mut self, count: usize) -> Self {
+        self.max_concurrent_blocking_tasks = Some(count);
+        self
     }
 
-    #[tokio::test]
-    async fn test_block_integration_with_async() {
-        let blocking_result = block(|| {
-            std::thread::sleep(Duration::from_millis(10));
-            Ok(42)
-        })
-        .await
-        .unwrap();
+    /// Set the maximum number of concurrent `Tokio::run_async()` calls.
+    ///
+    /// Controls the semaphore that bounds `Tokio::run_async()`. When the
+    /// limit is reached, new calls wait until a slot frees up.
+    ///
+    /// Default: 128. This is lower than `max_concurrent_blocking_tasks`
+    /// because `run_async()` holds a dedicated runtime thread for the
+    /// entire duration of the future.
+    pub fn max_concurrent_async_bridges(mut self, count: usize) -> Self {
+        self.max_concurrent_async_bridges = Some(count);
+        self
+    }
+}
 
-        tokio::time::sleep(Duration::from_millis(10)).await;
+static RUNTIME_CONFIG: OnceLock<RuntimeConfig> = OnceLock::new();
 
-        let final_result = blocking_result + 8;
-        assert_eq!(final_result, 50);
+/// Set the global fallback runtime configuration.
+///
+/// Called by `AppBuilder::build_inner()` before the runtime is first used.
+/// Subsequent calls are ignored (OnceLock semantics).
+pub(crate) fn set_runtime_config(config: RuntimeConfig) {
+    let _ = RUNTIME_CONFIG.set(config);
+}
+
+fn build_runtime() -> Runtime {
+    let config = RUNTIME_CONFIG.get().cloned().unwrap_or_default();
+    let mut builder = tokio::runtime::Builder::new_multi_thread();
+
+    if let Some(workers) = config.worker_threads {
+        builder.worker_threads(workers);
+    }
+    if let Some(blocking) = config.max_blocking_threads {
+        builder.max_blocking_threads(blocking);
+    }
+    builder.thread_name(config.thread_name.as_deref().unwrap_or("foxtive-worker"));
+    if config.enable_io {
+        builder.enable_io();
+    }
+    if config.enable_time {
+        builder.enable_time();
     }
 
-    #[tokio::test]
-    async fn test_block_multiple_calls() {
-        // First call uses existing runtime
-        let result1 = block(|| Ok(1)).await.unwrap();
+    builder.build().expect("Failed to create Tokio runtime")
+}
 
-        // Second call should also work
-        let result2 = block(|| Ok(2)).await.unwrap();
-
-        assert_eq!(result1, 1);
-        assert_eq!(result2, 2);
-    }
-
-    #[test]
-    fn test_block_nested_calls_without_runtime() {
-        // Both calls should create their own runtimes
-        let result1 = futures::executor::block_on(block(|| Ok(1))).unwrap();
-        let result2 = futures::executor::block_on(block(|| Ok(2))).unwrap();
-
-        assert_eq!(result1, 1);
-        assert_eq!(result2, 2);
-    }
-
-    #[tokio::test]
-    async fn test_block_with_panic_recovery() {
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                block::<_, crate::Error>(|| {
-                    panic!("intentional panic");
-                })
-                .await
-            })
-        }));
-
-        assert!(result.is_err());
-    }
+pub(crate) fn runtime() -> &'static Runtime {
+    RUNTIME.get_or_init(build_runtime)
 }

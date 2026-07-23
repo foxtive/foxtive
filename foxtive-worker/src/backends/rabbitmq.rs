@@ -2,7 +2,7 @@ use crate::MessageProperties;
 use crate::backends::ReceiveResult;
 use crate::backends::contract::MessageBackend;
 use crate::error::{WorkerError, WorkerResult};
-use crate::message::{Message, MessageMetadata, ReceivedMessage};
+use crate::message::{AckHandle, Message, MessageMetadata, ReceivedMessage};
 use async_trait::async_trait;
 use lapin::BasicProperties;
 use lapin::options::{
@@ -15,18 +15,13 @@ use tokio::sync::{Mutex, Notify};
 use tracing::error;
 
 /// RabbitMQ acknowledgment handle.
+///
+/// Uses the consume channel for ack/nack operations. Delivery tags are
+/// channel-scoped in AMQP, so the ack must go on the same channel that
+/// received the delivery.
 pub struct RabbitMqAckHandle {
     delivery_tag: u64,
-    /// Shared channel reference with mutex for thread-safe ack operations
-    ///
-    /// OPTIMIZATION: Uses batch acknowledgments (multiple=true) when possible
-    /// to reduce mutex contention under high throughput. Individual acks still
-    /// require the mutex, but batch mode allows acknowledging multiple messages
-    /// in a single operation.
-    ///
-    /// Delivery tags are channel-specific in AMQP, so we must use the same channel.
-    ack_channel: Arc<Mutex<lapin::Channel>>,
-    /// Optional retry publisher for delayed retries
+    channel: Arc<Mutex<lapin::Channel>>,
     retry_publisher: Option<Arc<dyn RetryPublisher + Send + Sync>>,
 }
 
@@ -43,11 +38,11 @@ impl std::fmt::Debug for RabbitMqAckHandle {
 }
 
 #[async_trait]
-impl crate::message::AckHandle for RabbitMqAckHandle {
+impl AckHandle for RabbitMqAckHandle {
     async fn ack(&self) -> WorkerResult<()> {
         // Lock the channel to ensure sequential ack operations
         tracing::debug!("Attempting to ack delivery tag {}", self.delivery_tag);
-        let channel = self.ack_channel.lock().await;
+        let channel = self.channel.lock().await;
 
         match channel
             .basic_ack(
@@ -82,7 +77,7 @@ impl crate::message::AckHandle for RabbitMqAckHandle {
 
         // If requeue is false and we have DLQ configured, message will be discarded
         // The pool layer should have already published to DLQ before calling nack(false)
-        let channel = self.ack_channel.lock().await;
+        let channel = self.channel.lock().await;
 
         channel
             .basic_nack(
@@ -103,7 +98,7 @@ impl crate::message::AckHandle for RabbitMqAckHandle {
 
     async fn retry_with_delay(
         &self,
-        message: &crate::message::Message<serde_json::Value>,
+        message: &Message<serde_json::Value>,
         delay_ms: u64,
     ) -> WorkerResult<()> {
         tracing::info!(
@@ -149,7 +144,7 @@ impl crate::message::AckHandle for RabbitMqAckHandle {
 
     async fn send_to_dlq(
         &self,
-        message: &crate::message::Message<serde_json::Value>,
+        message: &Message<serde_json::Value>,
         error_message: &str,
     ) -> WorkerResult<()> {
         tracing::info!(
@@ -158,10 +153,8 @@ impl crate::message::AckHandle for RabbitMqAckHandle {
         );
 
         if let Some(ref backend) = self.retry_publisher {
-            // Cast the Arc<dyn RetryPublisher> back to RabbitMqBackend to call publish_to_dlq
-            // This is safe because we only create RabbitMqBackend instances as RetryPublisher
-            if let Some(rabbit_backend) = backend.as_any().downcast_ref::<RabbitMqBackend>() {
-                match rabbit_backend.publish_to_dlq(message, error_message).await {
+            if let Some(retry_pub) = backend.as_any().downcast_ref::<RabbitMqRetryPublisher>() {
+                match retry_pub.publish_to_dlq(message, error_message).await {
                     Ok(()) => {
                         tracing::info!(
                             "Successfully published message {} to DLQ after retries exhausted",
@@ -181,7 +174,7 @@ impl crate::message::AckHandle for RabbitMqAckHandle {
                 }
             } else {
                 tracing::warn!(
-                    "[RabbitMqAckHandle] retry_publisher is not RabbitMqBackend, using nack(false)"
+                    "[RabbitMqAckHandle] retry_publisher is not RabbitMqRetryPublisher, using nack(false)"
                 );
                 self.nack(false).await
             }
@@ -207,6 +200,166 @@ pub trait RetryPublisher {
 
     /// Cast self to Any for downcasting
     fn as_any(&self) -> &dyn std::any::Any;
+}
+
+/// Lightweight retry/DLQ publisher for RabbitMQ.
+///
+/// Used by `RabbitMqAckHandle` to publish messages to the retry queue or DLQ
+/// without carrying the full `RabbitMqBackend` state (consumer handle, channels, etc.).
+pub struct RabbitMqRetryPublisher {
+    pool: deadpool_lapin::Pool,
+    config: RabbitMqConsumerConfig,
+    retry_queue_name: Option<String>,
+    retry_exchange_name: Option<String>,
+    dlq_name: Option<String>,
+}
+
+impl std::fmt::Debug for RabbitMqRetryPublisher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RabbitMqRetryPublisher")
+            .field("queue", &self.config.queue_name)
+            .finish()
+    }
+}
+
+impl RabbitMqRetryPublisher {
+    /// Publish a message to the DLQ with failure metadata.
+    pub async fn publish_to_dlq(
+        &self,
+        message: &Message<serde_json::Value>,
+        error_message: &str,
+    ) -> WorkerResult<()> {
+        let dlq_name = self.dlq_name.as_ref().ok_or_else(|| {
+            WorkerError::BackendError("DLQ not configured".to_string())
+        })?;
+
+        let payload =
+            serde_json::to_vec(&message.payload).map_err(WorkerError::SerializationError)?;
+
+        let mut headers = FieldTable::default();
+        if let Some(original_rk) = &message.metadata.routing_key {
+            headers.insert(
+                "x-original-routing-key".into(),
+                AMQPValue::LongString(original_rk.clone().into()),
+            );
+        }
+        headers.insert(
+            "x-failure-reason".into(),
+            AMQPValue::LongString(error_message.into()),
+        );
+        headers.insert(
+            "x-final-attempt".into(),
+            AMQPValue::LongInt(message.metadata.attempt as i32),
+        );
+        use chrono::Utc;
+        headers.insert(
+            "x-failed-at".into(),
+            AMQPValue::LongString(Utc::now().to_rfc3339().into()),
+        );
+
+        let properties = BasicProperties::default()
+            .with_message_id(message.id.clone().into())
+            .with_content_type("application/json".into())
+            .with_headers(headers);
+
+        let conn = self.pool.get().await.map_err(|e| {
+            WorkerError::BackendError(format!("Failed to get connection for DLQ: {}", e))
+        })?;
+        let channel = conn.create_channel().await.map_err(|e| {
+            WorkerError::BackendError(format!("Failed to create channel for DLQ: {}", e))
+        })?;
+
+        channel
+            .basic_publish("", dlq_name, BasicPublishOptions::default(), &payload, properties)
+            .await
+            .map_err(|e| {
+                WorkerError::BackendError(format!("Failed to publish to DLQ: {}", e))
+            })?;
+
+        tracing::info!(
+            "Published message {} to DLQ '{}' after {} failed attempts",
+            message.id, dlq_name, message.metadata.attempt
+        );
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl RetryPublisher for RabbitMqRetryPublisher {
+    async fn publish_retry(
+        &self,
+        message: &Message<serde_json::Value>,
+        delay_ms: u64,
+    ) -> WorkerResult<()> {
+        let retry_queue = self.retry_queue_name.as_ref().ok_or_else(|| {
+            WorkerError::BackendError("Retry queue not configured".to_string())
+        })?;
+        let retry_exchange = self.retry_exchange_name.as_ref().ok_or_else(|| {
+            WorkerError::BackendError("Retry exchange not configured".to_string())
+        })?.clone();
+
+        let clamped_delay = delay_ms
+            .max(self.config.min_retry_delay_ms)
+            .min(self.config.max_retry_delay_ms);
+
+        let payload =
+            serde_json::to_vec(&message.payload).map_err(WorkerError::SerializationError)?;
+
+        let routing_key = message
+            .metadata
+            .routing_key
+            .as_deref()
+            .unwrap_or(&self.config.queue_name);
+
+        let mut headers = FieldTable::default();
+        if let Some(original_rk) = &message.metadata.routing_key {
+            headers.insert(
+                "x-original-routing-key".into(),
+                AMQPValue::LongString(original_rk.clone().into()),
+            );
+        }
+        let next_attempt = message.metadata.attempt + 1;
+        headers.insert(
+            "x-retry-attempt".into(),
+            AMQPValue::LongInt(next_attempt as i32),
+        );
+
+        let properties = BasicProperties::default()
+            .with_message_id(message.id.clone().into())
+            .with_content_type("application/json".into())
+            .with_expiration(clamped_delay.to_string().into())
+            .with_headers(headers);
+
+        let conn = self.pool.get().await.map_err(|e| {
+            WorkerError::BackendError(format!("Failed to get connection for retry: {}", e))
+        })?;
+        let channel = conn.create_channel().await.map_err(|e| {
+            WorkerError::BackendError(format!("Failed to create channel for retry: {}", e))
+        })?;
+
+        channel
+            .basic_publish(
+                &retry_exchange,
+                routing_key,
+                BasicPublishOptions::default(),
+                &payload,
+                properties,
+            )
+            .await
+            .map_err(|e| {
+                WorkerError::BackendError(format!("Failed to publish to retry queue: {}", e))
+            })?;
+
+        tracing::info!(
+            "Published message {} to retry queue '{}' via exchange '{}' with {}ms delay",
+            message.id, retry_queue, retry_exchange, clamped_delay
+        );
+        Ok(())
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Configuration for RabbitMQ consumer.
@@ -235,6 +388,19 @@ pub struct RabbitMqConsumerConfig {
     pub max_retry_delay_ms: u64,
     /// Minimum retry delay in milliseconds (default: 1 second = 1_000ms)
     pub min_retry_delay_ms: u64,
+    /// Queue declaration options (durable, auto_delete, etc.)
+    /// Applied to the main queue, retry queue, and DLQ.
+    pub queue_declare_options: QueueDeclareOptions,
+    /// Queue declaration arguments (x-queue-type, x-message-ttl, etc.)
+    /// Applied to the main queue, retry queue, and DLQ.
+    ///
+    /// # Example: Quorum queue
+    /// ```ignore
+    /// use lapin::types::{AMQPValue, FieldTable};
+    /// let mut args = FieldTable::default();
+    /// args.insert("x-queue-type".into(), AMQPValue::LongString("quorum".into()));
+    /// ```
+    pub queue_args: FieldTable,
 }
 
 impl Default for RabbitMqConsumerConfig {
@@ -250,6 +416,11 @@ impl Default for RabbitMqConsumerConfig {
             retry_exchange_name: None,
             max_retry_delay_ms: 3_600_000, // 1 hour
             min_retry_delay_ms: 1_000,     // 1 second
+            queue_declare_options: QueueDeclareOptions {
+                durable: true,
+                ..Default::default()
+            },
+            queue_args: FieldTable::default(),
         }
     }
 }
@@ -288,24 +459,14 @@ struct MessageEnvelope {
 /// }
 /// ```
 pub struct RabbitMqBackend {
-    /// Shared message channel receiver (wrapped in Mutex for concurrent access)
     message_rx: Arc<Mutex<tokio::sync::mpsc::Receiver<MessageEnvelope>>>,
-    /// Connection pool for health checks
     pub pool: deadpool_lapin::Pool,
-    /// The consume channel - wrapped in Mutex for thread-safe ack/nack operations
-    /// All delivery tags are only valid on this specific channel
     consume_channel: Arc<Mutex<lapin::Channel>>,
-    /// Config reference
     config: RabbitMqConsumerConfig,
-    /// Shutdown signal
     shutdown_notify: Arc<Notify>,
-    /// Handle to the background consumer task
     _consumer_handle: tokio::task::JoinHandle<()>,
-    /// Retry queue name (if delayed retry is enabled)
     pub retry_queue_name: Option<String>,
-    /// Retry exchange name (if delayed retry is enabled)
     pub retry_exchange_name: Option<String>,
-    /// Dead Letter Queue name for exhausted retries
     pub dlq_name: Option<String>,
 }
 
@@ -363,15 +524,12 @@ impl RabbitMqBackend {
             .await
             .map_err(|e| WorkerError::BackendError(format!("Failed to set QoS: {}", e)))?;
 
-        // Declare queue (idempotent)
+        // Declare queue (idempotent) — use user-provided options and args
         consume_channel
             .queue_declare(
                 &config.queue_name,
-                QueueDeclareOptions {
-                    durable: true,
-                    ..Default::default()
-                },
-                lapin::types::FieldTable::default(),
+                config.queue_declare_options,
+                config.queue_args.clone(),
             )
             .await
             .map_err(|e| WorkerError::BackendError(format!("Failed to declare queue: {}", e)))?;
@@ -639,7 +797,7 @@ impl RabbitMqBackend {
 
         // Declare the retry queue with DLX pointing back to the main queue
         // When TTL expires, dead-letter to default exchange with queue name as routing key
-        let mut args = FieldTable::default();
+        let mut args = config.queue_args.clone();
         args.insert(
             "x-dead-letter-exchange".into(),
             AMQPValue::LongString("".into()), // Empty string means default exchange
@@ -653,10 +811,7 @@ impl RabbitMqBackend {
         channel
             .queue_declare(
                 &retry_queue,
-                QueueDeclareOptions {
-                    durable: true,
-                    ..Default::default()
-                },
+                config.queue_declare_options,
                 args,
             )
             .await
@@ -677,16 +832,13 @@ impl RabbitMqBackend {
             .await
             .map_err(|e| WorkerError::BackendError(format!("Failed to bind retry queue: {}", e)))?;
 
-        // Create Dead Letter Queue for exhausted retries
+        // Create Dead Letter Queue for exhausted retries — use same options/args as main queue
         let dlq_name = format!("{}-dlq", config.queue_name);
         channel
             .queue_declare(
                 &dlq_name,
-                QueueDeclareOptions {
-                    durable: true,
-                    ..Default::default()
-                },
-                FieldTable::default(),
+                config.queue_declare_options,
+                config.queue_args.clone(),
             )
             .await
             .map_err(|e| WorkerError::BackendError(format!("Failed to declare DLQ: {}", e)))?;
@@ -1082,15 +1234,11 @@ impl MessageBackend for RabbitMqBackend {
                 // Create ack handle with delivery tag and retry publisher
                 let ack_handle = Arc::new(RabbitMqAckHandle {
                     delivery_tag: envelope.delivery_tag,
-                    ack_channel: self.consume_channel.clone(),
+                    channel: self.consume_channel.clone(),
                     retry_publisher: if self.retry_queue_name.is_some() {
-                        Some(Arc::new(Self {
-                            message_rx: self.message_rx.clone(),
+                        Some(Arc::new(RabbitMqRetryPublisher {
                             pool: self.pool.clone(),
-                            consume_channel: self.consume_channel.clone(),
                             config: self.config.clone(),
-                            shutdown_notify: self.shutdown_notify.clone(),
-                            _consumer_handle: tokio::spawn(async {}), // Dummy handle
                             retry_queue_name: self.retry_queue_name.clone(),
                             retry_exchange_name: self.retry_exchange_name.clone(),
                             dlq_name: self.dlq_name.clone(),

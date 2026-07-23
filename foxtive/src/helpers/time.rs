@@ -3,18 +3,22 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use chrono::{Local, NaiveDateTime, TimeDelta};
 use serde::{Deserialize, Deserializer, Serializer};
 
+/// Returns a datetime N seconds in the future.
 pub fn now_plus_seconds(sec: i64) -> NaiveDateTime {
     (Local::now() + TimeDelta::try_seconds(sec).unwrap()).naive_local()
 }
 
+/// Returns a datetime N minutes in the future.
 pub fn now_plus_minutes(min: i64) -> NaiveDateTime {
     now_plus_seconds(min * 60)
 }
 
+/// Returns the current local datetime.
 pub fn current_datetime() -> NaiveDateTime {
     Local::now().naive_local()
 }
 
+/// Returns the current Unix timestamp in seconds.
 pub fn current_timestamp() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

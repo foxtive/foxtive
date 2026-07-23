@@ -9,6 +9,7 @@
 //! Run with: `cargo run --example batch_processing`
 
 use async_trait::async_trait;
+use foxtive_worker::error::WorkerResult;
 use foxtive_worker::{BatchConfig, BatchHandler, BatchProcessor, MessageBatch};
 use std::sync::Arc;
 use std::time::Duration;
@@ -55,7 +56,7 @@ impl BatchHandler for DatabaseBatchHandler {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> WorkerResult<()> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 

@@ -5,6 +5,7 @@ use crate::contracts::SupervisedTask;
 use crate::enums::{
     ControlMessage, RestartPolicy, SupervisionStatus, SupervisorEvent, TaskConfig, TaskState,
 };
+use crate::error::SupervisorResult;
 use crate::persistence::{PersistedTaskState, TaskStateStore};
 use crate::runtime::circuit_breaker::{CircuitBreaker, CircuitState};
 use std::sync::Arc;
@@ -172,27 +173,45 @@ pub fn supervise(params: SupervisionParams) -> JoinHandle<SupervisionResult> {
         // --- Main supervision loop ---
         let mut is_paused = false;
 
+        // Dirty-flag tracking: only persist when state meaningfully changes
+        let mut last_persisted_attempt = attempt;
+        let mut last_persisted_failure_count = failure_count;
+        let mut last_persisted_paused = is_paused;
+        let mut last_persisted_cb_open = false;
+
         loop {
-            // Update and persist state
-            if let Some(store) = &state_store {
-                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-                let state = PersistedTaskState {
-                    task_id: id.to_string(),
-                    last_run_timestamp_secs: Some(now),
-                    last_success_timestamp_secs,
-                    failure_count,
-                    current_attempt: attempt,
-                    current_state: if is_paused {
-                        TaskState::Paused
-                    } else if circuit_breaker.as_ref().is_some_and(|cb| matches!(cb.state(), CircuitState::Open { .. })) {
-                        TaskState::CircuitBreakerOpen
-                    } else {
-                        TaskState::Running
-                    },
-                };
-                if let Err(e) = store.save_state(state).await {
-                    error!("Failed to save state for task {}: {:?}", id, e);
+            // Update and persist state (only when meaningful changes occur)
+            let cb_open = circuit_breaker.as_ref().is_some_and(|cb| matches!(cb.state(), CircuitState::Open { .. }));
+            let state_changed = attempt != last_persisted_attempt
+                || failure_count != last_persisted_failure_count
+                || is_paused != last_persisted_paused
+                || cb_open != last_persisted_cb_open;
+
+            if state_changed {
+                if let Some(store) = &state_store {
+                    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+                    let state = PersistedTaskState {
+                        task_id: id.to_string(),
+                        last_run_timestamp_secs: Some(now),
+                        last_success_timestamp_secs,
+                        failure_count,
+                        current_attempt: attempt,
+                        current_state: if is_paused {
+                            TaskState::Paused
+                        } else if cb_open {
+                            TaskState::CircuitBreakerOpen
+                        } else {
+                            TaskState::Running
+                        },
+                    };
+                    if let Err(e) = store.save_state(state).await {
+                        error!("Failed to save state for task {}: {:?}", id, e);
+                    }
                 }
+                last_persisted_attempt = attempt;
+                last_persisted_failure_count = failure_count;
+                last_persisted_paused = is_paused;
+                last_persisted_cb_open = cb_open;
             }
 
             // Process any pending control messages
@@ -660,7 +679,7 @@ enum TaskResultAction {
 /// Handle the result of a task execution
 #[allow(clippy::too_many_arguments)]
 async fn handle_task_result(
-    result: Result<Result<(), anyhow::Error>, tokio::task::JoinError>,
+    result: Result<SupervisorResult<()>, tokio::task::JoinError>,
     event_tx: &broadcast::Sender<SupervisorEvent>,
     task_id: &str,
     task_name: &str,
@@ -789,7 +808,7 @@ async fn handle_control_message_during_execution(
     task: &Arc<dyn SupervisedTask>,
     is_paused: &mut bool,
     circuit_breaker: &mut Option<CircuitBreaker>,
-    run_handle: &mut tokio::task::JoinHandle<Result<(), anyhow::Error>>,
+    run_handle: &mut tokio::task::JoinHandle<SupervisorResult<()>>,
     attempt: usize,
 ) -> Option<SupervisionResult> {
     match msg {

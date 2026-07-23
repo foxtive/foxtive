@@ -40,7 +40,7 @@ jobs:
           done
 
           echo "Changed crates: $VALID_CRATES"
-          echo "::set-output name=changed_crates::$VALID_CRATES"
+          echo "changed_crates=$VALID_CRATES" >> "$GITHUB_OUTPUT"
 
   test-code:
     name: Test Codebase
@@ -68,7 +68,30 @@ jobs:
             echo "Running Clippy and Tests for crate: $CRATE"
             cargo clippy --package $CRATE --all-features
             cargo test --package $CRATE --all-features
+            
+            echo "Testing with no default features for crate: $CRATE"
+            cargo test --package $CRATE --no-default-features || echo "No-default-features test skipped (may not be supported)"
+
+            # Feature combination tests for foxtive core
+            if [ "$CRATE" = "foxtive" ]; then
+              echo "Testing feature combinations for foxtive..."
+              cargo test --package foxtive --no-default-features --features database || true
+              cargo test --package foxtive --no-default-features --features redis || true
+              cargo test --package foxtive --no-default-features --features rabbitmq || true
+              cargo test --package foxtive --no-default-features --features jwt,test-utils || true
+              cargo test --package foxtive --no-default-features --features crypto || true
+              cargo test --package foxtive --no-default-features --features cache,cache-in-memory || true
+              cargo test --package foxtive --no-default-features --features cache,cache-filesystem || true
+              cargo test --package foxtive --no-default-features --features http || true
+            fi
           done
+
+      - name: Run cargo audit
+        run: |
+          cargo install cargo-audit --locked
+          # RUSTSEC-2023-0071: rsa v0.9.x Marvin Attack – no patched version exists;
+          # rsa is only pulled in transitively by jsonwebtoken/jose-rs for test utilities.
+          cargo audit --ignore RUSTSEC-2023-0071
 
   release:
     name: Release Package
@@ -102,13 +125,43 @@ jobs:
             exit 0
           fi
 
+          echo "Changed crates: $CHANGED_CRATES"
+
+          # Publish in dependency order: leaves first, dependents after.
+          # A crate is published if it changed OR its version isn't on crates.io yet
+          # (ensures internal deps are available even when they weren't directly changed).
+          PUBLISH_ORDER="foxtive-macros foxtive-cron foxtive foxtive-supervisor foxtive-worker"
+          PUBLISH_LIST=""
+
+          for CRATE in $PUBLISH_ORDER; do
+            NEEDS_PUBLISH=false
+
+            if echo "$CHANGED_CRATES" | grep -qw "$CRATE"; then
+              NEEDS_PUBLISH=true
+            else
+              # Check if this crate's version is already on crates.io
+              LOCAL_VERSION=$(grep '^version' "$CRATE/Cargo.toml" | sed -E 's/version\s*=\s*"([^"]+)"/\1/')
+              CRATES_IO_VERSION=$(cargo search "^${CRATE}$" --limit 1 2>/dev/null | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+              if [ "$LOCAL_VERSION" != "$CRATES_IO_VERSION" ]; then
+                echo "$CRATE v$LOCAL_VERSION not on crates.io (latest: v$CRATES_IO_VERSION), adding to publish list"
+                NEEDS_PUBLISH=true
+              fi
+            fi
+
+            if [ "$NEEDS_PUBLISH" = true ]; then
+              PUBLISH_LIST="$PUBLISH_LIST $CRATE"
+            fi
+          done
+
+          echo "Publish list:$PUBLISH_LIST"
+
           PUBLISHED_CRATES=""
-          for CRATE in $CHANGED_CRATES; do
+          for CRATE in $PUBLISH_LIST; do
             echo "Publishing $CRATE..."
             cargo publish -p $CRATE && PUBLISHED_CRATES="$PUBLISHED_CRATES $CRATE"
           done
 
-          echo "::set-output name=published_crates::$PUBLISHED_CRATES"
+          echo "published_crates=$PUBLISHED_CRATES" >> "$GITHUB_OUTPUT"
 
   tag-version:
     name: Tag Version

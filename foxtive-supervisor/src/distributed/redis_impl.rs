@@ -1,6 +1,7 @@
 //! Redis-based implementation of distributed coordination
 
 use super::{CoordinationBackend, CoordinationConfig};
+use crate::error::SupervisorResult;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, error, info};
@@ -13,7 +14,7 @@ pub struct RedisCoordination {
 
 impl RedisCoordination {
     /// Create a new Redis coordination backend
-    pub async fn new(config: CoordinationConfig) -> anyhow::Result<Self> {
+    pub async fn new(config: CoordinationConfig) -> SupervisorResult<Self> {
         let client = redis::Client::open(config.redis_url.clone())?;
 
         // Test connection
@@ -29,14 +30,14 @@ impl RedisCoordination {
     }
 
     /// Get a Redis connection
-    async fn get_conn(&self) -> anyhow::Result<redis::aio::MultiplexedConnection> {
+    async fn get_conn(&self) -> SupervisorResult<redis::aio::MultiplexedConnection> {
         Ok(self.client.get_multiplexed_async_connection().await?)
     }
 }
 
 #[async_trait::async_trait]
 impl CoordinationBackend for RedisCoordination {
-    async fn try_acquire_lock(&self, key: &str, ttl_secs: u64) -> anyhow::Result<bool> {
+    async fn try_acquire_lock(&self, key: &str, ttl_secs: u64) -> SupervisorResult<bool> {
         let lock_key = format!("lock:{}", key);
         let instance_id = &self.config.instance_id;
 
@@ -62,7 +63,7 @@ impl CoordinationBackend for RedisCoordination {
         Ok(acquired)
     }
 
-    async fn release_lock(&self, key: &str) -> anyhow::Result<()> {
+    async fn release_lock(&self, key: &str) -> SupervisorResult<()> {
         let lock_key = format!("lock:{}", key);
         let instance_id = &self.config.instance_id;
 
@@ -89,7 +90,7 @@ impl CoordinationBackend for RedisCoordination {
         Ok(())
     }
 
-    async fn is_locked(&self, key: &str) -> anyhow::Result<bool> {
+    async fn is_locked(&self, key: &str) -> SupervisorResult<bool> {
         let lock_key = format!("lock:{}", key);
         let mut conn = self.get_conn().await?;
 
@@ -101,7 +102,7 @@ impl CoordinationBackend for RedisCoordination {
         Ok(exists)
     }
 
-    async fn heartbeat(&self, instance_id: &str, ttl_secs: u64) -> anyhow::Result<()> {
+    async fn heartbeat(&self, instance_id: &str, ttl_secs: u64) -> SupervisorResult<()> {
         let heartbeat_key = format!("heartbeat:{}", instance_id);
         let mut conn = self.get_conn().await?;
 
@@ -118,7 +119,7 @@ impl CoordinationBackend for RedisCoordination {
         Ok(())
     }
 
-    async fn is_instance_alive(&self, instance_id: &str) -> anyhow::Result<bool> {
+    async fn is_instance_alive(&self, instance_id: &str) -> SupervisorResult<bool> {
         let heartbeat_key = format!("heartbeat:{}", instance_id);
         let mut conn = self.get_conn().await?;
 
@@ -130,7 +131,7 @@ impl CoordinationBackend for RedisCoordination {
         Ok(exists)
     }
 
-    async fn try_become_leader(&self, instance_id: &str, lease_secs: u64) -> anyhow::Result<bool> {
+    async fn try_become_leader(&self, instance_id: &str, lease_secs: u64) -> SupervisorResult<bool> {
         let leader_key = "leader:current";
 
         let mut conn = self.get_conn().await?;
@@ -153,7 +154,7 @@ impl CoordinationBackend for RedisCoordination {
         Ok(became_leader)
     }
 
-    async fn is_leader(&self, instance_id: &str) -> anyhow::Result<bool> {
+    async fn is_leader(&self, instance_id: &str) -> SupervisorResult<bool> {
         let leader_key = "leader:current";
         let mut conn = self.get_conn().await?;
 
@@ -165,7 +166,7 @@ impl CoordinationBackend for RedisCoordination {
         Ok(current_leader.as_deref() == Some(instance_id))
     }
 
-    async fn get_current_leader(&self) -> anyhow::Result<Option<String>> {
+    async fn get_current_leader(&self) -> SupervisorResult<Option<String>> {
         let leader_key = "leader:current";
         let mut conn = self.get_conn().await?;
 
@@ -201,7 +202,7 @@ impl CoordinationManager {
     }
 
     /// Start background tasks for leader election and heartbeat
-    pub async fn start(&self) -> anyhow::Result<()> {
+    pub async fn start(&self) -> SupervisorResult<()> {
         let instance_id = self.config.instance_id.clone();
         let backend = self.backend.clone();
         let is_leader = self.is_leader.clone();

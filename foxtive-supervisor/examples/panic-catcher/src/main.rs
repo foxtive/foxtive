@@ -25,7 +25,7 @@ impl SupervisedTask for PanicCatcherTask {
         BackoffStrategy::Fixed(Duration::from_secs(1))
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         info!("Running task {}", self.name);
 
         let count = self.fail_count.fetch_add(1, Ordering::SeqCst);
@@ -44,7 +44,7 @@ impl SupervisedTask for PanicCatcherTask {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
     let results = Supervisor::new()

@@ -99,17 +99,17 @@ impl SupervisedTask for MockTask {
         self.id
     }
 
-    async fn setup(&self) -> anyhow::Result<()> {
+    async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
         self.setup_called.store(true, Ordering::SeqCst);
         Ok(())
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         self.run_count.fetch_add(1, Ordering::SeqCst);
         let current_fails = self.fail_count.fetch_add(1, Ordering::SeqCst);
         let max = self.max_fails.load(Ordering::SeqCst);
         if current_fails < max {
-            anyhow::bail!("Simulated failure {}/{}", current_fails + 1, max);
+            return Err(foxtive_supervisor::SupervisorError::from(format!("Simulated failure {}/{}", current_fails + 1, max)));
         }
         Ok(())
     }
@@ -160,7 +160,7 @@ impl MockPrerequisite {
     }
 
     /// Returns a future that resolves when the prerequisite is satisfied.
-    pub async fn wait(&self) -> anyhow::Result<()> {
+    pub async fn wait(&self) -> foxtive_supervisor::SupervisorResult<()> {
         while !self.resolved.load(Ordering::SeqCst) {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }

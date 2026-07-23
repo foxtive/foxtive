@@ -1,4 +1,4 @@
-use anyhow::Result;
+use foxtive_supervisor::SupervisorResult;
 use async_trait::async_trait;
 use chrono::{Timelike, Utc};
 use foxtive_supervisor::SupervisedTask;
@@ -24,7 +24,7 @@ impl SupervisedTask for FrequentTask {
         Some("*/2 * * * * * *")
     }
 
-    async fn run(&self) -> Result<()> {
+    async fn run(&self) -> SupervisorResult<()> {
         let count = self.execution_count.fetch_add(1, Ordering::SeqCst) + 1;
         let now = Utc::now().format("%H:%M:%S");
         info!(count, time = %now, "Frequent task executed");
@@ -53,14 +53,14 @@ impl SupervisedTask for RateLimitedTask {
         Some(Duration::from_secs(3))
     }
 
-    async fn run(&self) -> Result<()> {
+    async fn run(&self) -> SupervisorResult<()> {
         let count = self.execution_count.fetch_add(1, Ordering::SeqCst) + 1;
         let now = Utc::now().format("%H:%M:%S");
         info!(count, time = %now, "Rate-limited task executed");
 
         // Simulate occasional failures
         if count.is_multiple_of(4) {
-            anyhow::bail!("Simulated failure");
+            return Err(foxtive_supervisor::SupervisorError::from("Simulated failure"));
         }
 
         Ok(())
@@ -93,7 +93,7 @@ impl SupervisedTask for DelayedTask {
         Some((Duration::from_millis(0), Duration::from_secs(2)))
     }
 
-    async fn run(&self) -> Result<()> {
+    async fn run(&self) -> SupervisorResult<()> {
         let count = self.execution_count.fetch_add(1, Ordering::SeqCst) + 1;
         let now = Utc::now().format("%H:%M:%S");
         info!(count, time = %now, "Delayed task with jitter executed");
@@ -123,7 +123,7 @@ impl SupervisedTask for BusinessHoursTask {
         None // Disabled for demo - would be Some((Some(9), Some(17))) for 9-17 UTC
     }
 
-    async fn run(&self) -> Result<()> {
+    async fn run(&self) -> SupervisorResult<()> {
         let count = self.execution_count.fetch_add(1, Ordering::SeqCst) + 1;
         let now = Utc::now().format("%H:%M:%S");
         let hour = Utc::now().hour();
@@ -133,7 +133,7 @@ impl SupervisedTask for BusinessHoursTask {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 

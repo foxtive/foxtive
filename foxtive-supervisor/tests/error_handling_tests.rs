@@ -30,8 +30,8 @@ async fn test_restart_prevented_by_should_restart() {
         fn id(&self) -> &'static str {
             self.id
         }
-        async fn run(&self) -> anyhow::Result<()> {
-            anyhow::bail!("Always fails")
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
+            return Err(foxtive_supervisor::SupervisorError::from("Always fails"));
         }
         async fn should_restart(&self, _attempt: usize, _error: &str) -> bool {
             false
@@ -59,10 +59,10 @@ async fn test_dependency_failure_prevents_startup() {
         fn id(&self) -> &'static str {
             self.id
         }
-        async fn setup(&self) -> anyhow::Result<()> {
-            anyhow::bail!("Setup failed")
+        async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
+            return Err(foxtive_supervisor::SupervisorError::from("Setup failed"));
         }
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             Ok(())
         }
     }
@@ -80,7 +80,7 @@ async fn test_dependency_failure_prevents_startup() {
         fn dependencies(&self) -> &'static [&'static str] {
             Box::leak(vec![self.dep_id].into_boxed_slice())
         }
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             Ok(())
         }
     }

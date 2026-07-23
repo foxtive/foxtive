@@ -29,7 +29,7 @@
 use crate::prelude::AppResult;
 use base64::{Engine, engine};
 
-/// A utility struct providing Base64 encoding and decoding functionality.
+/// Base64 encoding/decoding utility.
 #[derive(Debug)]
 pub struct Base64;
 

@@ -4,11 +4,12 @@
 //! including setting custom metadata, extracting backend-specific properties, and using
 //! them for distributed tracing.
 
+use foxtive_worker::error::WorkerResult;
 use foxtive_worker::prelude::*;
 use serde_json::json;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> WorkerResult<()> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 
@@ -33,7 +34,7 @@ async fn main() -> anyhow::Result<()> {
 }
 
 /// Example 1: Creating messages with custom properties
-async fn example_custom_properties() -> anyhow::Result<()> {
+async fn example_custom_properties() -> WorkerResult<()> {
     println!("1. Custom Properties with Memory Backend");
     println!("-----------------------------------------");
 
@@ -65,7 +66,7 @@ async fn example_custom_properties() -> anyhow::Result<()> {
 }
 
 /// Example 2: Microservice identification and tracking
-async fn example_microservice_tracking() -> anyhow::Result<()> {
+async fn example_microservice_tracking() -> WorkerResult<()> {
     println!("2. Microservice Identification");
     println!("-------------------------------");
 
@@ -98,7 +99,7 @@ async fn example_microservice_tracking() -> anyhow::Result<()> {
 }
 
 /// Example 3: Distributed tracing with correlation IDs
-async fn example_distributed_tracing() -> anyhow::Result<()> {
+async fn example_distributed_tracing() -> WorkerResult<()> {
     println!("3. Distributed Tracing");
     println!("-----------------------");
 
@@ -138,7 +139,7 @@ async fn example_distributed_tracing() -> anyhow::Result<()> {
 }
 
 /// Example 4: Priority-based message processing
-async fn example_priority_processing() -> anyhow::Result<()> {
+async fn example_priority_processing() -> WorkerResult<()> {
     println!("4. Priority-Based Processing");
     println!("-----------------------------");
 
@@ -184,7 +185,7 @@ async fn example_priority_processing() -> anyhow::Result<()> {
 }
 
 /// Example 5: Message expiration/TTL
-async fn example_expiration() -> anyhow::Result<()> {
+async fn example_expiration() -> WorkerResult<()> {
     println!("5. Message Expiration (TTL)");
     println!("----------------------------");
 

@@ -1,8 +1,8 @@
 use uuid::Uuid;
 
-pub struct Str;
+pub struct StringHelper;
 
-impl Str {
+impl StringHelper {
     pub fn uc_first(s: &str) -> String {
         let mut chars = s.chars();
         match chars.next() {
@@ -25,15 +25,21 @@ impl Str {
 
     /// Generate uuid v4 based id with dashes(-) removed
     pub fn uuid() -> String {
-        Uuid::new_v4().to_string().replace("-", "")
+        Uuid::new_v4().as_simple().to_string()
     }
 
-    /// Truncates a string to a specified length, adding ellipsis if truncated
+    /// Truncates a string to a specified length, adding ellipsis if truncated.
+    ///
+    /// Respects UTF-8 character boundaries - will not split a multi-byte character.
     pub fn truncate(s: &str, max_length: usize) -> String {
         if s.len() <= max_length {
             s.to_string()
         } else {
-            format!("{}...", &s[..max_length])
+            let mut end = max_length;
+            while end > 0 && !s.is_char_boundary(end) {
+                end -= 1;
+            }
+            format!("{}...", &s[..end])
         }
     }
 
@@ -101,46 +107,46 @@ mod tests {
 
     #[test]
     fn test_uc_first() {
-        assert_eq!(Str::uc_first("hello"), "Hello");
-        assert_eq!(Str::uc_first("rust"), "Rust");
-        assert_eq!(Str::uc_first(""), ""); // Test empty string
-        assert_eq!(Str::uc_first("a"), "A"); // Test single character
-        assert_eq!(Str::uc_first("hELLO"), "HELLO"); // Test capitalizing first char but not modifying others
-        assert_eq!(Str::uc_first("1world"), "1world"); // Test first character is non-alphabetic
+        assert_eq!(StringHelper::uc_first("hello"), "Hello");
+        assert_eq!(StringHelper::uc_first("rust"), "Rust");
+        assert_eq!(StringHelper::uc_first(""), ""); // Test empty string
+        assert_eq!(StringHelper::uc_first("a"), "A"); // Test single character
+        assert_eq!(StringHelper::uc_first("hELLO"), "HELLO"); // Test capitalizing first char but not modifying others
+        assert_eq!(StringHelper::uc_first("1world"), "1world"); // Test first character is non-alphabetic
     }
 
     #[test]
     fn test_uc_words() {
-        assert_eq!(Str::uc_words("hello world"), "Hello World");
+        assert_eq!(StringHelper::uc_words("hello world"), "Hello World");
         assert_eq!(
-            Str::uc_words("rust programming language"),
+            StringHelper::uc_words("rust programming language"),
             "Rust Programming Language"
         );
-        assert_eq!(Str::uc_words(""), ""); // Test empty string
-        assert_eq!(Str::uc_words("a b c"), "A B C"); // Test single characters
-        assert_eq!(Str::uc_words("multiple    spaces"), "Multiple Spaces"); // Test multiple spaces
-        assert_eq!(Str::uc_words("123 hello"), "123 Hello"); // Test with non-alphabetic characters
+        assert_eq!(StringHelper::uc_words(""), ""); // Test empty string
+        assert_eq!(StringHelper::uc_words("a b c"), "A B C"); // Test single characters
+        assert_eq!(StringHelper::uc_words("multiple    spaces"), "Multiple Spaces"); // Test multiple spaces
+        assert_eq!(StringHelper::uc_words("123 hello"), "123 Hello"); // Test with non-alphabetic characters
     }
 
     #[cfg(feature = "regex")]
     #[test]
     fn test_is_username_valid_valid_usernames() {
-        assert!(Str::is_username_valid("a".to_string()).unwrap());
-        assert!(Str::is_username_valid("abc1234".to_string()).unwrap());
-        assert!(Str::is_username_valid("a.b.c".to_string()).unwrap());
-        assert!(Str::is_username_valid("username1".to_string()).unwrap());
-        assert!(Str::is_username_valid("a123456789012345678901234567890123".to_string()).unwrap());
+        assert!(StringHelper::is_username_valid("a".to_string()).unwrap());
+        assert!(StringHelper::is_username_valid("abc1234".to_string()).unwrap());
+        assert!(StringHelper::is_username_valid("a.b.c".to_string()).unwrap());
+        assert!(StringHelper::is_username_valid("username1".to_string()).unwrap());
+        assert!(StringHelper::is_username_valid("a123456789012345678901234567890123".to_string()).unwrap());
         // 37 chars
     }
 
     #[cfg(feature = "regex")]
     #[test]
     fn test_is_username_valid_invalid_usernames() {
-        assert!(!Str::is_username_valid("1username".to_string()).unwrap()); // Starts with a digit
-        assert!(!Str::is_username_valid("username!".to_string()).unwrap()); // Invalid character
-        assert!(!Str::is_username_valid("".to_string()).unwrap()); // Empty username
+        assert!(!StringHelper::is_username_valid("1username".to_string()).unwrap()); // Starts with a digit
+        assert!(!StringHelper::is_username_valid("username!".to_string()).unwrap()); // Invalid character
+        assert!(!StringHelper::is_username_valid("".to_string()).unwrap()); // Empty username
         assert!(
-            !Str::is_username_valid(
+            !StringHelper::is_username_valid(
                 "a.b.c.d.e.f.g.h.i.j.k.l.m.n.o.p.q.r.s.t.u.v.w.x.y.z".to_string()
             )
             .unwrap()
@@ -149,74 +155,74 @@ mod tests {
 
     #[test]
     fn test_uuid() {
-        let uuid = Str::uuid();
+        let uuid = StringHelper::uuid();
         // Check if the length is 32 (UUID v4 without dashes)
         assert_eq!(uuid.len(), 32);
         // Check if it contains only hexadecimal characters
         assert!(uuid.chars().all(|c| c.is_ascii_hexdigit()));
 
         // Generate a few UUIDs and check that they are unique
-        let uuid_set: std::collections::HashSet<_> = (0..1000).map(|_| Str::uuid()).collect();
+        let uuid_set: std::collections::HashSet<_> = (0..1000).map(|_| StringHelper::uuid()).collect();
         assert_eq!(uuid_set.len(), 1000); // Check for uniqueness
     }
 
     #[test]
     fn test_truncate() {
-        assert_eq!(Str::truncate("Hello, World!", 5), "Hello...");
-        assert_eq!(Str::truncate("Hello", 10), "Hello");
-        assert_eq!(Str::truncate("", 5), "");
+        assert_eq!(StringHelper::truncate("Hello, World!", 5), "Hello...");
+        assert_eq!(StringHelper::truncate("Hello", 10), "Hello");
+        assert_eq!(StringHelper::truncate("", 5), "");
     }
 
     #[test]
     fn test_remove_whitespace() {
-        assert_eq!(Str::remove_whitespace("Hello World"), "HelloWorld");
-        assert_eq!(Str::remove_whitespace("   spaces   "), "spaces");
-        assert_eq!(Str::remove_whitespace("\t\ntest\r"), "test");
+        assert_eq!(StringHelper::remove_whitespace("Hello World"), "HelloWorld");
+        assert_eq!(StringHelper::remove_whitespace("   spaces   "), "spaces");
+        assert_eq!(StringHelper::remove_whitespace("\t\ntest\r"), "test");
     }
 
     #[test]
     fn test_reverse() {
-        assert_eq!(Str::reverse("hello"), "olleh");
-        assert_eq!(Str::reverse(""), "");
-        assert_eq!(Str::reverse("Rust"), "tsuR");
+        assert_eq!(StringHelper::reverse("hello"), "olleh");
+        assert_eq!(StringHelper::reverse(""), "");
+        assert_eq!(StringHelper::reverse("Rust"), "tsuR");
     }
 
     #[test]
     fn test_count_occurrences() {
-        assert_eq!(Str::count_occurrences("hello hello hello", "hello"), 3);
-        assert_eq!(Str::count_occurrences("aaa", "aa"), 1);
-        assert_eq!(Str::count_occurrences("test", ""), 0);
+        assert_eq!(StringHelper::count_occurrences("hello hello hello", "hello"), 3);
+        assert_eq!(StringHelper::count_occurrences("aaa", "aa"), 1);
+        assert_eq!(StringHelper::count_occurrences("test", ""), 0);
     }
 
     #[test]
     fn test_is_numeric() {
-        assert!(Str::is_numeric("123"));
-        assert!(!Str::is_numeric("12.3"));
-        assert!(!Str::is_numeric("abc"));
-        assert!(!Str::is_numeric(""));
+        assert!(StringHelper::is_numeric("123"));
+        assert!(!StringHelper::is_numeric("12.3"));
+        assert!(!StringHelper::is_numeric("abc"));
+        assert!(!StringHelper::is_numeric(""));
     }
 
     #[test]
     fn test_is_alphabetic() {
-        assert!(Str::is_alphabetic("abc"));
-        assert!(Str::is_alphabetic("ABC"));
-        assert!(!Str::is_alphabetic("abc123"));
-        assert!(!Str::is_alphabetic(""));
+        assert!(StringHelper::is_alphabetic("abc"));
+        assert!(StringHelper::is_alphabetic("ABC"));
+        assert!(!StringHelper::is_alphabetic("abc123"));
+        assert!(!StringHelper::is_alphabetic(""));
     }
 
     #[test]
     fn test_to_camel_case() {
-        assert_eq!(Str::camel_case("hello_world"), "helloWorld");
-        assert_eq!(Str::camel_case("user_id"), "userId");
-        assert_eq!(Str::camel_case("already_camelCase"), "alreadyCamelCase");
-        assert_eq!(Str::camel_case(""), "");
+        assert_eq!(StringHelper::camel_case("hello_world"), "helloWorld");
+        assert_eq!(StringHelper::camel_case("user_id"), "userId");
+        assert_eq!(StringHelper::camel_case("already_camelCase"), "alreadyCamelCase");
+        assert_eq!(StringHelper::camel_case(""), "");
     }
 
     #[test]
     fn test_pad_left() {
-        assert_eq!(Str::pad_left("123", 5, '0'), "00123");
-        assert_eq!(Str::pad_left("abc", 3, '0'), "abc");
-        assert_eq!(Str::pad_left("", 2, '*'), "**");
+        assert_eq!(StringHelper::pad_left("123", 5, '0'), "00123");
+        assert_eq!(StringHelper::pad_left("abc", 3, '0'), "abc");
+        assert_eq!(StringHelper::pad_left("", 2, '*'), "**");
     }
 }
 

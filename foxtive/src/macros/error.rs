@@ -1,3 +1,24 @@
+/// Generates `From<ErrorType> for AppMessage` impls that wrap into Infrastructure.
+///
+/// Usage:
+///   impl_from_infra!(std::io::Error => "IO error");
+///   impl_from_infra!(serde_json::Error => "Serialization error");
+#[macro_export]
+macro_rules! impl_from_infra {
+    ($($ty:ty => $msg:expr),* $(,)?) => {
+        $(
+            impl From<$ty> for $crate::prelude::AppMessage {
+                fn from(e: $ty) -> Self {
+                    $crate::prelude::AppMessage::Infrastructure {
+                        message: format!("{}: {}", $msg, e),
+                        source: Some(Box::new(e)),
+                    }
+                }
+            }
+        )*
+    };
+}
+
 /// Creates a `not_found` error with optional format arguments.
 ///
 /// ```no_run
@@ -11,7 +32,7 @@
 #[macro_export]
 macro_rules! not_found {
     ($($arg:tt)*) => {
-        $crate::Error::from($crate::prelude::AppMessage::not_found(format!($($arg)*)))
+        $crate::prelude::AppMessage::not_found(format!($($arg)*))
     };
 }
 
@@ -28,7 +49,7 @@ macro_rules! not_found {
 #[macro_export]
 macro_rules! unauthorized {
     ($($arg:tt)*) => {
-        $crate::Error::from($crate::prelude::AppMessage::unauthorized(format!($($arg)*)))
+        $crate::prelude::AppMessage::unauthorized(format!($($arg)*))
     };
 }
 
@@ -45,7 +66,7 @@ macro_rules! unauthorized {
 #[macro_export]
 macro_rules! forbidden {
     ($($arg:tt)*) => {
-        $crate::Error::from($crate::prelude::AppMessage::forbidden(format!($($arg)*)))
+        $crate::prelude::AppMessage::forbidden(format!($($arg)*))
     };
 }
 
@@ -62,7 +83,7 @@ macro_rules! forbidden {
 #[macro_export]
 macro_rules! bad_request {
     ($($arg:tt)*) => {
-        $crate::Error::from($crate::prelude::AppMessage::invalid(format!($($arg)*)))
+        $crate::prelude::AppMessage::invalid(format!($($arg)*))
     };
 }
 
@@ -96,7 +117,7 @@ macro_rules! invalid {
 #[macro_export]
 macro_rules! conflict {
     ($($arg:tt)*) => {
-        $crate::Error::from($crate::prelude::AppMessage::conflict(format!($($arg)*)))
+        $crate::prelude::AppMessage::conflict(format!($($arg)*))
     };
 }
 
@@ -113,7 +134,7 @@ macro_rules! conflict {
 #[macro_export]
 macro_rules! unprocessable_entity {
     ($($arg:tt)*) => {
-        $crate::Error::from($crate::prelude::AppMessage::unprocessable_entity(format!($($arg)*)))
+        $crate::prelude::AppMessage::unprocessable_entity(format!($($arg)*))
     };
 }
 
@@ -130,7 +151,7 @@ macro_rules! unprocessable_entity {
 #[macro_export]
 macro_rules! internal_server_error {
     ($($arg:tt)*) => {
-        $crate::Error::from($crate::prelude::AppMessage::internal_server_error(format!($($arg)*)))
+        $crate::prelude::AppMessage::internal_server_error(format!($($arg)*))
     };
 }
 
@@ -162,12 +183,12 @@ macro_rules! validation_error {
         $(
             errors.insert($field.to_string(), vec![$($err.to_string()),*]);
         )*
-        $crate::Error::from($crate::prelude::AppMessage::validation_error(format!($msg), errors))
+        $crate::prelude::AppMessage::validation_error(format!($msg), errors)
     }};
 
     // Pre-built map form: validation_error!("msg", errors_map)
     ($msg:expr, $errors:expr) => {
-        $crate::Error::from($crate::prelude::AppMessage::validation_error(format!($msg), $errors))
+        $crate::prelude::AppMessage::validation_error(format!($msg), $errors)
     };
 }
 
@@ -215,56 +236,45 @@ macro_rules! ensure_found {
 
 #[cfg(test)]
 mod tests {
-    use crate::enums::AppMessage;
-    use crate::results::AppResult;
+    use crate::prelude::AppResult;
     use http::StatusCode;
-
-    fn downcast(err: &crate::Error) -> &AppMessage {
-        err.downcast_ref::<AppMessage>().unwrap()
-    }
 
     #[test]
     fn test_basic_macros() {
         let err = invalid!("Pin must be 6 digits");
-        assert_eq!(err.to_string(), "Pin must be 6 digits");
-        assert_eq!(downcast(&err).status_code(), StatusCode::BAD_REQUEST);
+        assert_eq!(err.message(), "Pin must be 6 digits");
+        assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
 
         let err = not_found!("User {} was not found", 42);
-        assert_eq!(err.to_string(), "User 42 was not found");
-        assert_eq!(downcast(&err).status_code(), StatusCode::NOT_FOUND);
+        assert_eq!(err.message(), "User 42 was not found");
+        assert_eq!(err.status_code(), StatusCode::NOT_FOUND);
 
         let err = unauthorized!("Token {} expired", "abc");
-        assert_eq!(err.to_string(), "Token abc expired");
-        assert_eq!(downcast(&err).status_code(), StatusCode::UNAUTHORIZED);
+        assert_eq!(err.message(), "Token abc expired");
+        assert_eq!(err.status_code(), StatusCode::UNAUTHORIZED);
 
         let err = forbidden!("Role {} not allowed", "guest");
-        assert_eq!(err.to_string(), "Role guest not allowed");
-        assert_eq!(downcast(&err).status_code(), StatusCode::FORBIDDEN);
+        assert_eq!(err.message(), "Role guest not allowed");
+        assert_eq!(err.status_code(), StatusCode::FORBIDDEN);
 
         let err = conflict!("Email {} is already taken", "a@b.com");
-        assert_eq!(err.to_string(), "Email a@b.com is already taken");
-        assert_eq!(downcast(&err).status_code(), StatusCode::CONFLICT);
+        assert_eq!(err.message(), "Email a@b.com is already taken");
+        assert_eq!(err.status_code(), StatusCode::CONFLICT);
 
         let err = unprocessable_entity!("Cannot process request");
-        assert_eq!(
-            downcast(&err).status_code(),
-            StatusCode::UNPROCESSABLE_ENTITY
-        );
+        assert_eq!(err.status_code(), StatusCode::UNPROCESSABLE_ENTITY);
 
         let err = internal_server_error!("Crashed on line {}", 99);
-        assert_eq!(err.to_string(), "Crashed on line 99");
-        assert_eq!(
-            downcast(&err).status_code(),
-            StatusCode::INTERNAL_SERVER_ERROR
-        );
+        assert_eq!(err.message(), "Crashed on line 99");
+        assert_eq!(err.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 
     #[test]
     fn test_bad_request_and_invalid_are_equivalent() {
         let a = bad_request!("bad input");
         let b = invalid!("bad input");
-        assert_eq!(a.to_string(), b.to_string());
-        assert_eq!(downcast(&a).status_code(), downcast(&b).status_code());
+        assert_eq!(a.message(), b.message());
+        assert_eq!(a.status_code(), b.status_code());
     }
 
     #[test]
@@ -274,11 +284,10 @@ mod tests {
             "name"  => ["is too short"],
         });
 
-        assert_eq!(err.to_string(), "Validation failed");
-        let msg = downcast(&err);
-        assert_eq!(msg.status_code(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(err.message(), "Validation failed");
+        assert_eq!(err.status_code(), StatusCode::UNPROCESSABLE_ENTITY);
 
-        let errors = msg.validation_errors().unwrap();
+        let errors = err.validation_errors().unwrap();
         assert_eq!(
             errors["email"],
             vec!["is required", "must be a valid email"]
@@ -292,10 +301,9 @@ mod tests {
         map.insert("phone".into(), vec!["is invalid".into()]);
 
         let err = validation_error!("Validation failed", map);
-        let msg = downcast(&err);
-        assert_eq!(msg.status_code(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(err.status_code(), StatusCode::UNPROCESSABLE_ENTITY);
         assert_eq!(
-            msg.validation_errors().unwrap()["phone"],
+            err.validation_errors().unwrap()["phone"],
             vec!["is invalid"]
         );
     }
@@ -311,8 +319,8 @@ mod tests {
         assert!(check(21).is_ok());
 
         let err = check(16).unwrap_err();
-        assert_eq!(err.to_string(), "Must be at least 18, got 16");
-        assert_eq!(downcast(&err).status_code(), StatusCode::BAD_REQUEST);
+        assert_eq!(err.message(), "Must be at least 18, got 16");
+        assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
     }
 
     #[test]
@@ -325,7 +333,7 @@ mod tests {
         assert_eq!(find(Some(42)).unwrap(), 42);
 
         let err = find(None).unwrap_err();
-        assert_eq!(err.to_string(), "Item not found");
-        assert_eq!(downcast(&err).status_code(), StatusCode::NOT_FOUND);
+        assert_eq!(err.message(), "Item not found");
+        assert_eq!(err.status_code(), StatusCode::NOT_FOUND);
     }
 }

@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
@@ -84,11 +85,10 @@ impl Default for ReconnectStrategy {
 pub struct ResilientBackend {
     inner: Arc<dyn MessageBackend>,
     strategy: ReconnectStrategy,
-    reconnect_attempts: Arc<RwLock<u32>>,
+    reconnect_attempts: Arc<AtomicU32>,
     last_success: Arc<RwLock<Instant>>,
-    is_connected: Arc<RwLock<bool>>,
-    /// Track consecutive failures for circuit breaker
-    consecutive_failures: Arc<RwLock<u32>>,
+    is_connected: Arc<AtomicBool>,
+    consecutive_failures: Arc<AtomicU32>,
 }
 
 impl ResilientBackend {
@@ -97,10 +97,10 @@ impl ResilientBackend {
         Self {
             inner,
             strategy: ReconnectStrategy::default(),
-            reconnect_attempts: Arc::new(RwLock::new(0)),
+            reconnect_attempts: Arc::new(AtomicU32::new(0)),
             last_success: Arc::new(RwLock::new(Instant::now())),
-            is_connected: Arc::new(RwLock::new(true)),
-            consecutive_failures: Arc::new(RwLock::new(0)),
+            is_connected: Arc::new(AtomicBool::new(true)),
+            consecutive_failures: Arc::new(AtomicU32::new(0)),
         }
     }
 
@@ -109,10 +109,10 @@ impl ResilientBackend {
         Self {
             inner,
             strategy,
-            reconnect_attempts: Arc::new(RwLock::new(0)),
+            reconnect_attempts: Arc::new(AtomicU32::new(0)),
             last_success: Arc::new(RwLock::new(Instant::now())),
-            is_connected: Arc::new(RwLock::new(true)),
-            consecutive_failures: Arc::new(RwLock::new(0)),
+            is_connected: Arc::new(AtomicBool::new(true)),
+            consecutive_failures: Arc::new(AtomicU32::new(0)),
         }
     }
 
@@ -122,18 +122,16 @@ impl ResilientBackend {
     }
 
     /// Check if currently connected
-    pub async fn is_connected(&self) -> bool {
-        *self.is_connected.read().await
+    pub fn is_connected(&self) -> bool {
+        self.is_connected.load(Ordering::Relaxed)
     }
 
-    /// Get current reconnection attempt count
-    pub async fn reconnect_attempts(&self) -> u32 {
-        *self.reconnect_attempts.read().await
+    pub fn reconnect_attempts(&self) -> u32 {
+        self.reconnect_attempts.load(Ordering::Relaxed)
     }
 
-    /// Get current consecutive failure count (for circuit breaker logic)
-    pub async fn consecutive_failures(&self) -> u32 {
-        *self.consecutive_failures.read().await
+    pub fn consecutive_failures(&self) -> u32 {
+        self.consecutive_failures.load(Ordering::Relaxed)
     }
 
     /// Execute an operation with automatic reconnection on failure.
@@ -150,25 +148,20 @@ impl ResilientBackend {
         loop {
             match op().await {
                 Ok(result) => {
-                    // Reset reconnection state on success
                     if attempt > 0 {
                         info!("{} succeeded after {} attempts", operation_name, attempt);
                     }
-                    *self.reconnect_attempts.write().await = 0;
-                    *self.consecutive_failures.write().await = 0;
+                    self.reconnect_attempts.store(0, Ordering::Relaxed);
+                    self.consecutive_failures.store(0, Ordering::Relaxed);
                     *self.last_success.write().await = Instant::now();
-                    *self.is_connected.write().await = true;
+                    self.is_connected.store(true, Ordering::Relaxed);
                     return Ok(result);
                 }
                 Err(e) => {
                     attempt += 1;
-                    *self.reconnect_attempts.write().await = attempt;
-                    let failures = {
-                        let mut f = self.consecutive_failures.write().await;
-                        *f += 1;
-                        *f
-                    };
-                    *self.is_connected.write().await = false;
+                    self.reconnect_attempts.store(attempt, Ordering::Relaxed);
+                    let failures = self.consecutive_failures.fetch_add(1, Ordering::Relaxed) + 1;
+                    self.is_connected.store(false, Ordering::Relaxed);
 
                     warn!(
                         "{} failed (attempt {}, consecutive failures: {}): {}. Retrying...",
@@ -206,7 +199,7 @@ impl ResilientBackend {
         match self.inner.health_check().await {
             Ok(_) => {
                 info!("Connection recovered");
-                *self.consecutive_failures.write().await = 0;
+                self.consecutive_failures.store(0, Ordering::Relaxed);
                 Ok(())
             }
             Err(e) => {
@@ -347,9 +340,9 @@ mod tests {
         let inner = Arc::new(MemoryBackend::new());
         let resilient = ResilientBackend::new(inner.clone());
 
-        assert!(resilient.is_connected().await);
-        assert_eq!(resilient.reconnect_attempts().await, 0);
-        assert_eq!(resilient.consecutive_failures().await, 0);
+        assert!(resilient.is_connected());
+        assert_eq!(resilient.reconnect_attempts(), 0);
+        assert_eq!(resilient.consecutive_failures(), 0);
     }
 
     #[tokio::test]
@@ -377,7 +370,7 @@ mod tests {
         let strategy = ReconnectStrategy::Fixed(Duration::from_secs(1));
         let resilient = ResilientBackend::with_strategy(inner, strategy);
 
-        assert!(resilient.is_connected().await);
+        assert!(resilient.is_connected());
     }
 
     #[tokio::test]
@@ -439,9 +432,9 @@ mod tests {
         }
         assert_eq!(fail_count.load(Ordering::SeqCst), 2); // Failed twice
         assert_eq!(total_calls.load(Ordering::SeqCst), 3); // Called 3 times total
-        assert_eq!(resilient.reconnect_attempts().await, 0); // Reset after success
-        assert_eq!(resilient.consecutive_failures().await, 0); // Reset after success
-        assert!(resilient.is_connected().await);
+        assert_eq!(resilient.reconnect_attempts(), 0); // Reset after success
+        assert_eq!(resilient.consecutive_failures(), 0); // Reset after success
+        assert!(resilient.is_connected());
     }
 
     #[tokio::test]
@@ -451,15 +444,15 @@ mod tests {
         let resilient = ResilientBackend::new(backend);
 
         // Initial state
-        assert!(resilient.is_connected().await);
-        assert_eq!(resilient.reconnect_attempts().await, 0);
+        assert!(resilient.is_connected());
+        assert_eq!(resilient.reconnect_attempts(), 0);
 
         // First call will fail and trigger reconnection
         let _ = resilient.receive().await;
 
         // After recovery, should be connected again
-        assert!(resilient.is_connected().await);
-        assert_eq!(resilient.reconnect_attempts().await, 0); // Reset after success
+        assert!(resilient.is_connected());
+        assert_eq!(resilient.reconnect_attempts(), 0);
     }
 
     #[tokio::test]
@@ -472,7 +465,7 @@ mod tests {
         let _ = resilient.receive().await;
 
         // After success, failures should be reset
-        assert_eq!(resilient.consecutive_failures().await, 0);
+        assert_eq!(resilient.consecutive_failures(), 0);
     }
 
     #[tokio::test]
@@ -519,7 +512,7 @@ mod tests {
             .with_strategy(strategy)
             .build();
 
-        assert!(resilient.is_connected().await);
+        assert!(resilient.is_connected());
     }
 
     #[tokio::test]
@@ -544,7 +537,7 @@ mod tests {
         }
 
         // All operations should succeed without retries
-        assert_eq!(resilient.reconnect_attempts().await, 0);
+        assert_eq!(resilient.reconnect_attempts(), 0);
     }
 
     #[tokio::test]

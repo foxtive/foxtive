@@ -9,7 +9,7 @@ use super::types::{DepSetupReceivers, PrerequisiteFuture, SupervisionResult, Tas
 use super::validation::validate_dependencies;
 use crate::contracts::{SupervisedTask, SupervisorEventListener};
 use crate::enums::{ControlMessage, HealthStatus, SupervisorEvent, TaskConfig};
-use crate::error::SupervisorError;
+use crate::error::{SupervisorError, SupervisorResult};
 use crate::persistence::TaskStateStore;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -57,6 +57,11 @@ pub struct TaskRuntime {
     #[cfg(feature = "cron")]
     #[allow(dead_code)]
     pub(super) cron: Option<Arc<tokio::sync::Mutex<Cron>>>,
+    /// Optional application container for DI access
+    #[cfg(feature = "foxtive-app")]
+    pub(super) app: Option<Arc<foxtive::App>>,
+    /// Event broadcast channel capacity
+    pub(super) event_channel_capacity: usize,
 }
 
 impl fmt::Debug for TaskRuntime {
@@ -72,7 +77,8 @@ impl fmt::Debug for TaskRuntime {
 impl TaskRuntime {
     /// Creates a new, empty `TaskRuntime`.
     pub fn new() -> Self {
-        let (event_tx, _) = broadcast::channel(1024);
+        let event_channel_capacity = 1024;
+        let (event_tx, _) = broadcast::channel(event_channel_capacity);
         #[allow(unused_mut)]
         let mut runtime = Self {
             tasks: HashMap::new(),
@@ -87,6 +93,9 @@ impl TaskRuntime {
             task_configs: HashMap::new(),
             #[cfg(feature = "cron")]
             cron: None,
+            #[cfg(feature = "foxtive-app")]
+            app: None,
+            event_channel_capacity,
         };
         runtime
     }
@@ -102,6 +111,31 @@ impl TaskRuntime {
         self
     }
 
+    /// Sets the event broadcast channel capacity.
+    ///
+    /// The default is 1024. Increase this if you have many tasks emitting
+    /// events rapidly and observe `EventsDropped` warnings.
+    pub fn with_event_channel_capacity(&mut self, capacity: usize) -> &mut Self {
+        self.event_channel_capacity = capacity;
+        // Recreate the channel with the new capacity
+        let (event_tx, _) = broadcast::channel(capacity);
+        self.event_tx = event_tx;
+        self
+    }
+
+    /// Attach an application container for DI access within supervised tasks.
+    #[cfg(feature = "foxtive-app")]
+    pub fn with_app(&mut self, app: Arc<foxtive::App>) -> &mut Self {
+        self.app = Some(app);
+        self
+    }
+
+    /// Returns a reference to the attached application container, if any.
+    #[cfg(feature = "foxtive-app")]
+    pub fn app(&self) -> Option<&Arc<foxtive::App>> {
+        self.app.as_ref()
+    }
+
     // TASK REGISTRATION
 
     /// Registers a task for supervision.
@@ -110,7 +144,7 @@ impl TaskRuntime {
     /// start its execution. Tasks are started when `start_all()` is called.
     pub fn register<T: SupervisedTask + 'static>(&mut self, task: T) -> &mut Self {
         let (setup_tx, _) = watch::channel(None);
-        let (control_tx, _) = broadcast::channel(10);
+        let (control_tx, _) = broadcast::channel(64);
         let id = task.id();
 
         // Setup per-task concurrency limit if specified
@@ -149,7 +183,7 @@ impl TaskRuntime {
     /// Useful when managing a heterogeneous collection of tasks.
     pub fn register_boxed(&mut self, task: Box<dyn SupervisedTask>) -> &mut Self {
         let (setup_tx, _) = watch::channel(None);
-        let (control_tx, _) = broadcast::channel(10);
+        let (control_tx, _) = broadcast::channel(64);
         let id = task.id();
 
         if let Some(limit) = task.concurrency_limit() {
@@ -179,7 +213,7 @@ impl TaskRuntime {
     /// This is the most efficient way to add a task if you already have an `Arc` handle.
     pub fn register_arc(&mut self, task: Arc<dyn SupervisedTask>) -> &mut Self {
         let (setup_tx, _) = watch::channel(None);
-        let (control_tx, _) = broadcast::channel(10);
+        let (control_tx, _) = broadcast::channel(64);
         let id = task.id();
 
         if let Some(limit) = task.concurrency_limit() {
@@ -211,7 +245,7 @@ impl TaskRuntime {
     /// This allows adding tasks to an already running supervisor.
     ///
     /// # Errors
-    /// Returns `SupervisorError::InternalError` if a task with the same ID already exists.
+    /// Returns `SupervisorError::ConfigurationError` if a task with the same ID already exists.
     /// Returns `SupervisorError::DependencyValidation` if a declared dependency is unknown.
     pub fn add_task<T: SupervisedTask + 'static>(
         &mut self,
@@ -219,10 +253,10 @@ impl TaskRuntime {
     ) -> Result<(), SupervisorError> {
         let id = task.id();
         if self.tasks.contains_key(id) {
-            return Err(SupervisorError::InternalError(format!(
-                "Task {} already exists",
-                id
-            )));
+            return Err(SupervisorError::config(
+                id,
+                "Task already exists",
+            ));
         }
 
         self.register(task);
@@ -623,26 +657,31 @@ impl TaskRuntime {
     /// # Returns
     /// Aggregated HealthStatus for the group
     pub async fn get_group_health(&self, group_id: &str) -> HealthStatus {
+        // Fire all health checks concurrently for tasks in this group
+        let group_tasks: Vec<_> = self.tasks.values()
+            .filter(|entry| entry.task.group_id() == Some(group_id))
+            .collect();
+
+        if group_tasks.is_empty() {
+            return HealthStatus::Unknown;
+        }
+
+        let health_futures: Vec<_> = group_tasks.iter()
+            .map(|entry| entry.task.health_check())
+            .collect();
+        let results = futures_util::future::join_all(health_futures).await;
+
         let mut has_healthy = false;
         let mut has_degraded = false;
         let mut has_unhealthy = false;
-        let mut task_count = 0;
 
-        for entry in self.tasks.values() {
-            if entry.task.group_id() == Some(group_id) {
-                task_count += 1;
-                let health = entry.task.health_check().await;
-                match health {
-                    HealthStatus::Healthy => has_healthy = true,
-                    HealthStatus::Degraded { .. } => has_degraded = true,
-                    HealthStatus::Unhealthy { .. } => has_unhealthy = true,
-                    HealthStatus::Unknown => {} // Don't affect aggregation
-                }
+        for health in results {
+            match health {
+                HealthStatus::Healthy => has_healthy = true,
+                HealthStatus::Degraded { .. } => has_degraded = true,
+                HealthStatus::Unhealthy { .. } => has_unhealthy = true,
+                HealthStatus::Unknown => {} // Don't affect aggregation
             }
-        }
-
-        if task_count == 0 {
-            return HealthStatus::Unknown;
         }
 
         // Return worst status
@@ -669,19 +708,23 @@ impl TaskRuntime {
     /// # Returns
     /// Vector of TaskSummary for each task in the group
     pub async fn get_group_health_details(&self, group_id: &str) -> Vec<TaskSummary> {
-        let mut summaries = Vec::new();
+        // Fire all health checks concurrently for tasks in this group
+        let group_tasks: Vec<_> = self.tasks.iter()
+            .filter(|(_, entry)| entry.task.group_id() == Some(group_id))
+            .collect();
 
-        for (task_id, entry) in &self.tasks {
-            if entry.task.group_id() == Some(group_id) {
-                summaries.push(TaskSummary {
+        let health_futures: Vec<_> = group_tasks.iter()
+            .map(|(task_id, entry)| async move {
+                let health = entry.task.health_check().await;
+                TaskSummary {
                     id: task_id.to_string(),
                     name: entry.task.name(),
-                    health: entry.task.health_check().await,
-                });
-            }
-        }
+                    health,
+                }
+            })
+            .collect();
 
-        summaries
+        futures_util::future::join_all(health_futures).await
     }
 
     /// Helper method to start a task by ID (used internally for group operations)
@@ -737,7 +780,7 @@ impl TaskRuntime {
     ///
     /// # Errors
     /// Returns `SupervisorError::UnknownTask` if no task with the given ID is found.
-    /// Returns `SupervisorError::InternalError` if the task panicked during removal.
+    /// Returns `SupervisorError::TaskPanicked` if the task panicked during removal.
     pub async fn remove_task(
         &mut self,
         id: &str,
@@ -753,10 +796,7 @@ impl TaskRuntime {
             if let Some(handle) = self.handles.remove(id) {
                 match handle.await {
                     Ok(res) => Ok(Some(res)),
-                    Err(_) => Err(SupervisorError::InternalError(format!(
-                        "Task {} panicked during removal",
-                        id
-                    ))),
+                    Err(join_err) => Err(SupervisorError::task_panicked(id, join_err)),
                 }
             } else {
                 Ok(None)
@@ -787,15 +827,20 @@ impl TaskRuntime {
 
     /// Lists summaries of all currently registered tasks.
     pub async fn list_tasks(&self) -> Vec<TaskSummary> {
-        let mut summaries = Vec::new();
-        for (id, entry) in &self.tasks {
-            summaries.push(TaskSummary {
+        // Fire all health checks concurrently
+        let health_futures: Vec<_> = self.tasks.values()
+            .map(|entry| entry.task.health_check())
+            .collect();
+        let health_results = futures_util::future::join_all(health_futures).await;
+
+        self.tasks.iter()
+            .zip(health_results)
+            .map(|((id, entry), health)| TaskSummary {
                 id: id.to_string(),
                 name: entry.task.name(),
-                health: entry.task.health_check().await,
-            });
-        }
-        summaries
+                health,
+            })
+            .collect()
     }
 
     // PERSISTENCE
@@ -842,7 +887,7 @@ impl TaskRuntime {
     pub fn add_prerequisite_fn<F, Fut>(&mut self, name: &'static str, f: F) -> &mut Self
     where
         F: FnOnce() -> Fut + Send + 'static,
-        Fut: Future<Output = Result<(), anyhow::Error>> + Send + 'static,
+        Fut: Future<Output = SupervisorResult<()>> + Send + 'static,
     {
         self.add_prerequisite(name, Box::pin(async move { f().await }))
     }
@@ -902,7 +947,7 @@ impl TaskRuntime {
 
             let results = futures_util::future::try_join_all(prereq_futures)
                 .await
-                .map_err(|(name, e)| SupervisorError::prerequisite_failed(name, e))?;
+                .map_err(|(name, e)| SupervisorError::prerequisite_failed(name, Box::new(e)))?;
 
             info!("[Supervisor] All {} prerequisites satisfied", results.len());
         }
@@ -978,7 +1023,7 @@ impl TaskRuntime {
     /// without needing a full `TaskRuntime` setup.
     pub fn start_one<T: SupervisedTask + 'static>(task: T) -> JoinHandle<SupervisionResult> {
         let (setup_tx, _) = watch::channel(None);
-        let (control_tx, _) = broadcast::channel(10);
+        let (control_tx, _) = broadcast::channel(64);
         let (event_tx, _) = broadcast::channel(1);
         let params = SupervisionParams {
             task: Arc::new(task),
@@ -1094,7 +1139,9 @@ impl TaskRuntime {
 
                 if let Some(handle) = self.handles.remove(id) {
                     // Wait for the supervision loop to finish (it will abort run_handle and call cleanup)
-                    match tokio::time::timeout(timeout, handle).await {
+                    // Pin the handle so we can abort it on timeout
+                    tokio::pin!(handle);
+                    match tokio::time::timeout(timeout, &mut handle).await {
                         Ok(res) => {
                             match res {
                                 Ok(_supervision_res) => {
@@ -1117,9 +1164,8 @@ impl TaskRuntime {
                             }
                         }
                         Err(_) => {
-                            warn!(task_id = %id, "Task '{}' did not stop within timeout {:?}. Task will continue in background.", name, timeout);
-                            // Note: handle was consumed by timeout(), so we can't abort it here.
-                            // The task will continue running but shutdown will proceed.
+                            warn!(task_id = %id, "Task '{}' did not stop within timeout {:?}. Aborting task.", name, timeout);
+                            handle.abort();
                         }
                     }
                 }
@@ -1207,20 +1253,23 @@ impl TaskRuntime {
         match strategy {
             crate::enums::BackoffStrategy::Fixed(duration) => {
                 if duration.as_secs() > 3600 {
-                    return Err(SupervisorError::InternalError(
-                        "Fixed backoff delay cannot exceed 1 hour".to_string(),
+                    return Err(SupervisorError::config(
+                        "global",
+                        "Fixed backoff delay cannot exceed 1 hour",
                     ));
                 }
             }
             crate::enums::BackoffStrategy::Exponential { initial, max } => {
                 if initial.as_secs() > 3600 || max.as_secs() > 3600 {
-                    return Err(SupervisorError::InternalError(
-                        "Exponential backoff delays cannot exceed 1 hour".to_string(),
+                    return Err(SupervisorError::config(
+                        "global",
+                        "Exponential backoff delays cannot exceed 1 hour",
                     ));
                 }
                 if initial > max {
-                    return Err(SupervisorError::InternalError(
-                        "Initial backoff cannot be greater than max backoff".to_string(),
+                    return Err(SupervisorError::config(
+                        "global",
+                        "Initial backoff cannot be greater than max backoff",
                     ));
                 }
             }
@@ -1230,25 +1279,29 @@ impl TaskRuntime {
                 max,
             } => {
                 if initial.as_secs() > 3600 || max.as_secs() > 3600 {
-                    return Err(SupervisorError::InternalError(
-                        "Linear backoff delays cannot exceed 1 hour".to_string(),
+                    return Err(SupervisorError::config(
+                        "global",
+                        "Linear backoff delays cannot exceed 1 hour",
                     ));
                 }
                 if initial > max {
-                    return Err(SupervisorError::InternalError(
-                        "Initial backoff cannot be greater than max backoff".to_string(),
+                    return Err(SupervisorError::config(
+                        "global",
+                        "Initial backoff cannot be greater than max backoff",
                     ));
                 }
             }
             crate::enums::BackoffStrategy::Fibonacci { initial, max } => {
                 if initial.as_secs() > 3600 || max.as_secs() > 3600 {
-                    return Err(SupervisorError::InternalError(
-                        "Fibonacci backoff delays cannot exceed 1 hour".to_string(),
+                    return Err(SupervisorError::config(
+                        "global",
+                        "Fibonacci backoff delays cannot exceed 1 hour",
                     ));
                 }
                 if initial > max {
-                    return Err(SupervisorError::InternalError(
-                        "Initial backoff cannot be greater than max backoff".to_string(),
+                    return Err(SupervisorError::config(
+                        "global",
+                        "Initial backoff cannot be greater than max backoff",
                     ));
                 }
             }

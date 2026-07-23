@@ -19,12 +19,12 @@ impl SupervisedTask for BasicTask {
         self.name.clone()
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         info!("Running task {}", self.name);
 
         let count = self.fail_count.fetch_add(1, Ordering::SeqCst);
         if count < self.max_fails {
-            anyhow::bail!("Simulated failure {}", count);
+            return Err(foxtive_supervisor::SupervisorError::from(format!("Simulated failure {}", count)));
         }
 
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
@@ -38,7 +38,7 @@ impl SupervisedTask for BasicTask {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
     let results = Supervisor::new()

@@ -19,7 +19,7 @@ async fn test_task_pool_creation() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.execution_count.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(10)).await;
             Ok(())
@@ -66,7 +66,7 @@ async fn test_pool_with_different_strategies() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }
@@ -101,7 +101,7 @@ async fn test_pool_load_distribution() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.run_count.fetch_add(1, Ordering::SeqCst);
             // Run once and complete
             Ok(())
@@ -161,7 +161,7 @@ async fn test_pool_integration_with_groups() {
             Some(self.group)
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }
@@ -213,7 +213,7 @@ async fn test_large_pool_stress() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.execution_count.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(5)).await;
             Ok(())
@@ -263,7 +263,7 @@ async fn test_pool_concurrent_start_stop() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.started.fetch_add(1, Ordering::SeqCst);
             // Run indefinitely until stopped
             tokio::time::sleep(Duration::from_secs(60)).await;
@@ -323,13 +323,12 @@ async fn test_pool_with_failing_workers() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             if self.worker_index.is_multiple_of(2) {
                 // Even workers fail
                 self.failure_count.fetch_add(1, Ordering::SeqCst);
-                Err(anyhow::anyhow!(
-                    "Worker {} intentionally failing",
-                    self.worker_index
+                Err(foxtive_supervisor::SupervisorError::from(
+                    format!("Worker {} intentionally failing", self.worker_index)
                 ))
             } else {
                 // Odd workers succeed
@@ -386,7 +385,7 @@ async fn test_pool_dynamic_scaling_simulation() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             {
                 let mut active = self.active_tasks.lock().unwrap();
                 active.push(self.id.to_string());

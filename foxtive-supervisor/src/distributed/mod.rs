@@ -9,33 +9,35 @@ mod redis_impl;
 #[cfg(feature = "distributed")]
 pub use redis_impl::{CoordinationManager, RedisCoordination};
 
+use crate::error::SupervisorResult;
+
 /// Trait for distributed coordination backends
 #[async_trait::async_trait]
 pub trait CoordinationBackend: Send + Sync {
     /// Attempt to acquire a distributed lock
     /// Returns true if lock was acquired, false if already held by another instance
-    async fn try_acquire_lock(&self, key: &str, ttl_secs: u64) -> anyhow::Result<bool>;
+    async fn try_acquire_lock(&self, key: &str, ttl_secs: u64) -> SupervisorResult<bool>;
 
     /// Release a previously acquired lock
-    async fn release_lock(&self, key: &str) -> anyhow::Result<()>;
+    async fn release_lock(&self, key: &str) -> SupervisorResult<()>;
 
     /// Check if a lock is currently held
-    async fn is_locked(&self, key: &str) -> anyhow::Result<bool>;
+    async fn is_locked(&self, key: &str) -> SupervisorResult<bool>;
 
     /// Update heartbeat timestamp for this instance
-    async fn heartbeat(&self, instance_id: &str, ttl_secs: u64) -> anyhow::Result<()>;
+    async fn heartbeat(&self, instance_id: &str, ttl_secs: u64) -> SupervisorResult<()>;
 
     /// Check if an instance is alive (has recent heartbeat)
-    async fn is_instance_alive(&self, instance_id: &str) -> anyhow::Result<bool>;
+    async fn is_instance_alive(&self, instance_id: &str) -> SupervisorResult<bool>;
 
     /// Try to become the leader (acquire leader lock)
-    async fn try_become_leader(&self, instance_id: &str, lease_secs: u64) -> anyhow::Result<bool>;
+    async fn try_become_leader(&self, instance_id: &str, lease_secs: u64) -> SupervisorResult<bool>;
 
     /// Check if this instance is currently the leader
-    async fn is_leader(&self, instance_id: &str) -> anyhow::Result<bool>;
+    async fn is_leader(&self, instance_id: &str) -> SupervisorResult<bool>;
 
     /// Get the current leader instance ID (if any)
-    async fn get_current_leader(&self) -> anyhow::Result<Option<String>>;
+    async fn get_current_leader(&self) -> SupervisorResult<Option<String>>;
 }
 
 /// Configuration for distributed coordination

@@ -31,7 +31,7 @@ async fn test_global_concurrency_limit() {
         fn id(&self) -> &'static str {
             self.id
         }
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.counter.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(100)).await;
             self.counter.fetch_sub(1, Ordering::SeqCst);
@@ -54,7 +54,7 @@ async fn test_global_concurrency_limit() {
         fn id(&self) -> &'static str {
             Box::leak(self.id.clone().into_boxed_str())
         }
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             let val = self.current.fetch_add(1, Ordering::SeqCst) + 1;
             let mut m = self.max.load(Ordering::SeqCst);
             while val > m {
@@ -107,7 +107,7 @@ async fn test_priority_scheduling() {
         fn priority(&self) -> i32 {
             self.priority
         }
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             let mut o = self.order.lock().await;
             o.push(self.id);
             drop(o);

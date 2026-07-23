@@ -11,7 +11,7 @@
 use async_trait::async_trait;
 use foxtive_worker::dlq::DeadLetterMessage;
 use foxtive_worker::error::WorkerResult;
-use foxtive_worker::{MessageBackend, ReceivedMessage, Worker};
+use foxtive_worker::{ReceivedMessage, Worker};
 
 #[cfg(feature = "rabbitmq")]
 use {
@@ -21,6 +21,7 @@ use {
 };
 
 /// DLQ Monitor Worker - Inspects and decides what to do with failed messages
+#[allow(dead_code)]
 struct DlqMonitorWorker {
     id: String,
 }
@@ -77,6 +78,7 @@ impl Worker for DlqMonitorWorker {
     }
 }
 
+#[allow(dead_code)]
 impl DlqMonitorWorker {
     /// Handle different types of DLQ messages
     async fn handle_dlq_message(&self, dlq_msg: &DeadLetterMessage) -> WorkerResult<()> {
@@ -145,7 +147,8 @@ impl DlqMonitorWorker {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+#[allow(unreachable_code)]
+async fn main() -> WorkerResult<()> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 
@@ -159,6 +162,8 @@ async fn main() -> anyhow::Result<()> {
 
     #[cfg(feature = "rabbitmq")]
     {
+        use foxtive_worker::MessageBackend;
+
         println!("=== Dead Letter Queue Consumer Example ===\n");
         println!("This consumer monitors the DLQ and decides what to do with failed messages.\n");
 
