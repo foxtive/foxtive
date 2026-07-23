@@ -22,13 +22,13 @@ async fn test_microservice_architecture() {
             Some("infrastructure")
         }
 
-        async fn setup(&self) -> anyhow::Result<()> {
+        async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             self.initialized.store(true, Ordering::SeqCst);
             Ok(())
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.query_count.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(100)).await;
             Ok(())
@@ -65,7 +65,7 @@ async fn test_microservice_architecture() {
             &["database"]
         }
 
-        async fn setup(&self) -> anyhow::Result<()> {
+        async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
             while !self.db_initialized.load(Ordering::SeqCst) {
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
@@ -73,7 +73,7 @@ async fn test_microservice_architecture() {
             Ok(())
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.cache_hits.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(80)).await;
             Ok(())
@@ -101,7 +101,7 @@ async fn test_microservice_architecture() {
             &["database", "cache"]
         }
 
-        async fn setup(&self) -> anyhow::Result<()> {
+        async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
             while !self.db_ready.load(Ordering::SeqCst) || !self.cache_ready.load(Ordering::SeqCst)
             {
                 tokio::time::sleep(Duration::from_millis(10)).await;
@@ -110,7 +110,7 @@ async fn test_microservice_architecture() {
             Ok(())
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.requests_handled.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
@@ -194,7 +194,7 @@ async fn test_message_processing_pipeline() {
             Some("pipeline")
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.messages_processed.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(self.processing_time_ms)).await;
             Ok(())

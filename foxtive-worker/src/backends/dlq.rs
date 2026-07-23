@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::backends::MessageBackend;
 use crate::dlq::DeadLetterMessage;
@@ -54,53 +54,15 @@ impl DeadLetterQueueBackend {
         );
 
         // Serialize the DLQ message to JSON
-        let json_payload = dlq_message.to_json().map_err(|e| {
+        let _json_payload = dlq_message.to_json().map_err(|e| {
             WorkerError::BackendError(format!("Failed to serialize DLQ message: {}", e))
         })?;
 
-        // Create a unique message ID for the DLQ message
-        let dlq_message_id = format!(
-            "dlq-{}-{}",
-            dlq_message.original_id,
-            dlq_message.dlq_timestamp.timestamp()
-        );
-
-        debug!(
-            "[DLQ:{}] Publishing message {} with payload: {}",
-            self.dlq_name, dlq_message_id, json_payload
-        );
-
-        // Note: In a production implementation, you would:
-        // 1. For RabbitMQ: Use basic_publish to send to a DLQ exchange/queue
-        // 2. For Redis: Use XADD to add to a DLQ stream
-        // 3. For custom backends: Implement your own publishing logic
-
-        // For now, we demonstrate with a simple approach that could be extended:
-        // The backend is already configured to point to the DLQ queue/stream
-        // So we would publish directly to it.
-
-        // Example pseudo-code for RabbitMQ:
-        // ```
-        // let channel = self.backend.get_channel().await?;
-        // channel.basic_publish(
-        //     "", // default exchange
-        //     &self.dlq_name, // routing key = DLQ queue name
-        //     lapin::options::BasicPublishOptions::default(),
-        //     json_payload.as_bytes(),
-        //     lapin::BasicProperties::default()
-        //         .with_message_id(lapin::types::ShortString::from(dlq_message_id))
-        //         .with_content_type(lapin::types::ShortString::from("application/json")),
-        // ).await?;
-        // ```
-
-        // For demonstration purposes, we log success
-        // In production, replace this with actual backend publishing
-        info!(
-            "[DLQ:{}] Successfully queued message {} for delivery",
-            self.dlq_name, dlq_message.original_id
-        );
-
-        Ok(())
+        Err(WorkerError::BackendError(format!(
+            "DLQ publishing not implemented for backend '{}'. \
+             Use a backend-specific DLQ publisher (e.g., RabbitMqBackend::publish_to_dlq) instead.",
+            self.dlq_name
+        )))
     }
 
     /// Get the DLQ name.

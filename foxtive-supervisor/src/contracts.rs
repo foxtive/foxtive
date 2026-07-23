@@ -1,6 +1,7 @@
 use crate::enums::{
     BackoffStrategy, CircuitBreakerConfig, HealthStatus, RestartPolicy, SupervisorEvent, TaskState,
 };
+use crate::error::SupervisorResult;
 use std::time::Duration;
 
 /// Core trait for any long-running task that needs supervision
@@ -17,7 +18,7 @@ pub trait SupervisedTask: Send + Sync {
     }
 
     /// Main task execution - this should run until completion or error
-    async fn run(&self) -> anyhow::Result<()>;
+    async fn run(&self) -> SupervisorResult<()>;
 
     // DEPENDENCY MANAGEMENT
 
@@ -161,7 +162,7 @@ pub trait SupervisedTask: Send + Sync {
     // LIFECYCLE HOOKS
 
     /// Called once before the first run() attempt
-    async fn setup(&self) -> anyhow::Result<()> {
+    async fn setup(&self) -> SupervisorResult<()> {
         Ok(())
     }
 

@@ -67,7 +67,7 @@ pub enum RmqError {
     Generic(String),
 
     #[error("Wrapped application error: {0}")]
-    AppError(#[from] anyhow::Error),
+    AppError(#[from] crate::prelude::AppMessage),
 }
 
 impl RmqError {
@@ -181,12 +181,12 @@ impl From<std::str::Utf8Error> for RmqError {
     }
 }
 
-/// Helper trait to convert anyhow::Error to RmqError
+/// Helper trait to convert errors to RmqError
 pub trait IntoRmqError<T> {
     fn into_rmq(self) -> RmqResult<T>;
 }
 
-impl<T> IntoRmqError<T> for Result<T, anyhow::Error> {
+impl<T> IntoRmqError<T> for Result<T, crate::prelude::AppMessage> {
     fn into_rmq(self) -> RmqResult<T> {
         self.map_err(RmqError::from)
     }
@@ -292,75 +292,61 @@ mod tests {
     }
 
     #[test]
-    fn test_rmqerror_to_anyhow_conversion() {
-        // Verify RmqError can be converted to anyhow::Error automatically
-        let rmq_err = RmqError::timeout("test_op", Duration::from_secs(5));
+    fn test_rmqerror_to_appmessage_conversion() {
+        // Verify RmqError can be converted to AppMessage via AppResult
+        fn fallible() -> crate::prelude::AppResult<()> {
+            let result: RmqResult<()> = Err(RmqError::timeout("test_op", Duration::from_secs(5)));
+            result?;
+            Ok(())
+        }
 
-        // This should compile thanks to anyhow's blanket From implementation
-        let anyhow_err: anyhow::Error = rmq_err.into();
-
-        assert!(anyhow_err.to_string().contains("test_op"));
-        assert!(anyhow_err.to_string().contains("5s"));
+        let err = fallible().unwrap_err();
+        assert!(err.message().contains("test_op"));
+        assert!(err.message().contains("5s"));
     }
 
     #[test]
-    fn test_rmqerror_variants_convert_to_anyhow() {
-        // Test that various RmqError variants convert properly
+    fn test_rmqerror_variants_convert_to_appmessage() {
+        fn try_convert(rmq_err: RmqError) -> crate::prelude::AppMessage {
+            let result: RmqResult<()> = Err(rmq_err);
+            let app_result: crate::prelude::AppResult<()> = result.map_err(|e| e.into());
+            app_result.unwrap_err()
+        }
 
-        // Test simple variants
-        let err1 = RmqError::Generic("test error".to_string());
-        let anyhow_err1: anyhow::Error = err1.into();
-        assert!(!anyhow_err1.to_string().is_empty());
-        assert!(anyhow_err1.downcast_ref::<RmqError>().is_some());
+        let msg1 = try_convert(RmqError::Generic("test error".to_string()));
+        assert!(msg1.is_server_error());
 
-        let err2 = RmqError::ShutdownRequested;
-        let anyhow_err2: anyhow::Error = err2.into();
-        assert!(anyhow_err2.to_string().contains("Shutdown"));
+        let msg2 = try_convert(RmqError::ShutdownRequested);
+        assert!(msg2.message().contains("Shutdown"));
 
-        let err3 = RmqError::health_check_failed("pool exhausted");
-        let anyhow_err3: anyhow::Error = err3.into();
-        assert!(anyhow_err3.to_string().contains("pool exhausted"));
+        let msg3 = try_convert(RmqError::health_check_failed("pool exhausted"));
+        assert!(msg3.message().contains("pool exhausted"));
 
-        let err4 = RmqError::channel_error("Closed", 1);
-        let anyhow_err4: anyhow::Error = err4.into();
-        assert!(anyhow_err4.to_string().contains("Closed"));
+        let msg4 = try_convert(RmqError::channel_error("Closed", 1));
+        assert!(msg4.message().contains("Closed"));
 
-        let err5 = RmqError::stream_terminated("queue", "tag");
-        let anyhow_err5: anyhow::Error = err5.into();
-        assert!(anyhow_err5.to_string().contains("queue"));
+        let msg5 = try_convert(RmqError::stream_terminated("queue", "tag"));
+        assert!(msg5.message().contains("queue"));
 
-        let err6 = RmqError::Configuration {
-            message: "bad config".to_string(),
-        };
-        let anyhow_err6: anyhow::Error = err6.into();
-        assert!(anyhow_err6.to_string().contains("bad config"));
+        let msg6 = try_convert(RmqError::Configuration { message: "bad config".to_string() });
+        assert!(msg6.message().contains("bad config"));
 
-        let err7 = RmqError::ReconnectionFailed { attempts: 3 };
-        let anyhow_err7: anyhow::Error = err7.into();
-        assert!(anyhow_err7.to_string().contains("3"));
+        let msg7 = try_convert(RmqError::ReconnectionFailed { attempts: 3 });
+        assert!(msg7.message().contains("3"));
     }
 
     #[test]
     fn test_question_mark_operator_conversion() {
         // Simulate a function that returns AppResult but calls RmqResult functions
-        fn simulate_app_result() -> anyhow::Result<()> {
+        fn simulate_app_result() -> crate::prelude::AppResult<()> {
             // This simulates using ? with RmqResult in an AppResult context
             let result: RmqResult<()> = Err(RmqError::timeout("op", Duration::from_secs(1)));
-            result?; // Should compile and convert automatically
+            result?; // Should compile and convert automatically via From<RmqError> for AppMessage
             Ok(())
         }
 
         let err = simulate_app_result().unwrap_err();
-        assert!(err.to_string().contains("timed out"));
-
-        // Verify we can inspect the original error
-        let rmq_err = err.downcast_ref::<RmqError>().unwrap();
-        match rmq_err {
-            RmqError::Timeout { operation, .. } => {
-                assert_eq!(operation, "op");
-            }
-            _ => panic!("Expected Timeout variant"),
-        }
+        assert!(err.message().contains("timed out"));
     }
 
     #[test]
@@ -368,57 +354,41 @@ mod tests {
         // Test that nested errors preserve information through conversion
         let json_err = serde_json::from_str::<String>("invalid").unwrap_err();
         let rmq_err = RmqError::Serialization(json_err);
-        let anyhow_err: anyhow::Error = rmq_err.into();
+
+        // Convert to AppMessage
+        let app_msg: crate::prelude::AppMessage = rmq_err.into();
 
         // The error message should contain serialization info
-        assert!(anyhow_err.to_string().contains("Serialization error"));
-
-        // Can still downcast to RmqError
-        let downcast = anyhow_err.downcast_ref::<RmqError>();
-        assert!(downcast.is_some());
-        match downcast.unwrap() {
-            RmqError::Serialization(_) => {} // Success
-            _ => panic!("Expected Serialization variant"),
-        }
+        assert!(app_msg.message().contains("Serialization error"));
+        assert!(app_msg.is_server_error());
     }
 
     #[test]
-    fn test_anyhow_to_rmqerror_preserves_type() {
-        // Create an AppResult error
-        let app_err: anyhow::Error = anyhow::anyhow!("application error");
+    fn test_appmessage_to_rmqerror_preserves_type() {
+        // Create an AppMessage error
+        let app_err = crate::prelude::AppMessage::internal_server_error("application error");
 
-        // Convert to RmqError using IntoRmqError trait
+        // Convert to RmqResult using IntoRmqError trait
         let result: RmqResult<()> = Err(app_err).into_rmq();
 
         // Verify it's wrapped as AppError variant
         match result.unwrap_err() {
             RmqError::AppError(err) => {
-                assert_eq!(err.to_string(), "application error");
-
-                // Can downcast back to original error type if needed
-                // (though in this case it's just a string)
+                assert_eq!(err.message(), "application error");
             }
             other => panic!("Expected AppError variant, got {:?}", other),
         }
     }
 
     #[test]
-    fn test_bidirectional_conversion() {
-        // Test RmqError -> anyhow::Error -> RmqError preserves the error
+    fn test_rmqerror_to_appmessage_preserves_details() {
+        // Test RmqError -> AppMessage preserves error details
         let original = RmqError::timeout("test_op", Duration::from_secs(5));
+        let app_msg: crate::prelude::AppMessage = original.into();
 
-        // Convert to anyhow
-        let anyhow_err: anyhow::Error = original.into();
-
-        // Verify we can downcast back to RmqError
-        let recovered = anyhow_err.downcast_ref::<RmqError>().unwrap();
-        match recovered {
-            RmqError::Timeout { operation, timeout } => {
-                assert_eq!(operation, "test_op");
-                assert_eq!(timeout, &Duration::from_secs(5));
-            }
-            _ => panic!("Expected Timeout variant"),
-        }
+        assert!(app_msg.message().contains("test_op"));
+        assert!(app_msg.message().contains("5s"));
+        assert_eq!(app_msg.status_code(), http::StatusCode::INTERNAL_SERVER_ERROR);
     }
 
     #[test]

@@ -17,7 +17,7 @@ async fn test_cascading_shutdown_hierarchy() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             // Run indefinitely until stopped
             tokio::time::sleep(Duration::from_secs(60)).await;
             Ok(())
@@ -75,7 +75,7 @@ async fn test_hierarchy_with_nested_structure() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }

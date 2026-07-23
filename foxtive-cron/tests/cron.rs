@@ -645,7 +645,7 @@ mod cron_scheduler {
         handle.abort();
         assert!(
             result.is_ok(),
-            "good job was not executed — scheduler may have crashed on bad job"
+            "good job was not executed - scheduler may have crashed on bad job"
         );
     }
 

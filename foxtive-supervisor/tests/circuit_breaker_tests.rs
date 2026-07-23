@@ -29,10 +29,10 @@ async fn test_circuit_breaker_trips_and_resets() {
                 reset_timeout: Duration::from_millis(200),
             })
         }
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             let count = self.fail_count.fetch_add(1, Ordering::SeqCst);
             if count < 5 {
-                anyhow::bail!("Simulated failure");
+                return Err(foxtive_supervisor::SupervisorError::from("Simulated failure"));
             }
             Ok(())
         }

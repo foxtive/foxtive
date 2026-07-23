@@ -18,12 +18,12 @@ impl SupervisedTask for DbPool {
     fn id(&self) -> &'static str {
         "db-pool"
     }
-    async fn setup(&self) -> anyhow::Result<()> {
+    async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
         info!("Connecting to the database...");
         tokio::time::sleep(Duration::from_secs(1)).await;
         Ok(())
     }
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         info!("Database pool ready.");
         tokio::time::sleep(Duration::MAX).await;
         Ok(())
@@ -41,7 +41,7 @@ impl SupervisedTask for EmailConsumer {
         &["db-pool"]
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         info!("Email consumer starting...");
         loop {
             tokio::time::sleep(Duration::from_secs(3)).await;
@@ -61,16 +61,16 @@ impl SupervisedTask for BillingConsumer {
         &["db-pool"]
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         info!("Billing consumer starting...");
         // Simulate a flakey connection that gets better over time (persisted state)
         tokio::time::sleep(Duration::from_secs(2)).await;
-        anyhow::bail!("Billing API timeout (simulated)");
+        return Err(foxtive_supervisor::SupervisorError::from("Billing API timeout (simulated)"));
     }
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
     // Create a persistence store

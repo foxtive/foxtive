@@ -7,12 +7,18 @@
 //! `cargo run --example redis_streams_backend --features redis-stream,http`
 
 use async_trait::async_trait;
-use foxtive_worker::backends::{MessageBackend, ReceiveResult};
 use foxtive_worker::error::WorkerResult;
-use foxtive_worker::http::HealthEndpoint;
-use foxtive_worker::{ReceivedMessage, Worker, WorkerPoolBuilder};
-use std::sync::Arc;
+use foxtive_worker::{ReceivedMessage, Worker};
 
+#[cfg(feature = "redis-stream")]
+use {
+    foxtive_worker::WorkerPoolBuilder,
+    foxtive_worker::backends::{MessageBackend, ReceiveResult},
+    foxtive_worker::http::HealthEndpoint,
+    std::sync::Arc,
+};
+
+#[allow(dead_code)]
 struct RedisWorker;
 
 #[async_trait]

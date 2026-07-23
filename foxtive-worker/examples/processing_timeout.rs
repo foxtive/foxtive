@@ -150,7 +150,7 @@ impl Worker for TimeoutWorker {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> WorkerResult<()> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 

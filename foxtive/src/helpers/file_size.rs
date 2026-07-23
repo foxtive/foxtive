@@ -308,24 +308,61 @@ impl Default for SizeFormatter {
     }
 }
 
-/// Convenience function for quick size formatting with default settings
+/// Convenience function for quick size formatting with default settings.
+///
+/// # Examples
+///
+/// ```rust
+/// use foxtive::helpers::file_size::format_size;
+///
+/// assert_eq!(format_size(1024), "1.00 KB");
+/// assert_eq!(format_size(1048576), "1.00 MB");
+/// ```
 pub fn format_size(size_in_bytes: u64) -> String {
     SizeFormatter::new().format(size_in_bytes)
 }
 
-/// Convenience function for size formatting with custom precision
+/// Convenience function for size formatting with custom precision.
+///
+/// # Examples
+///
+/// ```rust
+/// use foxtive::helpers::file_size::format_size_with_precision;
+///
+/// assert_eq!(format_size_with_precision(1536, 1), "1.5 KB");
+/// assert_eq!(format_size_with_precision(1536, 0), "2 KB");
+/// ```
 pub fn format_size_with_precision(size_in_bytes: u64, precision: usize) -> String {
     let config = SizeFormatConfig::new().precision(precision);
     SizeFormatter::with_config(config).format(size_in_bytes)
 }
 
-/// Convenience function for size formatting with full unit names
+/// Convenience function for size formatting with full unit names.
+///
+/// # Examples
+///
+/// ```rust
+/// use foxtive::helpers::file_size::format_size_verbose;
+///
+/// assert_eq!(format_size_verbose(1), "1 byte");
+/// assert_eq!(format_size_verbose(2), "2 bytes");
+/// assert_eq!(format_size_verbose(1024), "1.00 kilobyte");
+/// ```
 pub fn format_size_verbose(size_in_bytes: u64) -> String {
     let config = SizeFormatConfig::new().full_names().plural();
     SizeFormatter::with_config(config).format(size_in_bytes)
 }
 
-/// Convenience function for size formatting with decimal prefixes (1000-based)
+/// Convenience function for size formatting with decimal prefixes (1000-based).
+///
+/// # Examples
+///
+/// ```rust
+/// use foxtive::helpers::file_size::format_size_decimal;
+///
+/// assert_eq!(format_size_decimal(1000), "1.00 KB");
+/// assert_eq!(format_size_decimal(1000000), "1.00 MB");
+/// ```
 pub fn format_size_decimal(size_in_bytes: u64) -> String {
     let config = SizeFormatConfig::new().decimal_prefix();
     SizeFormatter::with_config(config).format(size_in_bytes)

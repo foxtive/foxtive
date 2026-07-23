@@ -1,4 +1,4 @@
-use crate::helpers::string::Str;
+use crate::helpers::string::StringHelper;
 
 pub trait StringExt {
     fn uc_first(&self) -> String;
@@ -17,49 +17,49 @@ pub trait StringExt {
 
 impl StringExt for str {
     fn uc_first(&self) -> String {
-        Str::uc_first(self)
+        StringHelper::uc_first(self)
     }
 
     fn uc_words(&self) -> String {
-        Str::uc_words(self)
+        StringHelper::uc_words(self)
     }
 
     #[cfg(feature = "regex")]
     fn is_username_valid(&self) -> Box<fancy_regex::Result<bool>> {
-        // Str::is_username_valid takes String as param
-        Str::is_username_valid(self.to_string())
+        // StringHelper::is_username_valid takes String as param
+        StringHelper::is_username_valid(self.to_string())
     }
 
     fn truncate(&self, max_length: usize) -> String {
-        Str::truncate(self, max_length)
+        StringHelper::truncate(self, max_length)
     }
 
     fn remove_whitespace(&self) -> String {
-        Str::remove_whitespace(self)
+        StringHelper::remove_whitespace(self)
     }
 
     fn reverse(&self) -> String {
-        Str::reverse(self)
+        StringHelper::reverse(self)
     }
 
     fn count_occurrences(&self, substr: &str) -> usize {
-        Str::count_occurrences(self, substr)
+        StringHelper::count_occurrences(self, substr)
     }
 
     fn is_numeric(&self) -> bool {
-        Str::is_numeric(self)
+        StringHelper::is_numeric(self)
     }
 
     fn is_alphabetic(&self) -> bool {
-        Str::is_alphabetic(self)
+        StringHelper::is_alphabetic(self)
     }
 
     fn camel_case(&self) -> String {
-        Str::camel_case(self)
+        StringHelper::camel_case(self)
     }
 
     fn pad_left(&self, width: usize, pad_char: char) -> String {
-        Str::pad_left(self, width, pad_char)
+        StringHelper::pad_left(self, width, pad_char)
     }
 }
 
@@ -107,5 +107,73 @@ impl StringExt for String {
 
     fn pad_left(&self, width: usize, pad_char: char) -> String {
         self.as_str().pad_left(width, pad_char)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn uc_first_capitalizes_first_char() {
+        assert_eq!("hello".uc_first(), "Hello");
+        assert_eq!("Hello".uc_first(), "Hello");
+        assert_eq!("".uc_first(), "");
+    }
+
+    #[test]
+    fn truncate_shortens_string() {
+        assert_eq!("hello world".truncate(5), "hello...");
+        assert_eq!("hi".truncate(10), "hi");
+    }
+
+    #[test]
+    fn remove_whitespace_strips_all_spaces() {
+        assert_eq!("hello world".remove_whitespace(), "helloworld");
+        assert_eq!("  spaces  ".remove_whitespace(), "spaces");
+    }
+
+    #[test]
+    fn reverse_reverses_characters() {
+        assert_eq!("hello".reverse(), "olleh");
+        assert_eq!("".reverse(), "");
+    }
+
+    #[test]
+    fn count_occurrences_counts_substrings() {
+        assert_eq!("hello world hello".count_occurrences("hello"), 2);
+        assert_eq!("abc".count_occurrences("z"), 0);
+    }
+
+    #[test]
+    fn is_numeric_checks_digits() {
+        assert!("12345".is_numeric());
+        assert!(!"123abc".is_numeric());
+        assert!(!"".is_numeric());
+    }
+
+    #[test]
+    fn is_alphabetic_checks_letters() {
+        assert!("abcDEF".is_alphabetic());
+        assert!(!"abc123".is_alphabetic());
+    }
+
+    #[test]
+    fn camel_case_converts_from_snake_case() {
+        assert_eq!("hello_world".camel_case(), "helloWorld");
+        assert_eq!("one_two_three".camel_case(), "oneTwoThree");
+    }
+
+    #[test]
+    fn pad_left_pads_to_width() {
+        assert_eq!("42".pad_left(5, '0'), "00042");
+        assert_eq!("hello".pad_left(3, ' '), "hello");
+    }
+
+    #[test]
+    fn string_type_delegates_to_str() {
+        let s = String::from("hello");
+        assert_eq!(s.uc_first(), "Hello");
+        assert_eq!(s.reverse(), "olleh");
     }
 }

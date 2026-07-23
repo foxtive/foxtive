@@ -1,13 +1,17 @@
-use crate::prelude::AppResult;
+use crate::prelude::{AppMessage, AppResult};
 use crate::rabbitmq::config::RabbitmqConfig;
-use anyhow::Error;
-use deadpool_lapin::{Manager, Pool};
+use deadpool_lapin::{Manager, Pool, Runtime};
 
-pub async fn create_rmq_conn_pool(config: RabbitmqConfig) -> AppResult<Pool> {
-    let manager = Manager::new(config.dsn, config.conn_props);
+pub async fn create_rmq_conn_pool(mut config: RabbitmqConfig) -> AppResult<Pool> {
+    config.apply_timeouts();
+    let manager = Manager::new(config.dsn.to_string(), config.conn_props);
 
     Pool::builder(manager)
         .config(config.pool_config)
+        .runtime(Runtime::Tokio1)
         .build()
-        .map_err(Error::msg)
+        .map_err(|e| AppMessage::Infrastructure {
+            message: format!("RabbitMQ pool build error: {e}"),
+            source: Some(Box::new(e)),
+        })
 }

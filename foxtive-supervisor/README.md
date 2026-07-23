@@ -366,32 +366,32 @@ The persistence layer supports:
 Real-world examples demonstrating various use cases:
 
 - **Microservice Orchestration** ([examples/microservice-orchestration](examples/microservice-orchestration))
-  - Database to Cache to API Server architecture
-  - Dependency management and health monitoring
-  
+    - Database to Cache to API Server architecture
+    - Dependency management and health monitoring
+
 - **Circuit Breaker Pattern** ([examples/circuit-breaker](examples/circuit-breaker))
-  - Automatic failure detection and recovery
-  - Half-open state testing
-  
+    - Automatic failure detection and recovery
+    - Half-open state testing
+
 - **Graceful Shutdown** ([examples/graceful-shutdown](examples/graceful-shutdown))
-  - Configurable shutdown timeouts
-  - Cleanup hooks and forced termination
-  
+    - Configurable shutdown timeouts
+    - Cleanup hooks and forced termination
+
 - **Database Message Consumer** ([examples/db-message-consumer](examples/db-message-consumer))
-  - Persistent message processing with retry logic
-  - State persistence across restarts
-  
+    - Persistent message processing with retry logic
+    - State persistence across restarts
+
 - **Panic Recovery** ([examples/panic-catcher](examples/panic-catcher))
-  - Handling task panics gracefully
-  - Maintaining supervision despite crashes
-  
+    - Handling task panics gracefully
+    - Maintaining supervision despite crashes
+
 - **Axum Integration** ([examples/axum-cron](examples/axum-cron))
-  - Web framework integration
-  - Scheduled task management
-  
+    - Web framework integration
+    - Scheduled task management
+
 - **Tracing & Observability** ([examples/tracing](examples/tracing))
-  - Distributed tracing with correlation IDs
-  - Structured logging throughout task lifecycle
+    - Distributed tracing with correlation IDs
+    - Structured logging throughout task lifecycle
 
 ## Troubleshooting Guide
 

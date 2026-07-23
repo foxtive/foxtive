@@ -1,6 +1,8 @@
 use crate::cache::contract::CacheDriverContract;
 use crate::results::AppResult;
 use dashmap::DashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 #[derive(Clone, Default)]
@@ -14,68 +16,84 @@ impl InMemoryDriver {
     }
 }
 
-#[async_trait::async_trait]
 impl CacheDriverContract for InMemoryDriver {
-    async fn keys(&self) -> AppResult<Vec<String>> {
-        Ok(self
-            .storage
-            .iter()
-            .map(|entry| entry.key().clone())
-            .collect())
-    }
-
-    async fn keys_by_pattern(&self, pattern: &str) -> AppResult<Vec<String>> {
-        let regex = fancy_regex::Regex::new(pattern)?;
-        let all_keys = self.keys().await?;
-
-        Ok(all_keys
-            .into_iter()
-            .filter(|key| matches!(regex.is_match(key), Ok(true)))
-            .collect())
-    }
-
-    async fn put_raw(&self, key: &str, value: String) -> AppResult<String> {
-        self.storage.insert(key.to_string(), value.clone());
-        Ok(value)
-    }
-
-    async fn get_raw(&self, key: &str) -> AppResult<Option<String>> {
-        Ok(self.storage.get(key).map(|value| value.value().clone()))
-    }
-
-    async fn forget(&self, key: &str) -> AppResult<i32> {
-        Ok(if self.storage.remove(key).is_some() {
-            1
-        } else {
-            0
+    fn keys(&self) -> Pin<Box<dyn Future<Output = AppResult<Vec<String>>> + Send + '_>> {
+        Box::pin(async move {
+            Ok(self
+                .storage
+                .iter()
+                .map(|entry| entry.key().clone())
+                .collect())
         })
     }
 
-    async fn forget_by_pattern(&self, pattern: &str) -> AppResult<i32> {
-        let regex = fancy_regex::Regex::new(pattern)?;
-        let mut removed_count = 0;
+    fn keys_by_pattern(&self, pattern: &str) -> Pin<Box<dyn Future<Output = AppResult<Vec<String>>> + Send + '_>> {
+        let pattern = pattern.to_string();
+        Box::pin(async move {
+            let regex = fancy_regex::Regex::new(&pattern)?;
+            let all_keys = self.keys().await?;
 
-        // Collect keys to remove to avoid mutation during iteration
-        let keys_to_remove: Vec<String> = self
-            .storage
-            .iter()
-            .filter_map(|entry| {
-                let key = entry.key();
-                match regex.is_match(key) {
-                    Ok(true) => Some(key.clone()),
-                    _ => None,
-                }
+            Ok(all_keys
+                .into_iter()
+                .filter(|key| matches!(regex.is_match(key), Ok(true)))
+                .collect())
+        })
+    }
+
+    fn put_raw(&self, key: &str, value: String) -> Pin<Box<dyn Future<Output = AppResult<String>> + Send + '_>> {
+        let key = key.to_string();
+        Box::pin(async move {
+            self.storage.insert(key, value.clone());
+            Ok(value)
+        })
+    }
+
+    fn get_raw(&self, key: &str) -> Pin<Box<dyn Future<Output = AppResult<Option<String>>> + Send + '_>> {
+        let key = key.to_string();
+        Box::pin(async move {
+            Ok(self.storage.get(&key).map(|value| value.value().clone()))
+        })
+    }
+
+    fn forget(&self, key: &str) -> Pin<Box<dyn Future<Output = AppResult<i32>> + Send + '_>> {
+        let key = key.to_string();
+        Box::pin(async move {
+            Ok(if self.storage.remove(&key).is_some() {
+                1
+            } else {
+                0
             })
-            .collect();
+        })
+    }
 
-        // Remove the matched keys
-        for key in keys_to_remove {
-            if self.storage.remove(&key).is_some() {
-                removed_count += 1;
+    fn forget_by_pattern(&self, pattern: &str) -> Pin<Box<dyn Future<Output = AppResult<i32>> + Send + '_>> {
+        let pattern = pattern.to_string();
+        Box::pin(async move {
+            let regex = fancy_regex::Regex::new(&pattern)?;
+            let mut removed_count = 0;
+
+            // Collect keys to remove to avoid mutation during iteration
+            let keys_to_remove: Vec<String> = self
+                .storage
+                .iter()
+                .filter_map(|entry| {
+                    let key = entry.key();
+                    match regex.is_match(key) {
+                        Ok(true) => Some(key.clone()),
+                        _ => None,
+                    }
+                })
+                .collect();
+
+            // Remove the matched keys
+            for key in keys_to_remove {
+                if self.storage.remove(&key).is_some() {
+                    removed_count += 1;
+                }
             }
-        }
 
-        Ok(removed_count)
+            Ok(removed_count)
+        })
     }
 }
 

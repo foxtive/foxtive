@@ -29,7 +29,7 @@ mod tests {
 
     #[async_trait::async_trait]
     impl CoordinationBackend for MockCoordinationBackend {
-        async fn try_acquire_lock(&self, key: &str, ttl_secs: u64) -> anyhow::Result<bool> {
+        async fn try_acquire_lock(&self, key: &str, ttl_secs: u64) -> foxtive_supervisor::SupervisorResult<bool> {
             let mut locks = self.locks.lock().await;
             let now = Instant::now();
 
@@ -45,24 +45,24 @@ mod tests {
             Ok(true)
         }
 
-        async fn release_lock(&self, key: &str) -> anyhow::Result<()> {
+        async fn release_lock(&self, key: &str) -> foxtive_supervisor::SupervisorResult<()> {
             let mut locks = self.locks.lock().await;
             locks.remove(key);
             Ok(())
         }
 
-        async fn is_locked(&self, key: &str) -> anyhow::Result<bool> {
+        async fn is_locked(&self, key: &str) -> foxtive_supervisor::SupervisorResult<bool> {
             let locks = self.locks.lock().await;
             Ok(locks.contains_key(key))
         }
 
-        async fn heartbeat(&self, instance_id: &str, _ttl_secs: u64) -> anyhow::Result<()> {
+        async fn heartbeat(&self, instance_id: &str, _ttl_secs: u64) -> foxtive_supervisor::SupervisorResult<()> {
             let mut heartbeats = self.heartbeats.lock().await;
             heartbeats.insert(instance_id.to_string(), Instant::now());
             Ok(())
         }
 
-        async fn is_instance_alive(&self, instance_id: &str) -> anyhow::Result<bool> {
+        async fn is_instance_alive(&self, instance_id: &str) -> foxtive_supervisor::SupervisorResult<bool> {
             let heartbeats = self.heartbeats.lock().await;
             Ok(heartbeats.contains_key(instance_id))
         }
@@ -71,7 +71,7 @@ mod tests {
             &self,
             instance_id: &str,
             _lease_secs: u64,
-        ) -> anyhow::Result<bool> {
+        ) -> foxtive_supervisor::SupervisorResult<bool> {
             let mut leader = self.leader.lock().await;
             let now = Instant::now();
 
@@ -94,12 +94,12 @@ mod tests {
             Ok(true)
         }
 
-        async fn is_leader(&self, instance_id: &str) -> anyhow::Result<bool> {
+        async fn is_leader(&self, instance_id: &str) -> foxtive_supervisor::SupervisorResult<bool> {
             let leader = self.leader.lock().await;
             Ok(leader.as_ref().map(|(id, _)| id.as_str()) == Some(instance_id))
         }
 
-        async fn get_current_leader(&self) -> anyhow::Result<Option<String>> {
+        async fn get_current_leader(&self) -> foxtive_supervisor::SupervisorResult<Option<String>> {
             let leader = self.leader.lock().await;
             Ok(leader.as_ref().map(|(id, _)| id.clone()))
         }

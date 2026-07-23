@@ -1,4 +1,3 @@
-use crate::internal_server_error;
 use crate::prelude::{AppMessage, AppResult};
 use crate::setup::trace_layers::EventCallbackLayer;
 use std::str::FromStr;
@@ -60,7 +59,7 @@ impl std::fmt::Debug for Tracing {
 }
 
 impl FromStr for OutputFormat {
-    type Err = crate::Error;
+    type Err = String;
 
     fn from_str(val: &str) -> Result<Self, Self::Err> {
         match val.to_lowercase().as_str() {
@@ -68,7 +67,7 @@ impl FromStr for OutputFormat {
             "full" => Ok(OutputFormat::Full),
             "compact" => Ok(OutputFormat::Compact),
             "pretty" => Ok(OutputFormat::Pretty),
-            _ => Err(internal_server_error!("Invalid tracing format")),
+            _ => Err(format!("Invalid tracing format: {val}")),
         }
     }
 }
@@ -77,10 +76,8 @@ impl OutputFormat {
     /// Gets the output format from environment variable or returns default
     pub fn from_env(var_name: &str) -> AppResult<OutputFormat> {
         std::env::var(var_name)
-            .map_err(|e| {
-                AppMessage::missing_environment_variable(var_name.to_string(), e).into_anyhow()
-            })
-            .and_then(|val| val.parse())
+            .map_err(|e| AppMessage::missing_environment_variable(var_name.to_string(), e))
+            .and_then(|val| val.parse().map_err(|e: String| AppMessage::InternalServerError(e)))
     }
 
     /// Gets the output format from environment variable or returns default
@@ -149,7 +146,11 @@ pub fn init_tracing(config: Tracing) -> AppResult<()> {
     macro_rules! init_subscriber {
         ($fmt_layer:expr) => {
             let env_filter = EnvFilter::try_from_default_env()
-                .or_else(|_| EnvFilter::try_new(config.level.to_string()))?;
+                .or_else(|_| EnvFilter::try_new(config.level.to_string()))
+                .map_err(|e| AppMessage::Infrastructure {
+                    message: "Failed to create env filter".to_string(),
+                    source: Some(Box::new(e)),
+                })?;
 
             if let Some(on_logger_event) = config.on_logger_event {
                 tracing_subscriber::registry()
@@ -166,181 +167,113 @@ pub fn init_tracing(config: Tracing) -> AppResult<()> {
         };
     }
 
-    match (config.format, config.target) {
+    // Helper macro to reduce duplication across format × target combinations
+    macro_rules! fmt_layer {
+        // Variant with an explicit format method (json, pretty, compact)
+        ($method:ident $(, $extra_method:ident($($extra_arg:expr),*))* $(,)?) => {{
+            let ansi = if matches!(config.target, OutputTarget::File(_)) {
+                false
+            } else {
+                config.enable_ansi
+            };
+            tracing_subscriber::fmt::layer()
+                .$method()
+                $(.$extra_method($($extra_arg),*))*
+                .with_file(config.include_file)
+                .with_line_number(config.include_line_number)
+                .with_target(config.include_target)
+                .with_thread_ids(config.include_thread_ids)
+                .with_thread_names(config.include_thread_names)
+                .with_ansi(ansi)
+        }};
+        // Variant without a format method (default/full format)
+        (@default $(, $extra_method:ident($($extra_arg:expr),*))*) => {{
+            let ansi = if matches!(config.target, OutputTarget::File(_)) {
+                false
+            } else {
+                config.enable_ansi
+            };
+            tracing_subscriber::fmt::layer()
+                $(.$extra_method($($extra_arg),*))*
+                .with_file(config.include_file)
+                .with_line_number(config.include_line_number)
+                .with_target(config.include_target)
+                .with_thread_ids(config.include_thread_ids)
+                .with_thread_names(config.include_thread_names)
+                .with_ansi(ansi)
+        }};
+    }
+
+    macro_rules! fmt_layer_for_file {
+        // Variant with an explicit format method
+        ($method:ident, $path:expr) => {{
+            let file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open($path)?;
+            tracing_subscriber::fmt::layer()
+                .$method()
+                .with_file(config.include_file)
+                .with_line_number(config.include_line_number)
+                .with_target(config.include_target)
+                .with_thread_ids(config.include_thread_ids)
+                .with_thread_names(config.include_thread_names)
+                .with_ansi(false)
+                .with_writer(file)
+        }};
+        // Variant without format method (default/full format)
+        (@default, $path:expr) => {{
+            let file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open($path)?;
+            tracing_subscriber::fmt::layer()
+                .with_file(config.include_file)
+                .with_line_number(config.include_line_number)
+                .with_target(config.include_target)
+                .with_thread_ids(config.include_thread_ids)
+                .with_thread_names(config.include_thread_names)
+                .with_ansi(false)
+                .with_writer(file)
+        }};
+    }
+
+    match (config.format.clone(), &config.target) {
         (OutputFormat::Json, OutputTarget::Stdout) => {
-            init_subscriber!(
-                tracing_subscriber::fmt::layer()
-                    .json()
-                    .with_current_span(true)
-                    .with_span_list(true)
-                    .with_file(config.include_file)
-                    .with_line_number(config.include_line_number)
-                    .with_target(config.include_target)
-                    .with_thread_ids(config.include_thread_ids)
-                    .with_thread_names(config.include_thread_names)
-                    .with_ansi(config.enable_ansi)
-            );
+            init_subscriber!(fmt_layer!(json, with_current_span(true), with_span_list(true)));
         }
         (OutputFormat::Json, OutputTarget::Stderr) => {
-            init_subscriber!(
-                tracing_subscriber::fmt::layer()
-                    .json()
-                    .with_current_span(true)
-                    .with_span_list(true)
-                    .with_file(config.include_file)
-                    .with_line_number(config.include_line_number)
-                    .with_target(config.include_target)
-                    .with_thread_ids(config.include_thread_ids)
-                    .with_thread_names(config.include_thread_names)
-                    .with_ansi(config.enable_ansi)
-                    .with_writer(std::io::stderr)
-            );
+            init_subscriber!(fmt_layer!(json, with_current_span(true), with_span_list(true), with_writer(std::io::stderr)));
         }
         (OutputFormat::Json, OutputTarget::File(path)) => {
-            let file = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(path)?;
-
-            init_subscriber!(
-                tracing_subscriber::fmt::layer()
-                    .json()
-                    .with_current_span(true)
-                    .with_span_list(true)
-                    .with_file(config.include_file)
-                    .with_line_number(config.include_line_number)
-                    .with_target(config.include_target)
-                    .with_thread_ids(config.include_thread_ids)
-                    .with_thread_names(config.include_thread_names)
-                    .with_ansi(false)
-                    .with_writer(file)
-            );
+            init_subscriber!(fmt_layer_for_file!(json, path));
         }
         (OutputFormat::Pretty, OutputTarget::Stdout) => {
-            init_subscriber!(
-                tracing_subscriber::fmt::layer()
-                    .pretty()
-                    .with_file(config.include_file)
-                    .with_line_number(config.include_line_number)
-                    .with_target(config.include_target)
-                    .with_thread_ids(config.include_thread_ids)
-                    .with_thread_names(config.include_thread_names)
-                    .with_ansi(config.enable_ansi)
-            );
+            init_subscriber!(fmt_layer!(pretty));
         }
         (OutputFormat::Pretty, OutputTarget::Stderr) => {
-            init_subscriber!(
-                tracing_subscriber::fmt::layer()
-                    .pretty()
-                    .with_file(config.include_file)
-                    .with_line_number(config.include_line_number)
-                    .with_target(config.include_target)
-                    .with_thread_ids(config.include_thread_ids)
-                    .with_thread_names(config.include_thread_names)
-                    .with_ansi(config.enable_ansi)
-                    .with_writer(std::io::stderr)
-            );
+            init_subscriber!(fmt_layer!(pretty, with_writer(std::io::stderr)));
         }
         (OutputFormat::Pretty, OutputTarget::File(path)) => {
-            let file = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(path)?;
-
-            init_subscriber!(
-                tracing_subscriber::fmt::layer()
-                    .pretty()
-                    .with_file(config.include_file)
-                    .with_line_number(config.include_line_number)
-                    .with_target(config.include_target)
-                    .with_thread_ids(config.include_thread_ids)
-                    .with_thread_names(config.include_thread_names)
-                    .with_ansi(false)
-                    .with_writer(file)
-            );
+            init_subscriber!(fmt_layer_for_file!(pretty, path));
         }
         (OutputFormat::Compact, OutputTarget::Stdout) => {
-            init_subscriber!(
-                tracing_subscriber::fmt::layer()
-                    .compact()
-                    .with_file(config.include_file)
-                    .with_line_number(config.include_line_number)
-                    .with_target(config.include_target)
-                    .with_thread_ids(config.include_thread_ids)
-                    .with_thread_names(config.include_thread_names)
-                    .with_ansi(config.enable_ansi)
-            );
+            init_subscriber!(fmt_layer!(compact));
         }
         (OutputFormat::Compact, OutputTarget::Stderr) => {
-            init_subscriber!(
-                tracing_subscriber::fmt::layer()
-                    .compact()
-                    .with_file(config.include_file)
-                    .with_line_number(config.include_line_number)
-                    .with_target(config.include_target)
-                    .with_thread_ids(config.include_thread_ids)
-                    .with_thread_names(config.include_thread_names)
-                    .with_ansi(config.enable_ansi)
-                    .with_writer(std::io::stderr)
-            );
+            init_subscriber!(fmt_layer!(compact, with_writer(std::io::stderr)));
         }
         (OutputFormat::Compact, OutputTarget::File(path)) => {
-            let file = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(path)?;
-
-            init_subscriber!(
-                tracing_subscriber::fmt::layer()
-                    .compact()
-                    .with_file(config.include_file)
-                    .with_line_number(config.include_line_number)
-                    .with_target(config.include_target)
-                    .with_thread_ids(config.include_thread_ids)
-                    .with_thread_names(config.include_thread_names)
-                    .with_ansi(false)
-                    .with_writer(file)
-            );
+            init_subscriber!(fmt_layer_for_file!(compact, path));
         }
         (OutputFormat::Full, OutputTarget::Stdout) => {
-            init_subscriber!(
-                tracing_subscriber::fmt::layer()
-                    .with_file(config.include_file)
-                    .with_line_number(config.include_line_number)
-                    .with_target(config.include_target)
-                    .with_thread_ids(config.include_thread_ids)
-                    .with_thread_names(config.include_thread_names)
-                    .with_ansi(config.enable_ansi)
-            );
+            init_subscriber!(fmt_layer!(@default));
         }
         (OutputFormat::Full, OutputTarget::Stderr) => {
-            init_subscriber!(
-                tracing_subscriber::fmt::layer()
-                    .with_file(config.include_file)
-                    .with_line_number(config.include_line_number)
-                    .with_target(config.include_target)
-                    .with_thread_ids(config.include_thread_ids)
-                    .with_thread_names(config.include_thread_names)
-                    .with_ansi(config.enable_ansi)
-                    .with_writer(std::io::stderr)
-            );
+            init_subscriber!(fmt_layer!(@default, with_writer(std::io::stderr)));
         }
         (OutputFormat::Full, OutputTarget::File(path)) => {
-            let file = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(path)?;
-
-            init_subscriber!(
-                tracing_subscriber::fmt::layer()
-                    .with_file(config.include_file)
-                    .with_line_number(config.include_line_number)
-                    .with_target(config.include_target)
-                    .with_thread_ids(config.include_thread_ids)
-                    .with_thread_names(config.include_thread_names)
-                    .with_ansi(false)
-                    .with_writer(file)
-            );
+            init_subscriber!(fmt_layer_for_file!(@default, path));
         }
     }
 
@@ -500,7 +433,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_verbose_config() {
         let config = Tracing::verbose();
         assert!(config.include_file);

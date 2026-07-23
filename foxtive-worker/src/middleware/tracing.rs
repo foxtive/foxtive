@@ -12,7 +12,7 @@ use crate::middleware::{MessageHandler, Middleware, MiddlewareResult};
 /// - Error details (if any)
 ///
 /// When the `tracing` feature is enabled, it uses the `tracing` crate
-/// to emit structured events. Otherwise, it logs to stdout.
+/// to emit structured events. Otherwise, it logs to stderr.
 ///
 /// # Example
 /// ```rust,no_run
@@ -72,7 +72,7 @@ impl Middleware for TracingMiddleware {
 
         #[cfg(not(feature = "tracing"))]
         {
-            println!(
+            eprintln!(
                 "[{}] Processing message {} from {} (attempt {})",
                 self.service_name, message_id, source, message.message.metadata.attempt
             );
@@ -100,7 +100,7 @@ impl Middleware for TracingMiddleware {
 
                 #[cfg(not(feature = "tracing"))]
                 {
-                    println!(
+                    eprintln!(
                         "[{}] ✓ Message {} processed in {}ms",
                         self.service_name,
                         message_id,
@@ -122,7 +122,7 @@ impl Middleware for TracingMiddleware {
 
                 #[cfg(not(feature = "tracing"))]
                 {
-                    println!(
+                    eprintln!(
                         "[{}] ✗ Message {} failed after {}ms: {}",
                         self.service_name,
                         message_id,

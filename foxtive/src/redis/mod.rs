@@ -1,22 +1,117 @@
-use crate::FOXTIVE;
-use crate::prelude::{AppResult, AppStateExt};
+//! # Redis Module
+//!
+//! High-level Redis client backed by a `deadpool-redis` connection pool.
+//!
+//! ## Overview
+//!
+//! - [`Redis`] - Main client with comprehensive Redis operations
+//! - [`config`] - Connection pool configuration
+//! - [`conn`] - Pool creation and management
+//!
+//! ## Supported Operations
+//!
+//! - **Strings**: `set`, `get`, `delete`
+//! - **Lists**: `queue` (lpush), `rpush`, `lpop`, `rpop`, `blpop`, `brpop`, `lrange`
+//! - **Sets**: `sadd`, `spop`
+//! - **Sorted Sets**: `zadd`, `zpopmin`, `zpopmax`, `zrange`, `zrangebyscore`
+//! - **Pub/Sub**: `publish`
+//! - **Hashes**: `hset`, `hget`, `hdel`, `hkeys`, `hvals`, `hgetall`
+//!
+//! ## Example
+//!
+//! ```no_run
+//! use std::sync::Arc;
+//! use foxtive::redis::Redis;
+//!
+//! # async fn example(pool: deadpool_redis::Pool) {
+//! let redis = Arc::new(Redis::new(pool));
+//!
+//! // Set and get a value
+//! redis.set("my-key", &"my-value").await.unwrap();
+//! let val: String = redis.get("my-key").await.unwrap();
+//! assert_eq!(val, "my-value");
+//!
+//! // Work with lists
+//! redis.queue("my-queue", &"item1").await.unwrap();
+//! redis.rpush("my-queue", &"item2").await.unwrap();
+//! let item: String = redis.lpop("my-queue", None).await.unwrap();
+//! # }
+//! ```
+
+use crate::prelude::AppResult;
 use crate::redis::conn::create_redis_connection;
 use crate::results::redis_result::RedisResultToAppResult;
-use anyhow::Error;
 use futures_util::StreamExt;
 use redis::{AsyncCommands, FromRedisValue, ToRedisArgs, ToSingleRedisArg};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::future::Future;
 use std::num::{NonZeroU64, NonZeroUsize};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Handle;
+use tokio::sync::Semaphore;
 use tokio::time;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 pub mod config;
 pub mod conn;
 
+/// Whether flush operations are allowed.
+///
+/// Uses interior mutability to allow runtime updates via [`set_allow_flush()`].
+/// The initial value is read from the `FOXTIVE_ALLOW_FLUSH` environment variable.
+///
+/// # Behavior
+/// The environment variable is evaluated once at first access. Use [`set_allow_flush()`]
+/// to change the value at runtime (e.g., for testing or dynamic configuration).
+static ALLOW_FLUSH: AtomicBool = AtomicBool::new(false);
+static ALLOW_FLUSH_INIT: std::sync::Once = std::sync::Once::new();
+
+/// Returns whether flush operations are allowed.
+///
+/// The `FOXTIVE_ALLOW_FLUSH` environment variable is evaluated once on first access
+/// and cached. Use [`set_allow_flush()`] to override at runtime.
+fn allow_flush() -> bool {
+    ALLOW_FLUSH_INIT.call_once(|| {
+        let val = std::env::var("FOXTIVE_ALLOW_FLUSH")
+            .map(|v| v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        ALLOW_FLUSH.store(val, Ordering::Relaxed);
+    });
+    ALLOW_FLUSH.load(Ordering::Relaxed)
+}
+
+/// Override whether flush operations are allowed at runtime.
+///
+/// This overrides the initial value from `FOXTIVE_ALLOW_FLUSH` environment variable.
+/// Useful for testing or dynamic configuration.
+pub fn set_allow_flush(allowed: bool) {
+    ALLOW_FLUSH.store(allowed, Ordering::Relaxed);
+}
+
+/// Redis client backed by a `deadpool-redis` connection pool.
+///
+/// Provides a comprehensive set of Redis operations including strings,
+/// hashes, lists, sets, sorted sets, and pub/sub.
+///
+/// # Example
+///
+/// ```no_run
+/// use std::sync::Arc;
+/// use foxtive::redis::Redis;
+///
+/// # async fn example(pool: deadpool_redis::Pool) {
+/// let redis = Arc::new(Redis::new(pool));
+///
+/// // Set and get a value
+/// redis.set("my-key", &"my-value").await.unwrap();
+/// let val: String = redis.get("my-key").await.unwrap();
+/// assert_eq!(val, "my-value");
+/// # }
+/// ```
+#[derive(Clone)]
 pub struct Redis {
     pool: deadpool_redis::Pool,
 }
@@ -27,7 +122,7 @@ impl Redis {
     }
 
     pub async fn redis(&self) -> AppResult<deadpool_redis::Connection> {
-        self.pool.get().await.map_err(Error::msg)
+        Ok(self.pool.get().await?)
     }
 
     /// Push a value to a Redis list
@@ -59,6 +154,8 @@ impl Redis {
 
     /// Delete Redis keys matching a pattern.
     ///
+    /// Uses `SCAN` internally to avoid blocking the server on large datasets.
+    ///
     /// # Arguments
     /// * `pattern` - The glob-style pattern to match keys (e.g. "my_prefix:*")
     ///
@@ -66,13 +163,31 @@ impl Redis {
     /// * `AppResult<u32>` - The number of keys deleted
     pub async fn delete_by_pattern(&self, pattern: &str) -> AppResult<u32> {
         let mut conn = self.redis().await?;
-        let keys: Vec<String> = conn.keys(pattern).await?;
+        let mut cursor: u64 = 0;
+        let mut total_deleted: u32 = 0;
 
-        if keys.is_empty() {
-            return Ok(0);
+        loop {
+            let (next_cursor, keys): (u64, Vec<String>) = redis::cmd("SCAN")
+                .arg(cursor)
+                .arg("MATCH")
+                .arg(pattern)
+                .arg("COUNT")
+                .arg(100)
+                .query_async(&mut *conn)
+                .await?;
+
+            if !keys.is_empty() {
+                let deleted: u32 = conn.del(&keys).await?;
+                total_deleted += deleted;
+            }
+
+            cursor = next_cursor;
+            if cursor == 0 {
+                break;
+            }
         }
 
-        conn.del(keys).await.into_app_result()
+        Ok(total_deleted)
     }
 
     pub async fn publish<T: Serialize>(&self, channel: &str, data: &T) -> AppResult<i32> {
@@ -199,48 +314,88 @@ impl Redis {
         conn.lrem(key, count, content).await.into_app_result()
     }
 
-    /// Flush all keys in the database
+    /// Flush all keys across all databases.
+    ///
+    /// # Safety
+    /// This is a **destructive** operation that removes all data.
+    /// Only allowed when the `FOXTIVE_ALLOW_FLUSH` environment variable
+    /// is set to `"true"` (case-insensitive) to prevent accidental use
+    /// in production.
     pub async fn flush_all(&self) -> AppResult<()> {
-        let mut conn = self.redis().await?;
-        redis::cmd("FLUSHALL")
-            .query_async(&mut *conn)
-            .await
-            .into_app_result()
+        if allow_flush() {
+            let mut conn = self.redis().await?;
+            redis::cmd("FLUSHALL")
+                .query_async(&mut *conn)
+                .await
+                .into_app_result()
+        } else {
+            Err(crate::enums::AppMessage::Infrastructure {
+                message: "FLUSHALL is disabled. Set FOXTIVE_ALLOW_FLUSH=true to allow.".into(),
+                source: None,
+            })
+        }
     }
 
-    /// Flush all keys in the database
+    /// Flush all keys in the current database.
+    ///
+    /// # Safety
+    /// This is a **destructive** operation that removes all data.
+    /// Only allowed when the `FOXTIVE_ALLOW_FLUSH` environment variable
+    /// is set to `"true"` (case-insensitive) to prevent accidental use
+    /// in production.
     pub async fn flush_db(&self) -> AppResult<()> {
-        let mut conn = self.redis().await?;
-        redis::cmd("FLUSHDB")
-            .query_async(&mut *conn)
-            .await
-            .into_app_result()
+        if allow_flush() {
+            let mut conn = self.redis().await?;
+            redis::cmd("FLUSHDB")
+                .query_async(&mut *conn)
+                .await
+                .into_app_result()
+        } else {
+            Err(crate::enums::AppMessage::Infrastructure {
+                message: "FLUSHDB is disabled. Set FOXTIVE_ALLOW_FLUSH=true to allow.".into(),
+                source: None,
+            })
+        }
     }
 
-    /// Polls a Redis queue at a given interval and processes items using `func`
+    /// Polls a Redis queue at a given interval and processes items using `func`.
     ///
     /// # Arguments
+    /// - `redis`: The Redis instance to poll from
     /// - `queue`: The Redis queue to poll
     /// - `interval`: The interval (in microseconds) between polls, defaults to 500ms
     /// - `len`: The number of items to retrieve per poll, defaults to 1
+    /// - `concurrency`: Maximum number of concurrent tasks (defaults to 100)
     /// - `func`: The async function to process each retrieved item
+    ///
+    /// # Delivery Semantics
+    ///
+    /// This method provides **at-most-once** delivery: items are popped from the
+    /// queue (`rpop`) and then processed in a spawned task. If the process crashes
+    /// between the pop and the completion of processing, the message is lost.
+    ///
+    /// For production use cases requiring **at-least-once** delivery, implement a
+    /// separate work queue pattern with explicit acknowledgment (e.g., BRPOPLPUSH
+    /// to a processing queue, with removal on success).
     ///
     /// # Example
     /// ```no_run
+    /// use std::sync::Arc;
     /// use foxtive::redis::Redis;
     ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     Redis::poll_queue("my_queue".to_string(), None, None, |item| async move {
-    ///         println!("Processing item: {}", item);
-    ///         Ok(())
-    ///     }).await;
-    /// }
+    /// # async fn example(redis: Arc<Redis>) {
+    /// Redis::poll_queue(redis, "my_queue".to_string(), None, None, None, |item| async move {
+    ///     println!("Processing item: {}", item);
+    ///     Ok(())
+    /// }).await;
+    /// # }
     /// ```
     pub async fn poll_queue<F, Fut>(
+        redis: Arc<Redis>,
         queue: String,
         interval: Option<NonZeroU64>,
         len: Option<NonZeroUsize>,
+        concurrency: Option<NonZeroUsize>,
         mut func: F,
     ) where
         F: FnMut(String) -> Fut + Send + Copy + 'static,
@@ -251,17 +406,29 @@ impl Redis {
             interval.map(|v| v.get()).unwrap_or(500_000),
         ));
 
+        // Bound concurrency with a semaphore to prevent resource exhaustion
+        let max_concurrent = concurrency.map(|v| v.get()).unwrap_or(100);
+        let semaphore = Arc::new(Semaphore::new(max_concurrent));
+
         loop {
-            match FOXTIVE.redis().rpop(&queue, len).await {
+            match redis.rpop(&queue, len).await {
                 Ok(Some(item)) => {
                     let queue_clone = queue.clone();
+                    let sem = semaphore.clone();
+                    // Acquire permit before spawning (blocks if at capacity)
+                    let permit = sem.acquire_owned().await.unwrap();
                     Handle::current().spawn(async move {
+                        let _permit = permit; // Hold permit for task duration
                         if let Err(err) = func(item).await {
                             error!("[queue][{queue_clone}] executor error: {err:?}");
                         }
                     });
                 }
-                Ok(None) | Err(_) => {
+                Ok(None) => {
+                    interval.tick().await;
+                }
+                Err(err) => {
+                    warn!("[queue][{queue}] Redis error during poll: {err:?}");
                     interval.tick().await;
                 }
             }
@@ -271,7 +438,18 @@ impl Redis {
     /// Subscribes to a Redis channel and executes `func` on each message received
     ///
     /// **Note:** this method will establish new redis connection
-    pub async fn subscribe<F, Fut>(channel: String, dns: String, mut func: F) -> AppResult<()>
+    ///
+    /// # Arguments
+    /// - `channel`: The channel to subscribe to
+    /// - `dns`: Redis connection string
+    /// - `concurrency`: Maximum number of concurrent message handlers (defaults to 100)
+    /// - `func`: The async function to process each message
+    pub async fn subscribe<F, Fut>(
+        channel: String,
+        dns: String,
+        concurrency: Option<NonZeroUsize>,
+        mut func: F,
+    ) -> AppResult<()>
     where
         F: FnMut(AppResult<String>) -> Fut + Copy + Send + 'static,
         Fut: Future<Output = AppResult<()>> + Send + 'static,
@@ -285,9 +463,17 @@ impl Redis {
         pubsub.subscribe(std::slice::from_ref(&channel)).await?;
         let mut stream = pubsub.into_on_message();
 
+        // Bound concurrency with a semaphore to prevent resource exhaustion
+        let max_concurrent = concurrency.map(|v| v.get()).unwrap_or(100);
+        let semaphore = Arc::new(Semaphore::new(max_concurrent));
+
         while let Some(msg) = stream.next().await {
             let channel_clone = channel.clone();
+            let sem = semaphore.clone();
+            // Acquire permit before spawning (blocks if at capacity)
+            let permit = sem.acquire_owned().await.unwrap();
             Handle::current().spawn(async move {
+                let _permit = permit; // Hold permit for task duration
                 let received = msg.get_payload::<String>().into_app_result();
                 if let Err(err) = func(received).await {
                     error!("[subscriber][{channel_clone}] executor error: {err:?}");
@@ -300,19 +486,24 @@ impl Redis {
 
     /// Returns all keys in the Redis database.
     ///
-    /// This method uses Redis' KEYS command with a "*" pattern to retrieve all keys.
-    /// Note: The KEYS command should be used with caution in production environments
-    /// as it may impact performance for large datasets.
+    /// Uses the `SCAN` command internally to avoid blocking the server
+    /// on large datasets (unlike `KEYS *`).
     ///
-    /// # Returns
-    /// - `AppResult<Vec<String>>`: A vector containing all keys in the database
+    /// # Performance Warning
+    ///
+    /// This method loads **all keys** into memory as a `Vec<String>`.
+    /// On a Redis instance with millions of keys, this will allocate
+    /// significant memory. For large datasets, consider using
+    /// [`keys_by_pattern()`](Self::keys_by_pattern) with a restrictive
+    /// pattern to limit the result set, or process keys in batches.
     pub async fn keys(&self) -> AppResult<Vec<String>> {
         self.keys_by_pattern("*").await
     }
 
     /// Returns keys matching the specified pattern in the Redis database.
     ///
-    /// This method uses Redis' KEYS command with the provided pattern.
+    /// Uses the `SCAN` command internally for production-safe iteration
+    /// that does not block the server.
     /// Supports Redis glob-style patterns:
     /// - `h?llo` matches `hello`, `hallo` and `hxllo`
     /// - `h*llo` matches `hllo` and `heeeello`
@@ -325,19 +516,49 @@ impl Redis {
     /// - `AppResult<Vec<String>>`: A vector containing all matching keys
     pub async fn keys_by_pattern(&self, pattern: &str) -> AppResult<Vec<String>> {
         let mut conn = self.redis().await?;
-        conn.keys(pattern).await.into_app_result()
+        let mut cursor: u64 = 0;
+        let mut all_keys: Vec<String> = Vec::new();
+
+        loop {
+            let (next_cursor, keys): (u64, Vec<String>) = redis::cmd("SCAN")
+                .arg(cursor)
+                .arg("MATCH")
+                .arg(pattern)
+                .arg("COUNT")
+                .arg(100)
+                .query_async(&mut *conn)
+                .await?;
+
+            all_keys.extend(keys);
+            cursor = next_cursor;
+            if cursor == 0 {
+                break;
+            }
+        }
+
+        Ok(all_keys)
     }
 
     // String Operations
 
     /// Get the value of a key and set its old value.
+    ///
+    /// # Note
+    /// Uses `SET key value GET` syntax (Redis 6.2+) instead of deprecated `GETSET`.
     pub async fn getset<K: ToSingleRedisArg + Send + Sync, V: FromRedisValue>(
         &self,
         key: K,
         value: K,
     ) -> AppResult<Option<V>> {
         let mut conn = self.redis().await?;
-        conn.getset(key, value).await.into_app_result()
+        // Use SET ... GET instead of deprecated GETSET (Redis 6.2+)
+        redis::cmd("SET")
+            .arg(&key)
+            .arg(&value)
+            .arg("GET")
+            .query_async(&mut *conn)
+            .await
+            .into_app_result()
     }
 
     /// Get a range of bytes/substring from the value of a key.

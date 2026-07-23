@@ -1,0 +1,13 @@
+# Cargo configuration for foxtive workspace
+# Limits concurrency to prevent IDE/system memory crashes
+
+[build]
+# Limit parallel jobs to 3 to prevent memory exhaustion
+jobs = 3
+
+# Use incremental compilation for faster rebuilds
+incremental = true
+
+[test]
+# Limit test concurrency to 3
+jobs = 3

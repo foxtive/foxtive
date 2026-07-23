@@ -1,4 +1,4 @@
-use anyhow::Result;
+use foxtive_supervisor::SupervisorResult;
 use async_trait::async_trait;
 use foxtive_supervisor::hierarchy::SupervisorHierarchy;
 use foxtive_supervisor::{SupervisedTask, Supervisor};
@@ -14,13 +14,13 @@ impl SupervisedTask for AuthService {
         "auth-service"
     }
 
-    async fn setup(&self) -> Result<()> {
+    async fn setup(&self) -> SupervisorResult<()> {
         info!("Setting up authentication service");
         sleep(Duration::from_millis(200)).await;
         Ok(())
     }
 
-    async fn run(&self) -> Result<()> {
+    async fn run(&self) -> SupervisorResult<()> {
         sleep(Duration::from_secs(2)).await;
         info!("Auth service processing requests");
         Ok(())
@@ -36,13 +36,13 @@ impl SupervisedTask for UserService {
         "user-service"
     }
 
-    async fn setup(&self) -> Result<()> {
+    async fn setup(&self) -> SupervisorResult<()> {
         info!("Setting up user service");
         sleep(Duration::from_millis(300)).await;
         Ok(())
     }
 
-    async fn run(&self) -> Result<()> {
+    async fn run(&self) -> SupervisorResult<()> {
         sleep(Duration::from_secs(2)).await;
         info!("User service handling operations");
         Ok(())
@@ -58,13 +58,13 @@ impl SupervisedTask for EmailWorker {
         "email-worker"
     }
 
-    async fn setup(&self) -> Result<()> {
+    async fn setup(&self) -> SupervisorResult<()> {
         info!("Setting up email worker");
         sleep(Duration::from_millis(150)).await;
         Ok(())
     }
 
-    async fn run(&self) -> Result<()> {
+    async fn run(&self) -> SupervisorResult<()> {
         sleep(Duration::from_secs(3)).await;
         info!("Email worker sending notifications");
         Ok(())
@@ -80,13 +80,13 @@ impl SupervisedTask for ReportWorker {
         "report-worker"
     }
 
-    async fn setup(&self) -> Result<()> {
+    async fn setup(&self) -> SupervisorResult<()> {
         info!("Setting up report worker");
         sleep(Duration::from_millis(250)).await;
         Ok(())
     }
 
-    async fn run(&self) -> Result<()> {
+    async fn run(&self) -> SupervisorResult<()> {
         sleep(Duration::from_secs(4)).await;
         info!("Report worker generating reports");
         Ok(())
@@ -94,7 +94,7 @@ impl SupervisedTask for ReportWorker {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 

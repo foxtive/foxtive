@@ -1,11 +1,11 @@
-#[cfg(feature = "rabbitmq")]
+#![cfg(feature = "rabbitmq")]
+
 use foxtive_worker::backends::rabbitmq::RabbitMqConsumerConfig;
 use foxtive_worker::message::{AckHandle, Message, MessageMetadata};
 use std::sync::Arc;
 
 /// Test that config defaults are correct
 #[test]
-#[cfg(feature = "rabbitmq")]
 fn test_config_defaults() {
     let config = RabbitMqConsumerConfig::default();
 
@@ -23,7 +23,6 @@ fn test_config_defaults() {
 
 /// Test that delayed retry config can be enabled
 #[test]
-#[cfg(feature = "rabbitmq")]
 fn test_delayed_retry_config_enabled() {
     let config = RabbitMqConsumerConfig {
         queue_name: "test-queue".to_string(),
@@ -36,7 +35,6 @@ fn test_delayed_retry_config_enabled() {
 
 /// Test custom retry queue names
 #[test]
-#[cfg(feature = "rabbitmq")]
 fn test_custom_retry_names() {
     let config = RabbitMqConsumerConfig {
         queue_name: "main-queue".to_string(),

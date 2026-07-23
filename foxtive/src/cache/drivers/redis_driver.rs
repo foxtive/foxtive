@@ -1,6 +1,8 @@
 use crate::cache::contract::CacheDriverContract;
 use crate::prelude::Redis;
 use crate::results::AppResult;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -14,38 +16,54 @@ impl RedisCacheDriver {
     }
 }
 
-#[async_trait::async_trait]
 impl CacheDriverContract for RedisCacheDriver {
-    async fn keys(&self) -> AppResult<Vec<String>> {
-        // Use Redis KEYS command to get all keys
-        self.redis.keys().await
+    fn keys(&self) -> Pin<Box<dyn Future<Output = AppResult<Vec<String>>> + Send + '_>> {
+        Box::pin(async move {
+            // Use Redis KEYS command to get all keys
+            self.redis.keys().await
+        })
     }
 
-    async fn keys_by_pattern(&self, pattern: &str) -> AppResult<Vec<String>> {
-        // Use Redis KEYS command with the provided pattern directly
-        // Redis patterns use glob-style patterns, which is different from regex
-        // but the contract expects regex patterns, so we need to convert
-        let redis_pattern = regex_to_redis_pattern(pattern);
-        self.redis.keys_by_pattern(&redis_pattern).await
+    fn keys_by_pattern(&self, pattern: &str) -> Pin<Box<dyn Future<Output = AppResult<Vec<String>>> + Send + '_>> {
+        let pattern = pattern.to_string();
+        Box::pin(async move {
+            // Use Redis KEYS command with the provided pattern directly
+            // Redis patterns use glob-style patterns, which is different from regex
+            // but the contract expects regex patterns, so we need to convert
+            let redis_pattern = regex_to_redis_pattern(&pattern);
+            self.redis.keys_by_pattern(&redis_pattern).await
+        })
     }
 
-    async fn put_raw(&self, key: &str, value: String) -> AppResult<String> {
-        self.redis.set(key, &value).await
+    fn put_raw(&self, key: &str, value: String) -> Pin<Box<dyn Future<Output = AppResult<String>> + Send + '_>> {
+        let key = key.to_string();
+        Box::pin(async move {
+            self.redis.set(&key, &value).await
+        })
     }
 
-    async fn get_raw(&self, key: &str) -> AppResult<Option<String>> {
-        self.redis.get::<Option<String>>(key).await
+    fn get_raw(&self, key: &str) -> Pin<Box<dyn Future<Output = AppResult<Option<String>>> + Send + '_>> {
+        let key = key.to_string();
+        Box::pin(async move {
+            self.redis.get::<Option<String>>(&key).await
+        })
     }
 
-    async fn forget(&self, key: &str) -> AppResult<i32> {
-        self.redis.delete(key).await
+    fn forget(&self, key: &str) -> Pin<Box<dyn Future<Output = AppResult<i32>> + Send + '_>> {
+        let key = key.to_string();
+        Box::pin(async move {
+            self.redis.delete(&key).await
+        })
     }
 
-    async fn forget_by_pattern(&self, key: &str) -> AppResult<i32> {
-        self.redis
-            .delete_by_pattern(key)
-            .await
-            .map(|count| count as i32)
+    fn forget_by_pattern(&self, key: &str) -> Pin<Box<dyn Future<Output = AppResult<i32>> + Send + '_>> {
+        let key = key.to_string();
+        Box::pin(async move {
+            self.redis
+                .delete_by_pattern(&key)
+                .await
+                .map(|count| count as i32)
+        })
     }
 }
 

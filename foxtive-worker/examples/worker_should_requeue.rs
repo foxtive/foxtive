@@ -188,7 +188,7 @@ impl Worker for PaymentProcessor {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> WorkerResult<()> {
     tracing_subscriber::fmt::init();
 
     println!("=== Worker should_requeue Example ===\n");

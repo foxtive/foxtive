@@ -33,7 +33,7 @@ where
 
 impl DatabaseConnectionExt for DBPool {
     fn connection(&self) -> AppResult<PooledConnection<ConnectionManager<PgConnection>>> {
-        self.get().map_err(anyhow::Error::msg)
+        Ok(self.get()?)
     }
 }
 

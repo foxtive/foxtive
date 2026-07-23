@@ -44,10 +44,50 @@ pub enum CronError {
 
     #[error("Persistence error: {0}")]
     PersistenceError(String),
+
+    /// Wraps infrastructure errors (DB, Redis, IO, serialization, etc.)
+    /// Carries source for error chaining.
+    #[error("{message}")]
+    Infrastructure {
+        message: String,
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
 }
 
 /// A type alias for results returned by cron jobs, using [`CronError`].
 pub type CronResult<T> = Result<T, CronError>;
+
+impl CronError {
+    /// Wraps any error into an `Infrastructure` CronError.
+    ///
+    /// This is the catch-all constructor for error types that don't have
+    /// a dedicated `From` impl. Use with `.map_err()`:
+    ///
+    /// ```no_run
+    /// use foxtive_cron::{CronError, CronResult};
+    ///
+    /// fn example() -> CronResult<()> {
+    ///     let flag = "true".parse::<bool>().map_err(CronError::wrap)?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn wrap(e: impl std::error::Error + Send + Sync + 'static) -> Self {
+        Self::Infrastructure {
+            message: format!("{e}"),
+            source: Some(Box::new(e)),
+        }
+    }
+}
+
+impl From<std::io::Error> for CronError {
+    fn from(err: std::io::Error) -> Self {
+        CronError::Infrastructure {
+            message: format!("{err}"),
+            source: Some(Box::new(err)),
+        }
+    }
+}
 
 /// Represents a job scheduled to run at a specific time.
 ///

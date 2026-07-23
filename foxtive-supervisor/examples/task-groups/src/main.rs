@@ -1,4 +1,4 @@
-use anyhow::Result;
+use foxtive_supervisor::SupervisorResult;
 use async_trait::async_trait;
 use foxtive_supervisor::{enums::HealthStatus, SupervisedTask, Supervisor};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -21,7 +21,7 @@ impl SupervisedTask for DatabaseService {
         Some("infrastructure")
     }
 
-    async fn setup(&self) -> Result<()> {
+    async fn setup(&self) -> SupervisorResult<()> {
         info!("Setting up database connection");
         sleep(Duration::from_millis(300)).await;
         self.ready.store(true, Ordering::SeqCst);
@@ -29,12 +29,12 @@ impl SupervisedTask for DatabaseService {
         Ok(())
     }
 
-    async fn run(&self) -> Result<()> {
+    async fn run(&self) -> SupervisorResult<()> {
         // Simulate database health checks
         sleep(Duration::from_secs(2)).await;
 
         if !self.ready.load(Ordering::SeqCst) {
-            anyhow::bail!("Database not ready");
+            return Err(foxtive_supervisor::SupervisorError::from("Database not ready"));
         }
 
         info!("Database health check passed");
@@ -73,7 +73,7 @@ impl SupervisedTask for CacheService {
         &["database"]
     }
 
-    async fn setup(&self) -> Result<()> {
+    async fn setup(&self) -> SupervisorResult<()> {
         info!("Setting up cache connection");
         sleep(Duration::from_millis(200)).await;
         self.cache_ready.store(true, Ordering::SeqCst);
@@ -81,12 +81,12 @@ impl SupervisedTask for CacheService {
         Ok(())
     }
 
-    async fn run(&self) -> Result<()> {
+    async fn run(&self) -> SupervisorResult<()> {
         // Simulate cache operations
         sleep(Duration::from_secs(2)).await;
 
         if !self.cache_ready.load(Ordering::SeqCst) {
-            anyhow::bail!("Cache not ready");
+            return Err(foxtive_supervisor::SupervisorError::from("Cache not ready"));
         }
 
         info!("Cache health check passed");
@@ -125,14 +125,14 @@ impl SupervisedTask for ApiServer {
         &["database", "cache"]
     }
 
-    async fn setup(&self) -> Result<()> {
+    async fn setup(&self) -> SupervisorResult<()> {
         info!("Setting up API server");
         sleep(Duration::from_millis(400)).await;
         info!("API server ready on port 8080");
         Ok(())
     }
 
-    async fn run(&self) -> Result<()> {
+    async fn run(&self) -> SupervisorResult<()> {
         // Simulate handling requests
         sleep(Duration::from_secs(2)).await;
         info!("API server processing requests");
@@ -145,7 +145,7 @@ impl SupervisedTask for ApiServer {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 

@@ -16,7 +16,7 @@ impl SupervisedTask for TracedTask {
         self.id
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         let span = info_span!("traced_task_run", task_id = self.id);
         async move {
             info!("Starting business logic in task {}", self.id);
@@ -26,7 +26,7 @@ impl SupervisedTask for TracedTask {
             let count = self.fail_count.fetch_add(1, Ordering::SeqCst);
             if count < self.max_fails {
                 info!("Simulating failure {}/{}", count + 1, self.max_fails);
-                anyhow::bail!("Simulated business logic failure");
+                return Err(foxtive_supervisor::SupervisorError::from("Simulated business logic failure"));
             }
 
             info!("Business logic completed successfully");
@@ -39,7 +39,7 @@ impl SupervisedTask for TracedTask {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Use a standard fmt subscriber to emit internal instrumentation
     tracing_subscriber::fmt::init();
 

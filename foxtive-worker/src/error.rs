@@ -49,8 +49,14 @@ pub enum WorkerError {
     #[error("Message already acknowledged by middleware")]
     AlreadyAcknowledged,
 
-    #[error("Application error: {0}")]
-    AppError(#[from] anyhow::Error),
+    /// Wraps infrastructure errors (DB, Redis, IO, serialization, etc.)
+    /// Carries source for error chaining.
+    #[error("{message}")]
+    Infrastructure {
+        message: String,
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
 }
 
 /// A type alias for results returned by worker operations.
@@ -126,16 +132,37 @@ impl<'a> RetryInfo<'a> {
 }
 
 // Note: WorkerError does not implement Clone because it contains non-cloneable types
-// (serde_json::Error and anyhow::Error) that preserve important error context.
+// (e.g. serde_json::Error) that preserve important error context.
 // Use RetryInfo<'_> to pass error references for inspection without cloning.
 
-// Note: Removed generic From<anyhow::Error> implementation to avoid conflict with AppError variant.
-// Use WorkerError::AppError(err) or the ? operator with anyhow::Error directly.
-// The AppError variant preserves the full anyhow::Error with context chain and backtrace.
+impl WorkerError {
+    /// Wraps any error into an `Infrastructure` WorkerError.
+    ///
+    /// This is the catch-all constructor for error types that don't have
+    /// a dedicated `From` impl. Use with `.map_err()`:
+    ///
+    /// ```no_run
+    /// use foxtive_worker::prelude::*;
+    ///
+    /// fn example() -> WorkerResult<()> {
+    ///     let flag = "true".parse::<bool>().map_err(WorkerError::wrap)?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn wrap(e: impl std::error::Error + Send + Sync + 'static) -> Self {
+        WorkerError::Infrastructure {
+            message: format!("{e}"),
+            source: Some(Box::new(e)),
+        }
+    }
+}
 
 impl From<std::io::Error> for WorkerError {
     fn from(err: std::io::Error) -> Self {
-        WorkerError::BackendError(err.to_string())
+        WorkerError::Infrastructure {
+            message: format!("{err}"),
+            source: Some(Box::new(err)),
+        }
     }
 }
 

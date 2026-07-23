@@ -89,17 +89,17 @@ impl MockTask {
 impl SupervisedTask for MockTask {
     fn id(&self) -> &'static str { self.id }
 
-    async fn setup(&self) -> anyhow::Result<()> {
+    async fn setup(&self) -> crate::error::SupervisorResult<()> {
         self.setup_called.store(true, Ordering::SeqCst);
         Ok(())
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> crate::error::SupervisorResult<()> {
         self.run_count.fetch_add(1, Ordering::SeqCst);
         let current_fails = self.fail_count.fetch_add(1, Ordering::SeqCst);
         let max = self.max_fails.load(Ordering::SeqCst);
         if current_fails < max {
-            anyhow::bail!("Simulated failure {}/{}", current_fails + 1, max);
+            return Err(crate::error::SupervisorError::from(format!("Simulated failure {}/{}", current_fails + 1, max)));
         }
         Ok(())
     }
@@ -140,7 +140,7 @@ impl MockPrerequisite {
     }
 
     /// Returns a future that resolves when the prerequisite is satisfied.
-    pub async fn wait(&self) -> anyhow::Result<()> {
+    pub async fn wait(&self) -> crate::error::SupervisorResult<()> {
         while !self.resolved.load(Ordering::SeqCst) {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }

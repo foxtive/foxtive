@@ -24,6 +24,28 @@ pub enum OrderingFormat {
 }
 
 /// Represents common query parameters used for filtering, pagination, and sorting in API requests.
+///
+/// Supports two ordering formats:
+/// - **Compact**: `?order=name:asc,created_at:desc`
+/// - **Indexed**: `?order[0][column]=name&order[0][direction]=asc`
+///
+/// # Example
+///
+/// ```rust
+/// use foxtive::http::query::QueryParams;
+///
+/// # fn main() -> Result<(), serde_urlencoded::de::Error> {
+/// let params: QueryParams = serde_urlencoded::from_str(
+///     "search=hello&limit=20&page=2&order=name:asc"
+/// )?;
+///
+/// assert_eq!(params.search_query(), "hello");
+/// assert_eq!(params.limit(), 20);
+/// assert_eq!(params.curr_page(), 2);
+/// assert!(params.has_compact_ordering());
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Deserialize, Serialize, Clone, Default)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema, utoipa::IntoParams))]
 pub struct QueryParams {

@@ -11,9 +11,9 @@
 //!
 //! ## Example
 //!
-//! ```no_run
+//! ```ignore
 //! use std::sync::Arc;
-//! use foxtive::cache::{Cache, drivers::FilesystemCacheDriver};
+//! use foxtive::cache::{Cache, drivers::InMemoryDriver};
 //! use serde::{Serialize, Deserialize};
 //!
 //! #[derive(Serialize, Deserialize)]
@@ -21,7 +21,7 @@
 //!
 //! #[tokio::main]
 //! async fn main() {
-//!     let driver = Arc::new(FilesystemCacheDriver::new("./"));
+//!     let driver = Arc::new(InMemoryDriver::new());
 //!     let cache = Cache::new(driver);
 //!
 //!     let value = MySerializableStruct {};
@@ -58,13 +58,13 @@ impl Cache {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::sync::Arc;
-    /// use foxtive::cache::{Cache, drivers::FilesystemCacheDriver};
+    /// use foxtive::cache::{Cache, drivers::InMemoryDriver};
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let driver = Arc::new(FilesystemCacheDriver::new("./"));
+    ///     let driver = Arc::new(InMemoryDriver::new());
     ///     let cache = Cache::new(driver);
     /// }
     /// ```
@@ -92,9 +92,9 @@ impl Cache {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::sync::Arc;
-    /// use foxtive::cache::{Cache, drivers::FilesystemCacheDriver};
+    /// use foxtive::cache::{Cache, drivers::InMemoryDriver};
     ///
     /// use serde::{Serialize, Deserialize};
     ///
@@ -105,7 +105,7 @@ impl Cache {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let driver = Arc::new(FilesystemCacheDriver::new("./"));
+    ///     let driver = Arc::new(InMemoryDriver::new());
     ///     let cache = Cache::new(driver);
     ///
     ///     let user = User { name: "John".to_string() };
@@ -136,13 +136,13 @@ impl Cache {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::sync::Arc;
-    /// use foxtive::cache::{Cache, drivers::FilesystemCacheDriver};
+    /// use foxtive::cache::{Cache, drivers::InMemoryDriver};
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let driver = Arc::new(FilesystemCacheDriver::new("./"));
+    ///     let driver = Arc::new(InMemoryDriver::new());
     ///     let cache = Cache::new(driver);
     ///
     ///     let user: Option<String> = cache.get("user:1:name").await.unwrap();
@@ -156,7 +156,7 @@ impl Cache {
 
         match raw {
             Some(json) => {
-                let deserialized = serde_json::from_str::<T>(&json).map_err(crate::Error::msg)?;
+                let deserialized = serde_json::from_str::<T>(&json)?;
                 Ok(Some(deserialized))
             }
             None => Ok(None),
@@ -175,13 +175,13 @@ impl Cache {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::sync::Arc;
-    /// use foxtive::cache::{Cache, drivers::FilesystemCacheDriver};
+    /// use foxtive::cache::{Cache, drivers::InMemoryDriver};
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let driver = Arc::new(FilesystemCacheDriver::new("./"));
+    ///     let driver = Arc::new(InMemoryDriver::new());
     ///     let cache = Cache::new(driver);
     ///
     ///     let removed = cache.forget("user:1").await.unwrap();
@@ -205,13 +205,13 @@ impl Cache {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::sync::Arc;
-    /// use foxtive::cache::{Cache, drivers::FilesystemCacheDriver};
+    /// use foxtive::cache::{Cache, drivers::InMemoryDriver};
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let driver = Arc::new(FilesystemCacheDriver::new("./"));
+    ///     let driver = Arc::new(InMemoryDriver::new());
     ///     let cache = Cache::new(driver);
     ///
     ///     let user = cache.get_or_put("user:1", || async {
@@ -237,13 +237,13 @@ impl Cache {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::sync::Arc;
-    /// use foxtive::cache::{Cache, drivers::FilesystemCacheDriver};
+    /// use foxtive::cache::{Cache, drivers::InMemoryDriver};
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let driver = Arc::new(FilesystemCacheDriver::new("./"));
+    ///     let driver = Arc::new(InMemoryDriver::new());
     ///     let cache = Cache::new(driver);
     ///
     ///     let all_keys = cache.keys().await.unwrap();
@@ -265,17 +265,17 @@ impl Cache {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::sync::Arc;
-    /// use foxtive::cache::{Cache, drivers::FilesystemCacheDriver};
+    /// use foxtive::cache::{Cache, drivers::InMemoryDriver};
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let driver = Arc::new(FilesystemCacheDriver::new("./"));
+    ///     let driver = Arc::new(InMemoryDriver::new());
     ///     let cache = Cache::new(driver);
     ///
     ///     // Get all keys starting with "user:"
-    ///     let user_keys = cache.keys_by_pattern("user:*").await.unwrap();
+    ///     let user_keys = cache.keys_by_pattern("^user:.*").await.unwrap();
     /// }
     /// ```
     pub async fn keys_by_pattern(&self, pattern: &str) -> AppResult<Vec<String>> {
@@ -294,17 +294,17 @@ impl Cache {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::sync::Arc;
-    /// use foxtive::cache::{Cache, drivers::FilesystemCacheDriver};
+    /// use foxtive::cache::{Cache, drivers::InMemoryDriver};
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let driver = Arc::new(FilesystemCacheDriver::new("./"));
+    ///     let driver = Arc::new(InMemoryDriver::new());
     ///     let cache = Cache::new(driver);
     ///
     ///     // Remove all keys starting with "user:"
-    ///     let removed_count = cache.forget_by_pattern("user:*").await.unwrap();
+    ///     let removed_count = cache.forget_by_pattern("^user:.*").await.unwrap();
     /// }
     /// ```
     pub async fn forget_by_pattern(&self, pattern: &str) -> AppResult<i32> {

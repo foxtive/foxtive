@@ -14,9 +14,8 @@ use tracing::{debug, error};
 /// use foxtive::prelude::RabbitMQ;
 /// use std::time::Duration;
 ///
-/// #[tokio::main]
-/// async fn main() {
-///     let mut rmq = RabbitMQ::new_from_foxtive().await.unwrap();
+/// # async fn example(pool: deadpool_lapin::Pool) {
+/// let rmq = RabbitMQ::new(pool).await.unwrap();
 ///
 ///     // Simple publish
 ///     rmq.publisher()
@@ -38,10 +37,10 @@ use tracing::{debug, error};
 ///             lapin::types::LongString::from("abc-123")
 ///         ))
 ///         .send().await.unwrap();
-/// }
+/// # }
 /// ```
 pub struct MessagePublisher<'a> {
-    rabbitmq: &'a mut RabbitMQ,
+    rabbitmq: &'a RabbitMQ,
     exchange: Option<String>,
     routing_key: Option<String>,
     payload: Option<Vec<u8>>,
@@ -50,7 +49,7 @@ pub struct MessagePublisher<'a> {
 }
 
 impl<'a> MessagePublisher<'a> {
-    pub(crate) fn new(rabbitmq: &'a mut RabbitMQ) -> Self {
+    pub(crate) fn new(rabbitmq: &'a RabbitMQ) -> Self {
         Self {
             rabbitmq,
             exchange: None,
@@ -155,9 +154,10 @@ impl<'a> MessagePublisher<'a> {
 
         self.rabbitmq.ensure_channel_is_usable(true).await?;
 
+        let inner = self.rabbitmq.inner.read().await;
         tokio::time::timeout(
             self.rabbitmq.operation_timeout,
-            self.rabbitmq.publish_channel.basic_publish(
+            inner.publish_channel.basic_publish(
                 &exchange,
                 &routing_key,
                 self.rabbitmq.default_publish_options,
@@ -203,7 +203,7 @@ mod tests {
             .create_pool(Some(deadpool_lapin::Runtime::Tokio1))
             .unwrap();
 
-        let mut rmq = match RabbitMQ::new(pool).await {
+        let rmq = match RabbitMQ::new(pool).await {
             Ok(rmq) => rmq,
             Err(_) => {
                 // If connection fails (no RabbitMQ), skip this test
@@ -234,7 +234,7 @@ mod tests {
             .create_pool(Some(deadpool_lapin::Runtime::Tokio1))
             .unwrap();
 
-        let mut rmq = match RabbitMQ::new(pool).await {
+        let rmq = match RabbitMQ::new(pool).await {
             Ok(rmq) => rmq,
             Err(_) => return,
         };
@@ -262,7 +262,7 @@ mod tests {
             .create_pool(Some(deadpool_lapin::Runtime::Tokio1))
             .unwrap();
 
-        let mut rmq = match RabbitMQ::new(pool).await {
+        let rmq = match RabbitMQ::new(pool).await {
             Ok(rmq) => rmq,
             Err(_) => return,
         };

@@ -11,6 +11,8 @@
 //!
 //! Run with: `cargo run --example dlq_requeue --features rabbitmq`
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use foxtive_worker::dlq::{DeadLetterMessage, DlqManager};
 use foxtive_worker::error::WorkerResult;
@@ -19,11 +21,11 @@ use foxtive_worker::{ReceivedMessage, Worker};
 #[cfg(feature = "rabbitmq")]
 use {
     foxtive_worker::backends::{RabbitMqBackend, RabbitMqConsumerConfig},
-    std::sync::Arc,
     std::time::Duration,
 };
 
 /// Worker that processes messages from the DLQ and decides whether to requeue them
+#[allow(dead_code)]
 struct DlqRequeueWorker {
     id: String,
     manager: Arc<DlqManager>,
@@ -61,6 +63,7 @@ impl Worker for DlqRequeueWorker {
 }
 
 /// Custom filter function that determines which messages should be retried
+#[allow(dead_code)]
 fn smart_retry_filter(dlq_msg: &DeadLetterMessage) -> bool {
     println!(
         "  🔍 Evaluating message {} for retry...",
@@ -106,7 +109,8 @@ fn smart_retry_filter(dlq_msg: &DeadLetterMessage) -> bool {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+#[allow(unreachable_code)]
+async fn main() -> WorkerResult<()> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 

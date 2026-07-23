@@ -137,9 +137,9 @@ impl RuntimeNode {
 
     /// Get total task count for this node and all descendants
     fn task_count(&self) -> usize {
-        let local_count = match &*self.runtime.try_lock().unwrap() {
-            Some(rt) => rt.task_count(),
-            None => 0,
+        let local_count = match self.runtime.try_lock() {
+            Ok(guard) => guard.as_ref().map_or(0, |rt| rt.task_count()),
+            Err(_) => 0,  // Lock held or poisoned - report 0 rather than panic
         };
 
         let child_count: usize = self.children.iter().map(|child| child.task_count()).sum();

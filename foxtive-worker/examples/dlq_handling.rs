@@ -23,11 +23,13 @@ use {
 };
 
 /// Worker that simulates processing failures
+#[allow(dead_code)]
 struct FailingWorker {
     id: String,
     fail_count: std::sync::atomic::AtomicUsize,
 }
 
+#[allow(dead_code)]
 impl FailingWorker {
     fn new(id: &str) -> Self {
         Self {
@@ -70,7 +72,8 @@ impl Worker for FailingWorker {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+#[allow(unreachable_code)]
+async fn main() -> WorkerResult<()> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 

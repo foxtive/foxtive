@@ -23,7 +23,7 @@ async fn test_shutdown_order_respects_dependencies() {
         fn dependencies(&self) -> &'static [&'static str] {
             self.deps
         }
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_secs(3600)).await;
             Ok(())
         }
@@ -79,7 +79,7 @@ async fn test_shutdown_timeout_forces_termination() {
         fn shutdown_timeout(&self) -> Duration {
             Duration::from_millis(100)
         }
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             // Ignore stop signal by sleeping in a way that doesn't check for cancellation
             // Actually, run() is aborted, but on_shutdown() is called.
             // If on_shutdown() hangs, the timeout should kick in.

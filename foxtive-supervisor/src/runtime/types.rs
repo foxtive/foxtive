@@ -2,14 +2,15 @@
 
 use crate::contracts::SupervisedTask;
 use crate::enums::{ControlMessage, SupervisionStatus};
+use crate::error::SupervisorResult;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::{broadcast, watch};
 
-/// A boxed future that resolves to `anyhow::Result<()>`, used as a prerequisite
+/// A boxed future that resolves to `SupervisorResult<()>`, used as a prerequisite
 /// gate before the supervisor starts any tasks.
-pub type PrerequisiteFuture = Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'static>>;
+pub type PrerequisiteFuture = Pin<Box<dyn Future<Output = SupervisorResult<()>> + Send + 'static>>;
 
 /// Type alias for dependency setup signal receivers.
 /// Each tuple contains (dependency_id, receiver) that signals when setup completes.

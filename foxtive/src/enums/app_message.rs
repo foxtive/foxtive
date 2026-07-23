@@ -1,7 +1,7 @@
 use crate::ValidationErrors;
 #[cfg(feature = "reqwest")]
 use crate::helpers::reqwest::ReqwestResponseError;
-use crate::results::AppResult;
+use crate::app::di_error::DiError;
 use http::StatusCode;
 use std::borrow::Cow;
 use std::env::VarError;
@@ -9,7 +9,7 @@ use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 use tracing::{error, info, warn};
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error)]
 pub enum AppMessage {
     Success(String),
     Redirect(String),
@@ -25,6 +25,28 @@ pub enum AppMessage {
     MissingEnvironmentVariable(String, VarError),
     #[cfg(feature = "reqwest")]
     ReqwestResponseError(ReqwestResponseError),
+
+    /// Wraps infrastructure errors (DB, Redis, IO, serialization, etc.)
+    /// Maps to 500 by default. Carries source for error chaining.
+    Infrastructure {
+        message: String,
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
+
+    /// DI container error (cycle detected, service construction failed, etc.)
+    /// Maps to 500 Internal Server Error.
+    DiError(DiError),
+}
+
+/// Custom `Debug` that delegates to `Display` for pretty output.
+///
+/// This ensures errors look good whether printed with `{}` or `{:?}` -
+/// critical when errors propagate to `main()` (which uses `Debug`).
+impl Debug for AppMessage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
 }
 
 impl Display for AppMessage {
@@ -84,7 +106,7 @@ impl AppMessage {
     /// use foxtive::ValidationErrors;
     ///
     /// let mut errors = ValidationErrors::new();
-    /// errors.insert("email".into(), vec!["is required".into()]);
+    /// errors.insert("email", vec!["is required".to_string()]);
     /// let msg = AppMessage::validation_error("Validation failed", errors);
     /// ```
     pub fn validation_error(msg: impl Into<String>, errors: impl Into<ValidationErrors>) -> Self {
@@ -132,6 +154,8 @@ impl AppMessage {
             AppMessage::ErrorMessage(_, status) => *status,
             #[cfg(feature = "reqwest")]
             AppMessage::ReqwestResponseError(err) => *err.code(),
+            AppMessage::Infrastructure { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            AppMessage::DiError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
@@ -154,6 +178,8 @@ impl AppMessage {
             }
             #[cfg(feature = "reqwest")]
             AppMessage::ReqwestResponseError(err) => Cow::from(err.body().to_string()),
+            AppMessage::Infrastructure { message, .. } => Cow::from(message.as_str()),
+            AppMessage::DiError(e) => Cow::from(e.to_string()),
         }
     }
 
@@ -182,6 +208,8 @@ impl AppMessage {
             AppMessage::ErrorMessage(_, _) => "error_message",
             #[cfg(feature = "reqwest")]
             AppMessage::ReqwestResponseError(_) => "reqwest_response_error",
+            AppMessage::Infrastructure { .. } => "infrastructure",
+            AppMessage::DiError(_) => "di_error",
         }
     }
 
@@ -231,23 +259,29 @@ impl AppMessage {
 
     // Conversions
 
-    /// Converts into an `anyhow::Error`.
-    pub fn into_anyhow(self) -> anyhow::Error {
-        anyhow::Error::from(self)
-    }
-
     /// Converts into an `AppResult<T>` (always `Err`).
-    pub fn into_result<T>(self) -> AppResult<T> {
-        Err(self.into_anyhow())
+    pub fn into_result<T>(self) -> Result<T, AppMessage> {
+        Err(self)
     }
-}
 
-impl From<crate::Error> for AppMessage {
-    fn from(value: anyhow::Error) -> Self {
-        value.downcast::<AppMessage>().unwrap_or_else(|e| {
-            error!("AppMessage downcast failed, wrapping as InternalServerError: {e}");
-            AppMessage::InternalServerError(e.to_string())
-        })
+    /// Wraps any error into an `Infrastructure` AppMessage.
+    ///
+    /// This is the catch-all constructor for error types that don't have
+    /// a dedicated `From` impl. Use with `.map_err()`:
+    ///
+    /// ```no_run
+    /// use foxtive::prelude::*;
+    ///
+    /// fn example() -> AppResult<()> {
+    ///     let flag = "true".parse::<bool>().map_err(AppMessage::wrap)?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn wrap(e: impl std::error::Error + Send + Sync + 'static) -> Self {
+        AppMessage::Infrastructure {
+            message: format!("{e}"),
+            source: Some(Box::new(e)),
+        }
     }
 }
 
@@ -272,7 +306,7 @@ mod tests {
         let msg = AppMessage::redirect("https://foxtive.com");
         assert_eq!(msg.status_code(), StatusCode::FOUND);
         assert!(msg.is_redirect());
-        assert!(!msg.is_error()); // was broken before — redirects are not errors
+        assert!(!msg.is_error()); // was broken before - redirects are not errors
         assert!(!msg.is_success());
         assert_eq!(msg.kind_name(), "redirect");
     }
@@ -326,8 +360,8 @@ mod tests {
     #[test]
     fn test_validation_error() {
         let mut errors = ValidationErrors::new();
-        errors.insert("email".into(), vec!["is required".into()]);
-        errors.insert("name".into(), vec!["is too short".into()]);
+        errors.insert("email", vec!["is required".into()]);
+        errors.insert("name", vec!["is too short".into()]);
 
         let msg = AppMessage::validation_error("Validation failed", errors.clone());
         assert_eq!(msg.status_code(), StatusCode::UNPROCESSABLE_ENTITY);
@@ -382,9 +416,27 @@ mod tests {
     }
 
     #[test]
-    fn test_into_anyhow() {
-        let error = AppMessage::error_message("Y2k huh?", StatusCode::BAD_REQUEST).into_anyhow();
-        assert_eq!(error.to_string(), "Y2k huh?");
+    fn test_infrastructure_error() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
+        let msg = AppMessage::Infrastructure {
+            message: format!("IO error: {io_err}"),
+            source: Some(Box::new(io_err)),
+        };
+        assert_eq!(msg.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert!(msg.is_server_error());
+        assert_eq!(msg.kind_name(), "infrastructure");
+        assert!(msg.message().contains("IO error"));
+        assert!(msg.message().contains("file missing"));
+    }
+
+    #[test]
+    fn test_infrastructure_no_source() {
+        let msg = AppMessage::Infrastructure {
+            message: "something broke".to_string(),
+            source: None,
+        };
+        assert_eq!(msg.message(), "something broke");
+        assert_eq!(msg.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 
     #[test]
@@ -424,5 +476,34 @@ mod tests {
         assert_eq!(msg.status_code(), StatusCode::BAD_REQUEST);
         assert_eq!(msg.message(), "Field 'user_id' is required");
         assert!(msg.is_client_error());
+    }
+
+    #[test]
+    fn test_wrap_catches_any_error() {
+        let io_err = std::io::Error::other("disk full");
+        let msg = AppMessage::wrap(io_err);
+        assert_eq!(msg.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert!(msg.is_server_error());
+        assert_eq!(msg.kind_name(), "infrastructure");
+        assert!(msg.message().contains("disk full"));
+    }
+
+    #[test]
+    fn test_wrap_with_parse_error() {
+        let parse_err = "not_a_number".parse::<i32>().unwrap_err();
+        let msg = AppMessage::wrap(parse_err);
+        assert!(msg.message().contains("invalid digit"));
+        assert_eq!(msg.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[test]
+    fn test_wrap_with_map_err() {
+        fn fallible() -> Result<(), AppMessage> {
+            let _flag = "maybe".parse::<bool>().map_err(AppMessage::wrap)?;
+            Ok(())
+        }
+        let err = fallible().unwrap_err();
+        assert!(err.is_server_error());
+        assert!(err.message().contains("provided string"));
     }
 }

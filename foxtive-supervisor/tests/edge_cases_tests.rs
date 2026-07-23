@@ -19,7 +19,7 @@ async fn test_empty_group_operations() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(10)).await;
             Ok(())
         }
@@ -65,7 +65,7 @@ async fn test_group_with_single_task() {
             Some(self.group)
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.executed.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
@@ -109,7 +109,7 @@ async fn test_multiple_groups_overlap() {
             self.group
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }
@@ -166,7 +166,7 @@ async fn test_group_health_empty_group() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }
@@ -209,7 +209,7 @@ async fn test_group_health_all_healthy() {
             HealthStatus::Healthy
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }
@@ -264,7 +264,7 @@ async fn test_group_health_mixed_statuses() {
             self.status.clone()
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }
@@ -318,7 +318,7 @@ async fn test_pool_size_one() {
             self.id
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }
@@ -374,7 +374,7 @@ async fn test_conditional_dep_always_false() {
             vec![("nonexistent", Box::new(|| false))] // Always false
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.executed.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
@@ -416,7 +416,7 @@ async fn test_conditional_dep_nonexistent_when_true() {
             vec![("does-not-exist", Box::new(|| true))] // True but dep doesn't exist
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }
@@ -459,13 +459,13 @@ async fn test_many_conditional_dependencies() {
             }
         }
 
-        async fn setup(&self) -> anyhow::Result<()> {
+        async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
             let mut order = self.setup_order.lock().unwrap();
             order.push(self.id.to_string());
             Ok(())
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }
@@ -546,7 +546,7 @@ async fn test_group_with_conditional_deps() {
             }
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }
@@ -591,7 +591,7 @@ async fn test_rapid_group_stop_start() {
             Some(self.group)
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.count.fetch_add(1, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(100)).await;
             Ok(())

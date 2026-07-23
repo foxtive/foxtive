@@ -38,9 +38,9 @@ async fn main() -> WorkerResult<()> {
             loop {
                 tokio::time::sleep(Duration::from_secs(5)).await;
 
-                let connected = resilient_monitor.is_connected().await;
-                let attempts = resilient_monitor.reconnect_attempts().await;
-                let failures = resilient_monitor.consecutive_failures().await;
+                let connected = resilient_monitor.is_connected();
+                let attempts = resilient_monitor.reconnect_attempts();
+                let failures = resilient_monitor.consecutive_failures();
 
                 if !connected || attempts > 0 {
                     tracing::info!(

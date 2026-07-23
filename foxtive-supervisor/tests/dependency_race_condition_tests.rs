@@ -20,13 +20,13 @@ async fn test_dependency_race_condition_fix() {
             self.id
         }
 
-        async fn setup(&self) -> anyhow::Result<()> {
+        async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
             // Complete setup immediately
             self.setup_complete.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             // Keep running
             tokio::time::sleep(Duration::from_secs(1)).await;
             Ok(())
@@ -49,14 +49,14 @@ async fn test_dependency_race_condition_fix() {
             self.deps
         }
 
-        async fn setup(&self) -> anyhow::Result<()> {
+        async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
             // Simulate slow startup - dependency will complete before this
             tokio::time::sleep(Duration::from_millis(100)).await;
             self.started.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(100)).await;
             Ok(())
         }
@@ -120,12 +120,12 @@ async fn test_multiple_dependents_race_condition() {
             self.id
         }
 
-        async fn setup(&self) -> anyhow::Result<()> {
+        async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
             // Instant setup
             Ok(())
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(200)).await;
             Ok(())
         }
@@ -147,7 +147,7 @@ async fn test_multiple_dependents_race_condition() {
             &["quick-service"]
         }
 
-        async fn setup(&self) -> anyhow::Result<()> {
+        async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(self.delay_ms)).await;
             self.execution_order
                 .lock()
@@ -156,7 +156,7 @@ async fn test_multiple_dependents_race_condition() {
             Ok(())
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }
@@ -221,14 +221,14 @@ async fn test_dependency_chain_no_hang() {
             self.deps
         }
 
-        async fn setup(&self) -> anyhow::Result<()> {
+        async fn setup(&self) -> foxtive_supervisor::SupervisorResult<()> {
             // Each link takes progressively longer
             tokio::time::sleep(Duration::from_millis(self.link_number as u64 * 10)).await;
             self.reached.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
 
-        async fn run(&self) -> anyhow::Result<()> {
+        async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(())
         }

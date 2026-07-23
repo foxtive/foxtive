@@ -1,4 +1,3 @@
-pub mod app_state;
 mod result;
 mod string;
 

@@ -31,7 +31,7 @@ impl SupervisedTask for ExternalServiceConsumer {
         BackoffStrategy::Fixed(Duration::from_millis(500))
     }
 
-    async fn run(&self) -> anyhow::Result<()> {
+    async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         let count = self.fail_count.fetch_add(1, Ordering::SeqCst);
 
         if count < 10 {
@@ -39,7 +39,7 @@ impl SupervisedTask for ExternalServiceConsumer {
                 "[Consumer] Attempt {}: Simulated service failure",
                 count + 1
             );
-            anyhow::bail!("Service unavailable");
+            return Err(foxtive_supervisor::SupervisorError::from("Service unavailable"));
         }
 
         info!("[Consumer] Attempt {}: Success!", count + 1);
@@ -53,7 +53,7 @@ impl SupervisedTask for ExternalServiceConsumer {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
     info!("Starting Circuit Breaker Example...");
