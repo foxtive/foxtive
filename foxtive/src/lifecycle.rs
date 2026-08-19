@@ -174,9 +174,13 @@ pub trait ServiceInit: Sized + Send + Sync + 'static {
 
     /// Wire `Lazy<T>` fields after all services are constructed.
     ///
-    /// Called during `freeze()` Phase 3, after all services are constructed
-    /// in Phases 1–2. Override this to fill `Lazy<T>` fields using
+    /// Called during `freeze()` Phase 3, after ALL services are already
+    /// constructed in Phases 1–2. This fills `Lazy<T>` fields by calling
     /// `app.require_lazy::<T>(&self.field)`.
+    ///
+    /// **Important:** `Lazy<T>` defers *wiring*, not *construction*.
+    /// The target service is constructed eagerly during Phase 1b/2.
+    /// `Lazy<T>`'s purpose is cycle-breaking, not lazy initialization.
     ///
     /// Default: no-op (services without Lazy fields need not override).
     fn wire_lazy(_app: &App) -> AppResult<()> {
@@ -309,6 +313,32 @@ impl<T: ServiceInit> ServiceFactory for ServiceFactoryImpl<T> {
 
     fn on_ready(&self, app: &App) -> AppResult<()> {
         T::on_ready(app)
+    }
+}
+
+/// Type-erased factory wrapping a user-provided closure.
+pub(crate) struct ClosureFactory {
+    closure: Box<dyn Fn(&App) -> ServiceFactoryFuture<'static> + Send + Sync>,
+    type_name_str: &'static str,
+    deps: Vec<&'static str>,
+}
+
+impl ClosureFactory {
+    pub(crate) fn new(
+        closure: Box<dyn Fn(&App) -> ServiceFactoryFuture<'static> + Send + Sync>,
+        type_name_str: &'static str,
+        deps: Vec<&'static str>,
+    ) -> Self {
+        Self { closure, type_name_str, deps }
+    }
+}
+
+impl ServiceFactory for ClosureFactory {
+    fn type_name(&self) -> &'static str { self.type_name_str }
+    fn dependencies(&self) -> &[&'static str] { &self.deps }
+    fn create<'a>(&'a self, app: &'a App) -> ServiceFactoryFuture<'a> {
+        // 'static future can be coerced to any lifetime 'a
+        (self.closure)(app)
     }
 }
 

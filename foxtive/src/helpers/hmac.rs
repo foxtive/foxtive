@@ -138,9 +138,9 @@ impl Hmac {
     pub fn random() -> AppResult<String> {
         let mut key_bytes = [0u8; 32];
         let mut msg_bytes = [0u8; 32];
-        use rand::Rng;
-        rand::thread_rng().fill(&mut key_bytes);
-        rand::thread_rng().fill(&mut msg_bytes);
+        use rand::RngExt;
+        rand::rng().fill(&mut key_bytes);
+        rand::rng().fill(&mut msg_bytes);
         Hmac::new(&hex::encode(key_bytes), HashFunc::default()).hash(&hex::encode(msg_bytes))
     }
 

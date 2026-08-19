@@ -29,6 +29,17 @@
 //! - `Lazy<InfraType>` is rejected by the derive macro.
 //! - `Lazy<Arc<T>>` is rejected - `Lazy<T>` already stores `Arc<T>` internally.
 //! - Must use the canonical name `Lazy` (aliases break macro detection).
+//!
+//! # What `Lazy<T>` Does NOT Do
+//!
+//! `Lazy<T>` defers **wiring** (the `require_lazy` call that fills the
+//! `OnceLock`), not **construction**. The service `T` is constructed
+//! eagerly during `freeze()` Phase 1b/2, just like any other service.
+//! The `Lazy<T>` field is filled afterward in Phase 3.
+//!
+//! If you need to defer construction itself (e.g., to avoid startup cost
+//! for a service that may not be used), use conditional registration
+//! (`register_service_if`) instead; `Lazy<T>` will not help here.
 
 use std::fmt;
 use std::ops::Deref;
