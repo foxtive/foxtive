@@ -14,7 +14,7 @@ use crate::app::deps::ServiceResolutionError;
 use crate::app::App;
 use crate::container::{Mutable, TypeMap};
 use crate::events::{Event, EventHandler};
-use crate::lifecycle::{AsyncInit, ServiceFactoryImpl, ServiceInit};
+use crate::lifecycle::{AsyncInit, ClosureFactory, ServiceFactoryImpl, ServiceInit};
 use crate::results::AppResult;
 
 /// The mutable initialization phase of the application.
@@ -174,6 +174,78 @@ impl AppInit {
             .with_dependencies(T::dependencies())
             .with_mutable(true);
         self.inner.service_factories.push(Box::new(factory));
+    }
+
+    /// Register a trait binding (eager, post-build_init).
+    pub fn register_trait<Trait>(&mut self, impl_: Arc<Trait>) -> &mut Self
+    where
+        Trait: ?Sized + Send + Sync + 'static,
+    {
+        self.inner.services.insert_trait::<Trait>(impl_);
+        self
+    }
+
+    /// Register a service via a factory closure (post-build_init).
+    ///
+    /// The closure receives `&App` and returns an `AppResult<T>`.
+    pub fn register_with<T, F, Fut>(&mut self, f: F) -> &mut Self
+    where
+        T: Send + Sync + 'static,
+        F: Fn(&App) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = AppResult<T>> + Send + 'static,
+    {
+        let type_name_str = std::any::type_name::<T>();
+        let wrapper = move |app: &App| -> crate::lifecycle::ServiceFactoryFuture<'static> {
+            let fut = f(app);
+            Box::pin(async move {
+                let service = fut.await.map_err(|e| {
+                    ServiceResolutionError::Terminal(
+                        crate::app::DiError::ServiceConstructionFailed {
+                            service: type_name_str.to_string(),
+                            source: Box::new(e),
+                        }.into(),
+                    )
+                })?;
+                Ok(Box::new(service) as Box<dyn std::any::Any + Send + Sync>)
+            })
+        };
+        self.inner.service_factories.push(Box::new(ClosureFactory::new(
+            Box::new(wrapper), type_name_str, vec![],
+        )));
+        self
+    }
+
+    /// Register a service for deferred construction only if `condition` is true.
+    pub fn register_service_if<T: ServiceInit>(&mut self, condition: bool) -> &mut Self {
+        if condition {
+            self.register_service::<T>();
+        }
+        self
+    }
+
+    /// Register a service for deferred construction.
+    /// Silently no-ops if the same type is already registered.
+    pub fn try_register_service<T: ServiceInit>(&mut self) -> &mut Self {
+        let type_name = std::any::type_name::<T>();
+        // Check if already registered in service_factories
+        if self.inner.service_factories.iter().any(|f| f.type_name() == type_name) {
+            return self;
+        }
+        let factory = ServiceFactoryImpl::<T>::new().with_dependencies(T::dependencies());
+        self.inner.service_factories.push(Box::new(factory));
+        self
+    }
+
+    /// Replace a previously registered service.
+    pub fn replace_service<T: ServiceInit>(&mut self) -> &mut Self {
+        let type_name = std::any::type_name::<T>();
+        if let Some(pos) = self.inner.service_factories.iter().position(|f| f.type_name() == type_name) {
+            tracing::info!(service = type_name, "Replacing previously registered service");
+            self.inner.service_factories.remove(pos);
+        }
+        let factory = ServiceFactoryImpl::<T>::new().with_dependencies(T::dependencies());
+        self.inner.service_factories.push(Box::new(factory));
+        self
     }
 
     /// Register a typed [`EventHandler`] for event type `T`.

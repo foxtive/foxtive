@@ -1,6 +1,79 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 1.1.0 (2026-08-19)
+
+#### DI Container
+- feat(container): add trait binding support (`register_trait`/`get_trait`/`require_trait`) for storing and resolving `Arc<dyn Trait>` objects
+- feat(builder): add `register_with()` for closure-based factory registration of types that don't implement `ServiceInit`
+- feat(builder): add `register_service_if()` and `register_if()` for conditional registration based on boolean flags
+- feat(builder): add `try_register_service()` for idempotent (duplicate-safe) service registration
+- feat(builder): add `replace_service()` for explicit override of existing service registrations
+- feat(container): add optional dependency support: `Option<Arc<T>>` and `Option<T>` resolve to `None` when dependency is not registered
+- docs(examples): add `trait_binding.rs`: demonstrates registering and resolving trait objects (`Arc<dyn Notifier>`, `Arc<dyn Logger>`)
+- docs(examples): add `factory_providers.rs`: demonstrates `register_with` for foreign types and closure-based factories
+- docs(examples): add `conditional_registration.rs`: demonstrates `register_service_if`, `try_register_service`, `replace_service`, and `register_if`
+- docs(examples): add `optional_dependencies.rs`: demonstrates `Option<Arc<T>>` and `Option<T>` optional deps with both manual and derive macro approaches
+
+### 1.0.0 (2026-07-23)
+
+#### DI Container
+- feat(container): add TypeMap: type-safe heterogeneous map with Arc-based storage for concurrent service access
+- feat(container): add Lazy<T>: deferred dependency wrapper for breaking circular dependencies via OnceLock
+- feat(container): add Mutable<T>: shared interior mutability wrapper using parking_lot::RwLock
+- feat(lifecycle): add ServiceInit trait for deferred service construction with dependency declaration
+- feat(lifecycle): add AsyncInit trait for services needing async initialization (cache warming, connection verification)
+- feat(lifecycle): add ServiceHooks trait with after_init and on_ready lifecycle callbacks
+- feat(lifecycle): add FromApp trait: extractor pattern for automatic dependency injection
+- feat(lifecycle): add Plugin trait for reusable module bundling with lifecycle hooks and health checks
+- feat(lifecycle): add ServiceFactory/ClosureFactory for type-erased deferred service construction
+
+#### Builder API (AppBuilder)
+- feat(builder): add register_service::<T>() for deferred construction with topological ordering
+- feat(builder): add register_mutable_service::<T>() for deferred + Mutable wrapper
+- feat(builder): add register_trait::<dyn T>(Arc) for eager trait object binding
+- feat(builder): add register_with() for closure-based factory registration
+- feat(builder): add register_service_if() and register_if() for conditional registration
+- feat(builder): add try_register_service() for idempotent (duplicate-safe) registration
+- feat(builder): add replace_service() for swapping existing registrations
+- feat(builder): add after_build() for post-infrastructure callback registration
+- feat(builder): add plugin() for registering Plugin modules with full lifecycle wiring
+
+#### AppInit Phase API
+- feat(init): add build_init()/freeze() two-phase API for manual service registration between infrastructure init and freezing
+- feat(init): add register(), register_mutable(), register_trait(), register_with() on AppInit
+- feat(init): add init_service::<T>() for async AsyncInit construction
+- feat(init): add on::<T, H>() and on_event() for typed and closure-based event handler registration
+
+#### Derive Macro (#[derive(Service)])
+- feat(macros): add #[derive(Service)] that auto-generates ServiceInit from struct field declarations
+- feat(macros): support #[service(all)] mode: all fields treated as deps, opt out with #[foxtive(default)]
+- feat(macros): support opt-in mode: only #[dependency] fields resolved from container
+- feat(macros): support #[foxtive(init = "expr")] for declarative field initialization from app config
+- feat(macros): support #[service(mutable)] for automatic Mutable<T> wrapping
+- feat(macros): support #[service(skip_hooks)] for custom ServiceHooks implementations
+- feat(macros): auto-detect infrastructure types (DBPool, Redis, RabbitMQ, Cache, Jwt, Password)
+- feat(macros): auto-detect Lazy<T> fields for deferred wiring
+- feat(macros): auto-detect Option<T> fields for optional dependencies
+- feat(macros): auto-detect Arc<dyn Trait> fields for trait binding resolution
+
+#### Dependency Resolution Engine
+- feat(deps): add DFS-based topological sort for declared dependency ordering
+- feat(deps): add exact + suffix matching for flexible dependency name resolution
+- feat(deps): add two-phase construction: Phase 1 (declared deps) + Phase 2 (retry for undeclared runtime deps)
+- feat(deps): add Phase 3 deterministic Lazy<T> wiring after all services constructed
+- feat(deps): add deadlock detection with multi-source cycle analysis and deduplication
+
+#### Error System
+- feat(errors): add DiError with structured error codes DI0001, DI0002, DI0003
+- feat(errors): add rustc-style colored terminal formatting for DI errors
+- feat(errors): add cycle detection with short type names and Lazy<T> fix suggestions
+- feat(errors): add blocked service analysis and unregistered dependency reporting
+
+#### Tests & Examples
+- test: add comprehensive test coverage for TypeMap, Lazy, Mutable, service resolution, trait binding, conditional registration, factory providers, lifecycle hooks, optional dependencies, mutable services, dependency resolution, async init, and event bus
+- docs: add 10 DI container examples (lazy_di, macro_di, trait_binding, factory_providers, conditional_registration, mutable_service, optional_dependencies, service_init, service_all, mixed_registration)
+
 ### 0.26.10 (2026-06-26)
 * bump(tera): now using v2.0.0
 

@@ -181,6 +181,21 @@ impl App {
         self.require::<Mutable<T>>()
     }
 
+    /// Resolve a trait binding. Returns `Arc<dyn Trait>`.
+    pub fn get_trait<T: ?Sized + Send + Sync + 'static>(&self) -> Option<Arc<T>> {
+        self.services.get_trait::<T>()
+    }
+
+    /// Resolve a trait binding, returning an error if missing.
+    pub fn require_trait<T: ?Sized + Send + Sync + 'static>(&self) -> AppResult<Arc<T>> {
+        self.get_trait::<T>().ok_or_else(|| {
+            AppMessage::not_found(format!(
+                "Trait binding for {} not registered",
+                std::any::type_name::<T>()
+            ))
+        })
+    }
+
     /// Resolve `T` from the container and fill the `Lazy<T>` field.
     /// Returns error if `T` is not registered.
     pub fn require_lazy<T: Send + Sync + 'static>(&self, lazy: &Lazy<T>) -> AppResult<()> {

@@ -13,8 +13,9 @@ use crate::app::App;
 use crate::container::TypeMap;
 use crate::events::EventBus;
 use crate::health::HealthCheck;
-use crate::lifecycle::{Plugin, ServiceFactoryImpl, ServiceInit, ShutdownFuture, ShutdownHook, StartupFuture, StartupHook};
+use crate::lifecycle::{ClosureFactory, Plugin, ServiceFactoryImpl, ServiceInit, ShutdownFuture, ShutdownHook, StartupFuture, StartupHook};
 use crate::metrics::MetricsSink;
+use crate::app::deps::ServiceResolutionError;
 use crate::results::AppResult;
 use crate::Environment;
 
@@ -431,6 +432,137 @@ impl AppBuilder {
             .with_mutable(true);
         self.service_factories.push(Box::new(factory));
         self
+    }
+
+    /// Register a trait binding (eager).
+    ///
+    /// The implementation is boxed as `Arc<dyn Trait>` and keyed by
+    /// `TypeId::of::<dyn Trait>()`. Retrieve with `app.require_trait::<dyn Trait>()`.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use foxtive::App;
+    /// use std::sync::Arc;
+    ///
+    /// trait Notifier: Send + Sync {
+    ///     fn notify(&self, msg: &str);
+    /// }
+    ///
+    /// struct EmailNotifier;
+    /// impl Notifier for EmailNotifier {
+    ///     fn notify(&self, _msg: &str) {}
+    /// }
+    ///
+    /// # async fn run() -> foxtive::results::AppResult<()> {
+    /// let app = App::builder("my-app", "MYAPP")
+    ///     .register_trait::<dyn Notifier>(Arc::new(EmailNotifier))
+    ///     .build()
+    ///     .await?;
+    ///
+    /// let notifier = app.require_trait::<dyn Notifier>()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn register_trait<Trait>(mut self, impl_: Arc<Trait>) -> Self
+    where
+        Trait: ?Sized + Send + Sync + 'static,
+    {
+        self.services.insert_trait::<Trait>(impl_);
+        self
+    }
+
+    /// Register a service via a factory closure.
+    ///
+    /// The closure receives `&App` and returns an `AppResult<T>`.
+    /// The service participates in topological ordering and Phase 2 retry.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use foxtive::App;
+    /// # use foxtive::prelude::AppResult;
+    /// struct MyClient { url: String }
+    ///
+    /// # async fn run() -> AppResult<()> {
+    /// let app = App::builder("app", "APP")
+    ///     .register_with(|_app| async {
+    ///         Ok(MyClient { url: "http://...".into() })
+    ///     })
+    ///     .build()
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn register_with<T, F, Fut>(mut self, f: F) -> Self
+    where
+        T: Send + Sync + 'static,
+        F: Fn(&App) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = AppResult<T>> + Send + 'static,
+    {
+        let type_name_str = std::any::type_name::<T>();
+        let wrapper = move |app: &App| -> crate::lifecycle::ServiceFactoryFuture<'static> {
+            let fut = f(app);
+            Box::pin(async move {
+                let service = fut.await.map_err(|e| {
+                    ServiceResolutionError::Terminal(
+                        crate::app::DiError::ServiceConstructionFailed {
+                            service: type_name_str.to_string(),
+                            source: Box::new(e),
+                        }.into(),
+                    )
+                })?;
+                Ok(Box::new(service) as Box<dyn std::any::Any + Send + Sync>)
+            })
+        };
+        self.service_factories.push(Box::new(ClosureFactory::new(
+            Box::new(wrapper), type_name_str, vec![],
+        )));
+        self
+    }
+
+    /// Register a service for deferred construction only if `condition` is true.
+    pub fn register_service_if<T: ServiceInit>(self, condition: bool) -> Self {
+        if condition {
+            self.register_service::<T>()
+        } else {
+            self
+        }
+    }
+
+    /// Register a service for deferred construction.
+    /// Silently no-ops if the same type is already registered (idempotent).
+    pub fn try_register_service<T: ServiceInit>(mut self) -> Self {
+        let type_name = std::any::type_name::<T>();
+        if self.registered_service_types.contains(type_name) {
+            return self;
+        }
+        self.registered_service_types.insert(type_name);
+        let factory = ServiceFactoryImpl::<T>::new().with_dependencies(T::dependencies());
+        self.service_factories.push(Box::new(factory));
+        self
+    }
+
+    /// Replace a previously registered service with a new registration.
+    /// Logs the replacement. If no prior registration exists, acts as `register_service`.
+    pub fn replace_service<T: ServiceInit>(mut self) -> Self {
+        let type_name = std::any::type_name::<T>();
+        if let Some(pos) = self.service_factories.iter().position(|f| f.type_name() == type_name) {
+            tracing::info!(service = type_name, "Replacing previously registered service");
+            self.service_factories.remove(pos);
+        }
+        self.registered_service_types.insert(type_name);
+        let factory = ServiceFactoryImpl::<T>::new().with_dependencies(T::dependencies());
+        self.service_factories.push(Box::new(factory));
+        self
+    }
+
+    /// Register a service instance only if `condition` is true.
+    pub fn register_if<T: Send + Sync + 'static>(self, condition: bool, service: T) -> Self {
+        if condition {
+            self.register(service)
+        } else {
+            self
+        }
     }
 
     /// Register a [`Plugin`] - a self-contained module that bundles services,

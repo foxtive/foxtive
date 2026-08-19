@@ -134,6 +134,29 @@ impl TypeMap {
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
+
+    /// Insert a trait object binding. Keys on `TypeId::of::<T>()`
+    /// where T may be `?Sized` (e.g. `dyn Notifier`).
+    pub fn insert_trait<T: ?Sized + Send + Sync + 'static>(&mut self, arc: Arc<T>) {
+        let boxed: Box<dyn Any + Send + Sync> = Box::new(arc);
+        self.inner.insert(TypeId::of::<T>(), Arc::from(boxed));
+    }
+
+    /// Get a trait object by its `?Sized` type key.
+    /// Returns a cloned `Arc<T>` (no double-Arc).
+    pub fn get_trait<T: ?Sized + Send + Sync + 'static>(&self) -> Option<Arc<T>> {
+        self.inner
+            .get(&TypeId::of::<T>())
+            .and_then(|arc| {
+                let typed: Arc<Arc<T>> = Arc::clone(arc).downcast().ok()?;
+                Some(Arc::clone(&*typed))
+            })
+    }
+
+    /// Check if a trait binding exists.
+    pub fn contains_trait<T: ?Sized + Send + Sync + 'static>(&self) -> bool {
+        self.inner.contains_key(&TypeId::of::<T>())
+    }
 }
 
 impl Default for TypeMap {

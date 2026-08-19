@@ -14,14 +14,14 @@ Foxtive is the **foundation layer** of the Foxtive ecosystem - it provides the c
 
 ```toml
 [dependencies]
-foxtive = "1.0"
+foxtive = "1.1"
 ```
 
 With features:
 
 ```toml
 [dependencies]
-foxtive = { version = "1.0", features = ["database", "database-async", "redis", "jwt", "jwe", "cache-redis"] }
+foxtive = { version = "1.1", features = ["database", "database-async", "redis", "jwt", "jwe", "cache-redis"] }
 ```
 
 ## Quick Start
@@ -336,6 +336,159 @@ impl ServiceHooks for LoginService {
 
 Without `skip_hooks`, the derive generates a no-op `ServiceHooks` impl automatically.
 
+### Mutable Services
+
+`Mutable<T>` wraps a value in `parking_lot::RwLock` for shared interior mutability. Register with `register_mutable_service` or `register_mutable`, retrieve with `get_mutable`:
+
+```rust
+use foxtive::prelude::*;
+use foxtive::container::Mutable;
+use std::sync::Arc;
+
+struct Counter {
+    count: u64,
+}
+
+impl ServiceInit for Counter {
+    async fn init(_app: &App) -> AppResult<Self> {
+        Ok(Self { count: 0 })
+    }
+}
+
+let app = App::builder("my-service", "MYSVC")
+    .register_mutable_service::<Counter>()
+    .build()
+    .await?;
+
+let counter: Arc<Mutable<Counter>> = app.get_mutable::<Counter>().unwrap();
+counter.write().count += 1;
+println!("{}", counter.read().count); // 1
+```
+
+Or via derive macro with `#[service(mutable)]`:
+
+```rust
+#[derive(Service)]
+#[service(mutable)]
+struct Counter {
+    #[foxtive(default)]
+    count: u64,
+}
+```
+
+### Trait Binding
+
+Register trait objects (`Arc<dyn Trait>`) and resolve them by trait type. Useful for swapping implementations (e.g., mock vs real):
+
+```rust
+use foxtive::prelude::*;
+use std::sync::Arc;
+
+trait Notifier: Send + Sync {
+    fn notify(&self, msg: &str) -> String;
+}
+
+struct EmailNotifier;
+impl Notifier for EmailNotifier {
+    fn notify(&self, msg: &str) -> String { format!("[EMAIL] {msg}") }
+}
+
+let app = App::builder("my-service", "MYSVC")
+    .register_trait::<dyn Notifier>(Arc::new(EmailNotifier))
+    .build()
+    .await?;
+
+let notifier: Arc<dyn Notifier> = app.require_trait::<dyn Notifier>()?;
+println!("{}", notifier.notify("hello"));
+```
+
+The derive macro auto-detects `Arc<dyn Trait>` fields and resolves them via `require_trait`:
+
+```rust
+#[derive(Service)]
+struct UserService {
+    #[dependency]
+    notifier: Arc<dyn Notifier>,  // resolved via require_trait
+}
+```
+
+### Factory Providers
+
+Register types that don't implement `ServiceInit` via factory closures. The closure receives `&App` and returns `AppResult<T>`:
+
+```rust
+// Register a foreign type (e.g., from an external crate)
+struct HttpClient { base_url: String }
+
+let app = App::builder("my-service", "MYSVC")
+    .register_with(|_app| async {
+        Ok(HttpClient { base_url: "https://api.example.com".into() })
+    })
+    .build()
+    .await?;
+
+let client = app.get::<HttpClient>().unwrap();
+```
+
+Factory-registered services participate in topological ordering and Phase 2 retry, just like `ServiceInit` services.
+
+### Conditional & Idempotent Registration
+
+Control when and whether services are registered:
+
+```rust
+let enable_metrics = std::env::var("METRICS").is_ok();
+
+let app = App::builder("my-service", "MYSVC")
+    // Conditional: only register if a condition is true
+    .register_service_if::<MetricsService>(enable_metrics)
+    .register_if(enable_metrics, 42u32)
+
+    // Idempotent: silently skips if type is already registered
+    .register_service::<CacheService>()
+    .try_register_service::<CacheService>()  // no-op
+
+    // Replace: swap an existing registration with a new implementation
+    .register_service::<V1Handler>()
+    .replace_service::<V2Handler>()  // V1 removed, V2 registered
+    .build()
+    .await?;
+```
+
+All conditional/idempotent methods are also available on `AppInit` for use after `build_init()`.
+
+### Optional Dependencies
+
+Services can declare optional dependencies using `Option<Arc<T>>` or `Option<T>`. These resolve to `None` when the dependency is not registered, instead of failing:
+
+```rust
+use foxtive::lifecycle::Service;
+use std::sync::Arc;
+
+#[derive(Service)]
+struct BusinessService {
+    #[dependency]
+    cache: Option<Arc<CacheService>>,   // None if not registered
+    #[dependency]
+    timeout: Option<u32>,               // None if not registered
+}
+```
+
+Manual `ServiceInit` impls use `app.get::<T>()` (returns `Option<Arc<T>>`) instead of `app.require::<T>()`:
+
+```rust
+impl ServiceInit for BusinessService {
+    async fn init(app: &App) -> AppResult<Self> {
+        Ok(Self {
+            cache: app.get::<CacheService>(),       // Option<Arc<CacheService>>
+            timeout: app.get::<u32>().map(|v| *v),  // Option<u32>
+        })
+    }
+}
+```
+
+Optional dependencies are excluded from topological ordering and never trigger Phase 2 retry.
+
 ## Event Bus
 
 In-process event bus for decoupled communication between components. Define events as plain structs, derive `Event`, and register handlers.
@@ -481,7 +634,7 @@ let app = App::builder("my-service", "MYSVC")
     .build()
     .await?;
 
-// Checkout a connection (natively async — no spawn_blocking)
+// Checkout a connection (natively async, no spawn_blocking)
 let mut conn = app.async_db()?.connection().await?;
 let users = users::table.load::<User>(&mut conn).await?;
 ```
@@ -567,7 +720,7 @@ impl UserService {
 `run_async()` bridges sync→async by running a future on the global fallback runtime:
 
 ```rust
-// From sync context, bridge to async (run_async is synchronous — blocks until complete)
+// From sync context, bridge to async (run_async is synchronous, blocks until complete)
 let result = tokio.run_async(async {
     // async work here
     Ok("done".to_string())
@@ -634,6 +787,13 @@ let redis = app.try_redis();    // returns Option<&Redis>
 | `.template_directory(dir)` | Configure the template directory |
 | `.register(service)` | Register a service instance in the DI container |
 | `.register_service::<T>()` | Register a service for deferred construction via `ServiceInit` |
+| `.register_mutable_service::<T>()` | Register a service wrapped in `Mutable<T>` for shared interior mutability |
+| `.register_trait::<dyn T>(arc)` | Register a trait object binding (`Arc<dyn Trait>`) |
+| `.register_with(closure)` | Register a service via factory closure (no `ServiceInit` needed) |
+| `.register_service_if::<T>(cond)` | Register a service only if `cond` is true |
+| `.register_if(cond, service)` | Register a service instance only if `cond` is true |
+| `.try_register_service::<T>()` | Idempotent registration: silently skips if type already registered |
+| `.replace_service::<T>()` | Replace a previously registered service with a new implementation |
 | `.after_build(closure)` | Register a callback after infrastructure init (receives `&mut AppInit`) |
 | `.on_startup(closure)` | Register a startup hook (runs concurrently with other hooks) |
 | `.on_shutdown(closure)` | Register a shutdown hook (runs in LIFO order) |
@@ -653,6 +813,27 @@ let app = App::builder("my-service", "MYSVC")
     .database(DbConfig { dsn: "".into(), ..Default::default() })
     .build()
     .await; // Err: "Database DSN must not be empty"
+```
+
+## DI Error Reporting
+
+Service construction failures produce structured `DiError` diagnostics with rustc-style formatting:
+
+- **DI0001** (circular runtime dep): detected when a service can't be constructed due to undeclared dependencies forming a cycle at runtime
+- **DI0002** (declared circular dep): detected during topological sort when declared dependencies form a cycle
+- **DI0003** (construction failed): wraps the underlying error from `ServiceInit::init()`
+
+Error output includes:
+- Short type names (stripped module paths)
+- Cycle detection with dependency chain visualization
+- `Lazy<T>` fix suggestions when cycles can be broken with deferred wiring
+- Blocked service analysis showing which services are blocked by missing dependencies
+
+```text
+error[DI0002]: circular dependency detected
+  --> UserService -> CacheService -> UserService
+
+  hint: break the cycle by wrapping one dependency in Lazy<T>
 ```
 
 ## JWT (JSON Web Token)

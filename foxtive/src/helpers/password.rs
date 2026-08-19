@@ -156,8 +156,8 @@ impl Password {
         let peppered = format!("{pwd}\x00{}", *self.pepper);
         // Generate a unique random 16-byte salt per hash
         let mut salt_bytes = [0u8; 16];
-        use rand::Rng;
-        rand::thread_rng().fill(&mut salt_bytes);
+        use rand::RngExt;
+        rand::rng().fill(&mut salt_bytes);
         Ok(argon2::hash_encoded(
             peppered.as_bytes(),
             &salt_bytes,
@@ -255,8 +255,8 @@ mod tests {
     fn legacy_hash(password: &str) -> String {
         let config = argon2::Config::default();
         let mut salt_bytes = [0u8; 16];
-        use rand::Rng;
-        rand::thread_rng().fill(&mut salt_bytes);
+        use rand::RngExt;
+        rand::rng().fill(&mut salt_bytes);
         argon2::hash_encoded(password.as_bytes(), &salt_bytes, &config).unwrap()
     }
 

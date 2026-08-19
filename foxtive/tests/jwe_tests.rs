@@ -105,7 +105,7 @@ fn test_rsa_oaep_256_round_trip() {
     use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
     use rsa::{RsaPrivateKey, RsaPublicKey};
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rsa::rand_core::OsRng;
     let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
     let public_key = RsaPublicKey::from(&private_key);
 
