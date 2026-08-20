@@ -17,7 +17,7 @@ chrono = { version = "0.4.45", features = ["serde"] }
 chrono-tz = { version = "0.10.4", features = ["serde"] }
 async-trait = "0.1.91"
 anyhow = { version = "1.0.104", features = ["backtrace"] }
-thiserror = "2.0.19"
+thiserror = "2.0.20"
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "time", "sync", "signal", "macros"] }
 tokio-util = { version = "0.7.19", features = ["rt"] }
 serde = { version = "1.0.229", features = ["derive"] }

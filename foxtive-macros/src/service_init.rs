@@ -212,23 +212,49 @@ pub fn derive_service_init(input: &DeriveInput) -> proc_macro2::TokenStream {
                 field_name: field_name.clone(),
                 init_expr: infra_expr,
             });
+        } else if let Some(option_inner) = extract_option_inner(field_type) {
+            // 5. Check if this is an Option<T> dependency
+            let (inner_type, is_arc) = extract_arc_inner(&option_inner);
+
+            if is_arc {
+                // Option<Arc<T>> → app.get::<T>() returns Option<Arc<T>>
+                field_inits.push(FieldInit {
+                    field_name: field_name.clone(),
+                    init_expr: quote! { app.get::<#inner_type>() },
+                });
+            } else {
+                // Option<T> → app.get::<T>().map(|arc| arc.as_ref().clone())
+                field_inits.push(FieldInit {
+                    field_name: field_name.clone(),
+                    init_expr: quote! { app.get::<#inner_type>().map(|arc| arc.as_ref().clone()) },
+                });
+            }
+            // Optional deps excluded from topological sort
+            continue;
         } else {
             // Regular service-to-service dependency
             let (inner_type, is_arc) = extract_arc_inner(field_type);
 
-            if is_arc {
+            if is_arc && is_dyn_trait(&inner_type) {
+                // Arc<dyn Trait> field — use require_trait
+                field_inits.push(FieldInit {
+                    field_name: field_name.clone(),
+                    init_expr: quote! { app.require_trait::<#inner_type>()? },
+                });
+                dependency_types.push(inner_type);
+            } else if is_arc {
                 field_inits.push(FieldInit {
                     field_name: field_name.clone(),
                     init_expr: quote! { app.require::<#inner_type>()? },
                 });
+                dependency_types.push(inner_type);
             } else {
                 field_inits.push(FieldInit {
                     field_name: field_name.clone(),
                     init_expr: quote! { app.require::<#field_type>()?.as_ref().clone() },
                 });
+                dependency_types.push(inner_type);
             }
-
-            dependency_types.push(inner_type);
         }
     }
 
@@ -472,6 +498,24 @@ fn extract_init_expr(attrs: &[syn::Attribute]) -> Option<proc_macro2::TokenStrea
                     }
                 }
             }
+        }
+    }
+    None
+}
+
+fn is_dyn_trait(ty: &Type) -> bool {
+    matches!(ty, Type::TraitObject(_))
+}
+
+fn extract_option_inner(ty: &Type) -> Option<Type> {
+    if let Type::Path(type_path) = ty {
+        let segments = &type_path.path.segments;
+        if let Some(last) = segments.last()
+            && last.ident == "Option"
+            && let syn::PathArguments::AngleBracketed(args) = &last.arguments
+            && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+        {
+            return Some(inner.clone());
         }
     }
     None

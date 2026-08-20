@@ -7,6 +7,33 @@ All notable changes to **foxtive-cron** will be documented in this file.
 
 ---
 
+## [0.6.1] – 2026-08-19
+
+### Changed
+* bump(thiserror): 2.0.19 → 2.0.20
+
+---
+
+## [0.6.0] – 2026-08-19
+
+### Added
+* **Job Builder** - Fluent API for ergonomic job configuration and registration
+* **Cron Scheduling** - Schedule jobs using standard cron expressions
+* **Timezone Support** - Schedule jobs in specific timezones via chrono-tz
+* **Concurrency Control** - Global and per-job concurrency limits using tokio::sync::Semaphore
+* **Job Priority** - Priority-based execution ordering for deterministic scheduling
+* **Misfire Policy** - Skip, FireOnce, and FireAll strategies for handling missed executions
+* **Retry Strategies** - Fixed interval and exponential backoff for failed job retries
+* **Persistence** - Job store abstraction via JobStore trait with InMemoryJobStore implementation
+* **Graceful Shutdown** - Controlled scheduler termination with in-flight job completion
+* **Execution Timeout** - Per-job execution timeouts via tokio::time::timeout
+* **Event Hooks** - Job lifecycle event callbacks (Started, Finished, Failed, Retrying)
+* **Metrics Collection** - Execution counters and performance histograms
+* **One-Time Jobs** - Schedule one-time job execution at a specific instant
+* **Delayed Start** - Delayed start support for recurring jobs
+
+---
+
 ## [0.5.0] – 2026-04-16
 
 ### Added

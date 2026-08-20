@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-08-19
+
+### Added
+
+#### Core Supervision
+- **Supervisor Builder**: Builder pattern for ergonomic supervisor construction with fluent API
+- **Task Supervision**: Core task supervision with configurable restart policies
+- **Dependency Management**: Task dependency graph resolution with topological ordering
+- **Restart Policies**: Always, OnFailure, and Never restart strategies
+- **Backoff Strategies**: Exponential and fixed backoff for restart delay control
+- **Health Monitoring**: Task health status tracking and aggregation
+- **Event System**: Supervisor event broadcasting for lifecycle observability
+- **Panic Recovery**: Catch task panics and restart without crashing the supervisor
+- **Graceful Shutdown**: Ordered shutdown with configurable timeout per task
+
+#### Advanced Features
+- **Circuit Breaker**: Circuit breaker pattern (Closed/Open/Half-Open) for failing tasks
+- **Task Groups**: Atomic operations on related tasks (start/stop/restart as a unit)
+- **Supervisor Hierarchies**: Nested supervisor trees with parent-child relationships and cascading shutdown
+- **Task Pools**: Load-balanced worker pools with RoundRobin, Random, and LeastLoaded strategies
+- **Conditional Dependencies**: Environment-based dependency activation using closure predicates
+- **Cron Scheduling**: Schedule tasks using cron expressions via foxtive-cron integration
+
+#### Persistence & Coordination
+- **Persistence Layer**: State persistence across restarts with InMemoryStateStore and FsStateStore implementations
+- **Distributed Coordination**: Leader election with Redis-based distributed locks and heartbeat mechanism
+
+#### Testing
+- **Testing Utilities**: Mock task implementations, fake time control, and assertion helpers for supervision patterns
+
+## [0.4.1] - 2026-08-19
+
+### Changed
+* bump(thiserror): 2.0.19 → 2.0.20
+* bump(futures): 0.3.33 → 0.3.34
+* bump(futures-util): 0.3.33 → 0.3.34
+* bump(uuid): 1.24.0 → 1.24.1
+* bump(redis): 1.4.1 → 1.6.0
+
 ## [0.3.0] - 2026-04-05
 
 ### Added

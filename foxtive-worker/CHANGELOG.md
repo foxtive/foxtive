@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-08-19
+
+### Changed
+* bump(thiserror): 2.0.19 → 2.0.20
+* bump(uuid): 1.24.0 → 1.24.1
+* bump(rand): 0.10.1 → 0.10.2
+* bump(redis): 1.2.4 → 1.6.0
+* bump(futures-util): 0.3.33 → 0.3.34
+
+---
+
 ## [0.5.0] - 2026-06-18
 
 ### Major Features
@@ -346,6 +357,21 @@ That's it! Your failed messages will now be preserved in `{queue_name}-dlq`.
 ### 🙏 Thanks
 
 This release brings critical production reliability improvements. No more lost messages-every failure is captured, inspected, and recoverable. The enhanced retry attempt tracking makes debugging retry issues significantly easier.
+
+---
+
+## [0.4.0] - 2026-08-19
+
+### Added
+- **Worker Pool Builder**: Builder pattern for ergonomic WorkerPool construction with fluent API
+- **Graceful Shutdown**: CancellationToken integration for clean worker pool termination
+- **Lifecycle Hooks**: Startup and shutdown callbacks for worker pool initialization and cleanup
+- **Middleware Pipeline**: Ordered middleware execution chain for message processing
+- **Consumer Config**: Queue and consumer settings for configuring worker pool behavior
+- **Queue Declaration**: Auto-declare queues on startup to ensure required queues exist
+- **Worker Registry**: Register workers with the pool for centralized management
+- **Event Bus Integration**: Emit worker lifecycle events to foxtive EventBus for observability
+- **Metrics Reporting**: Track worker lifecycle metrics (processing time, success/failure counts)
 
 ---
 
