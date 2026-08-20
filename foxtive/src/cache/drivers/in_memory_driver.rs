@@ -27,7 +27,10 @@ impl CacheDriverContract for InMemoryDriver {
         })
     }
 
-    fn keys_by_pattern(&self, pattern: &str) -> Pin<Box<dyn Future<Output = AppResult<Vec<String>>> + Send + '_>> {
+    fn keys_by_pattern(
+        &self,
+        pattern: &str,
+    ) -> Pin<Box<dyn Future<Output = AppResult<Vec<String>>> + Send + '_>> {
         let pattern = pattern.to_string();
         Box::pin(async move {
             let regex = fancy_regex::Regex::new(&pattern)?;
@@ -40,7 +43,11 @@ impl CacheDriverContract for InMemoryDriver {
         })
     }
 
-    fn put_raw(&self, key: &str, value: String) -> Pin<Box<dyn Future<Output = AppResult<String>> + Send + '_>> {
+    fn put_raw(
+        &self,
+        key: &str,
+        value: String,
+    ) -> Pin<Box<dyn Future<Output = AppResult<String>> + Send + '_>> {
         let key = key.to_string();
         Box::pin(async move {
             self.storage.insert(key, value.clone());
@@ -48,11 +55,12 @@ impl CacheDriverContract for InMemoryDriver {
         })
     }
 
-    fn get_raw(&self, key: &str) -> Pin<Box<dyn Future<Output = AppResult<Option<String>>> + Send + '_>> {
+    fn get_raw(
+        &self,
+        key: &str,
+    ) -> Pin<Box<dyn Future<Output = AppResult<Option<String>>> + Send + '_>> {
         let key = key.to_string();
-        Box::pin(async move {
-            Ok(self.storage.get(&key).map(|value| value.value().clone()))
-        })
+        Box::pin(async move { Ok(self.storage.get(&key).map(|value| value.value().clone())) })
     }
 
     fn forget(&self, key: &str) -> Pin<Box<dyn Future<Output = AppResult<i32>> + Send + '_>> {
@@ -66,7 +74,10 @@ impl CacheDriverContract for InMemoryDriver {
         })
     }
 
-    fn forget_by_pattern(&self, pattern: &str) -> Pin<Box<dyn Future<Output = AppResult<i32>> + Send + '_>> {
+    fn forget_by_pattern(
+        &self,
+        pattern: &str,
+    ) -> Pin<Box<dyn Future<Output = AppResult<i32>> + Send + '_>> {
         let pattern = pattern.to_string();
         Box::pin(async move {
             let regex = fancy_regex::Regex::new(&pattern)?;

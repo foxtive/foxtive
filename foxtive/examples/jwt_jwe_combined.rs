@@ -35,8 +35,9 @@ fn main() {
     println!("--- 1. RSA with RS512 algorithm ---");
 
     let (public_pem, private_pem) = Jwt::dummy_keys();
-    let config = JwtConfig::rsa_pem_with_algorithm(&public_pem, &private_pem, JwtAlgorithm::RS512, 30)
-        .expect("valid RSA config");
+    let config =
+        JwtConfig::rsa_pem_with_algorithm(&public_pem, &private_pem, JwtAlgorithm::RS512, 30)
+            .expect("valid RSA config");
 
     println!("Algorithm: {:?}", config.algorithm());
     println!("Token lifetime: {} min", config.token_lifetime());

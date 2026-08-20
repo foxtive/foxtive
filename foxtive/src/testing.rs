@@ -17,11 +17,11 @@
 
 use std::sync::Arc;
 
+use crate::App;
+use crate::Environment;
 use crate::app::AppBuilder;
 use crate::lifecycle::ServiceInit;
 use crate::prelude::AppResult;
-use crate::App;
-use crate::Environment;
 
 /// Helper for creating [`App`] instances configured for testing.
 ///
@@ -49,8 +49,7 @@ impl TestApp {
     /// The builder has sensible test defaults but can be further
     /// customized before calling `.build().await`.
     pub fn builder() -> AppBuilder {
-        App::builder("test-app", "TEST")
-            .environment(Environment::Local)
+        App::builder("test-app", "TEST").environment(Environment::Local)
     }
 
     /// Create a minimal `App` with a custom name.
@@ -84,8 +83,7 @@ impl App {
     /// # }
     /// ```
     pub fn test_builder(name: &str) -> AppBuilder {
-        App::builder(name, "TEST")
-            .environment(Environment::Local)
+        App::builder(name, "TEST").environment(Environment::Local)
     }
 
     /// Build a minimal app with only the given service and resolve it.

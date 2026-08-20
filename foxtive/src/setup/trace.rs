@@ -77,7 +77,10 @@ impl OutputFormat {
     pub fn from_env(var_name: &str) -> AppResult<OutputFormat> {
         std::env::var(var_name)
             .map_err(|e| AppMessage::missing_environment_variable(var_name.to_string(), e))
-            .and_then(|val| val.parse().map_err(|e: String| AppMessage::InternalServerError(e)))
+            .and_then(|val| {
+                val.parse()
+                    .map_err(|e: String| AppMessage::InternalServerError(e))
+            })
     }
 
     /// Gets the output format from environment variable or returns default
@@ -240,10 +243,19 @@ pub fn init_tracing(config: Tracing) -> AppResult<()> {
 
     match (config.format.clone(), &config.target) {
         (OutputFormat::Json, OutputTarget::Stdout) => {
-            init_subscriber!(fmt_layer!(json, with_current_span(true), with_span_list(true)));
+            init_subscriber!(fmt_layer!(
+                json,
+                with_current_span(true),
+                with_span_list(true)
+            ));
         }
         (OutputFormat::Json, OutputTarget::Stderr) => {
-            init_subscriber!(fmt_layer!(json, with_current_span(true), with_span_list(true), with_writer(std::io::stderr)));
+            init_subscriber!(fmt_layer!(
+                json,
+                with_current_span(true),
+                with_span_list(true),
+                with_writer(std::io::stderr)
+            ));
         }
         (OutputFormat::Json, OutputTarget::File(path)) => {
             init_subscriber!(fmt_layer_for_file!(json, path));

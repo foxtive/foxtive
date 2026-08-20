@@ -1,11 +1,11 @@
 mod common;
 
+use foxtive::App;
+use foxtive::app::AppBuilder;
 use foxtive::lifecycle::Plugin;
 use foxtive::results::AppResult;
-use foxtive::App;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
-use foxtive::app::AppBuilder;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 #[tokio::test]
 async fn plugin_startup_hook_runs() {

@@ -113,9 +113,7 @@ async fn optional_dep_not_in_topo_sort() {
 async fn mixed_optional_and_required() {
     // Required is present, optional is absent
     let app = App::builder("test", "TST")
-        .register(RequiredService {
-            name: "req".into(),
-        })
+        .register(RequiredService { name: "req".into() })
         .register_service::<MixedService>()
         .build()
         .await
@@ -129,9 +127,7 @@ async fn mixed_optional_and_required() {
 #[tokio::test]
 async fn mixed_optional_and_required_both_present() {
     let app = App::builder("test", "TST")
-        .register(RequiredService {
-            name: "req".into(),
-        })
+        .register(RequiredService { name: "req".into() })
         .register(CacheService {
             driver: "memory".into(),
         })

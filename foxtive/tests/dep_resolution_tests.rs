@@ -11,12 +11,12 @@
 
 mod common;
 
+use foxtive::App;
 use foxtive::enums::AppMessage;
 use foxtive::lifecycle::{Service, ServiceInit};
 use foxtive::prelude::AppResult;
-use foxtive::App;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 // Reversed registration order (manual ServiceInit, no dependencies())
 
@@ -278,7 +278,9 @@ async fn phase2_deadlock_produces_clear_error() {
     assert!(result.is_err());
     let err = result.unwrap_err().to_string();
     assert!(
-        err.contains("DI0001") || err.to_lowercase().contains("deadlock") || err.contains("not yet constructed"),
+        err.contains("DI0001")
+            || err.to_lowercase().contains("deadlock")
+            || err.contains("not yet constructed"),
         "Expected DI error, got: {err}"
     );
 }
@@ -430,7 +432,9 @@ struct MutableConsumer {
 impl ServiceInit for MutableConsumer {
     async fn init(app: &App) -> AppResult<Self> {
         let dep = app.require::<MutableDep>()?;
-        Ok(Self { dep_count: dep.count })
+        Ok(Self {
+            dep_count: dep.count,
+        })
     }
     // No dependencies() - will need Phase 2 retry
 }
@@ -549,7 +553,10 @@ async fn never_registered_dep_produces_clear_error() {
     let err = result.unwrap_err().to_string();
     // Should mention the missing type, DI0001 code, or deadlock
     assert!(
-        err.contains("DI0001") || err.contains("not registered") || err.contains("deadlock") || err.contains("not yet constructed"),
+        err.contains("DI0001")
+            || err.contains("not registered")
+            || err.contains("deadlock")
+            || err.contains("not yet constructed"),
         "Expected clear error about missing dep, got: {err}"
     );
 }
@@ -630,10 +637,7 @@ impl ServiceInit for InitPhaseRoot {
 
 #[tokio::test]
 async fn init_register_service_reversed_undeclared() {
-    let mut init = App::builder("dep-test", "DEP")
-        .build_init()
-        .await
-        .unwrap();
+    let mut init = App::builder("dep-test", "DEP").build_init().await.unwrap();
 
     // Register root before leaf via AppInit
     init.register_service::<InitPhaseRoot>();

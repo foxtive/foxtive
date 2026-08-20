@@ -53,7 +53,10 @@ impl Environment {
 
     /// Checks if the environment is a development-like environment (local or dev)
     pub fn is_dev_like(&self) -> bool {
-        matches!(self, Environment::Local | Environment::Development | Environment::Test)
+        matches!(
+            self,
+            Environment::Local | Environment::Development | Environment::Test
+        )
     }
 
     /// Checks if the environment allows debug features
@@ -65,7 +68,10 @@ impl Environment {
     pub fn from_env(var_name: &str) -> AppResult<Environment> {
         std::env::var(var_name)
             .map_err(|e| AppMessage::MissingEnvironmentVariable(var_name.to_string(), e))
-            .and_then(|val: String| val.parse().map_err(|e: String| AppMessage::InternalServerError(e)))
+            .and_then(|val: String| {
+                val.parse()
+                    .map_err(|e: String| AppMessage::InternalServerError(e))
+            })
     }
 
     /// Gets the environment from environment variable or returns default

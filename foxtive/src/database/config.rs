@@ -233,22 +233,22 @@ mod tests {
 
     #[test]
     fn max_lifetime_zero_fails_validation() {
-        let config = DbConfig::create("postgres://localhost/db")
-            .max_lifetime(Some(Duration::from_secs(0)));
+        let config =
+            DbConfig::create("postgres://localhost/db").max_lifetime(Some(Duration::from_secs(0)));
         assert!(config.validate().is_err());
     }
 
     #[test]
     fn idle_timeout_zero_fails_validation() {
-        let config = DbConfig::create("postgres://localhost/db")
-            .idle_timeout(Some(Duration::from_secs(0)));
+        let config =
+            DbConfig::create("postgres://localhost/db").idle_timeout(Some(Duration::from_secs(0)));
         assert!(config.validate().is_err());
     }
 
     #[test]
     fn connection_timeout_zero_fails_validation() {
-        let config = DbConfig::create("postgres://localhost/db")
-            .connection_timeout(Duration::from_secs(0));
+        let config =
+            DbConfig::create("postgres://localhost/db").connection_timeout(Duration::from_secs(0));
         assert!(config.validate().is_err());
     }
 }

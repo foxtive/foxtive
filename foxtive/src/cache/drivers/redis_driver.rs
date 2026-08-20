@@ -24,7 +24,10 @@ impl CacheDriverContract for RedisCacheDriver {
         })
     }
 
-    fn keys_by_pattern(&self, pattern: &str) -> Pin<Box<dyn Future<Output = AppResult<Vec<String>>> + Send + '_>> {
+    fn keys_by_pattern(
+        &self,
+        pattern: &str,
+    ) -> Pin<Box<dyn Future<Output = AppResult<Vec<String>>> + Send + '_>> {
         let pattern = pattern.to_string();
         Box::pin(async move {
             // Use Redis KEYS command with the provided pattern directly
@@ -35,28 +38,32 @@ impl CacheDriverContract for RedisCacheDriver {
         })
     }
 
-    fn put_raw(&self, key: &str, value: String) -> Pin<Box<dyn Future<Output = AppResult<String>> + Send + '_>> {
+    fn put_raw(
+        &self,
+        key: &str,
+        value: String,
+    ) -> Pin<Box<dyn Future<Output = AppResult<String>> + Send + '_>> {
         let key = key.to_string();
-        Box::pin(async move {
-            self.redis.set(&key, &value).await
-        })
+        Box::pin(async move { self.redis.set(&key, &value).await })
     }
 
-    fn get_raw(&self, key: &str) -> Pin<Box<dyn Future<Output = AppResult<Option<String>>> + Send + '_>> {
+    fn get_raw(
+        &self,
+        key: &str,
+    ) -> Pin<Box<dyn Future<Output = AppResult<Option<String>>> + Send + '_>> {
         let key = key.to_string();
-        Box::pin(async move {
-            self.redis.get::<Option<String>>(&key).await
-        })
+        Box::pin(async move { self.redis.get::<Option<String>>(&key).await })
     }
 
     fn forget(&self, key: &str) -> Pin<Box<dyn Future<Output = AppResult<i32>> + Send + '_>> {
         let key = key.to_string();
-        Box::pin(async move {
-            self.redis.delete(&key).await
-        })
+        Box::pin(async move { self.redis.delete(&key).await })
     }
 
-    fn forget_by_pattern(&self, key: &str) -> Pin<Box<dyn Future<Output = AppResult<i32>> + Send + '_>> {
+    fn forget_by_pattern(
+        &self,
+        key: &str,
+    ) -> Pin<Box<dyn Future<Output = AppResult<i32>> + Send + '_>> {
         let key = key.to_string();
         Box::pin(async move {
             self.redis

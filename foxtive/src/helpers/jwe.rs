@@ -38,8 +38,8 @@
 //! ).unwrap();
 //! ```
 
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 pub use jose_rs::algorithm::{JweAlgorithm, JweEncryption};
 

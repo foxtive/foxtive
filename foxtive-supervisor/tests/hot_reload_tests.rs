@@ -33,7 +33,10 @@ impl SupervisedTask for FailingTask {
         let mut count = self.fail_count.lock().unwrap();
         if *count < self.max_failures {
             *count += 1;
-            return Err(foxtive_supervisor::SupervisorError::from(format!("Intentional failure #{}", *count)));
+            return Err(foxtive_supervisor::SupervisorError::from(format!(
+                "Intentional failure #{}",
+                *count
+            )));
         }
         Ok(())
     }
@@ -479,7 +482,9 @@ async fn test_disabled_task_no_restart() {
             if count == 0 {
                 Ok(())
             } else {
-                Err(foxtive_supervisor::SupervisorError::internal("Intentional failure"))
+                Err(foxtive_supervisor::SupervisorError::internal(
+                    "Intentional failure",
+                ))
             }
         }
 

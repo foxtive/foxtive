@@ -187,7 +187,11 @@ impl From<crate::rabbitmq::RmqError> for AppMessage {
     }
 }
 
-#[cfg(any(feature = "regex", feature = "cache-filesystem", feature = "cache-in-memory"))]
+#[cfg(any(
+    feature = "regex",
+    feature = "cache-filesystem",
+    feature = "cache-in-memory"
+))]
 impl From<fancy_regex::Error> for AppMessage {
     fn from(e: fancy_regex::Error) -> Self {
         AppMessage::Infrastructure {

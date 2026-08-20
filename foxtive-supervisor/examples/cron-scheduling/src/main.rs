@@ -1,8 +1,8 @@
-use foxtive_supervisor::SupervisorResult;
 use async_trait::async_trait;
 use chrono::{Timelike, Utc};
 use foxtive_supervisor::SupervisedTask;
 use foxtive_supervisor::Supervisor;
+use foxtive_supervisor::SupervisorResult;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
@@ -60,7 +60,9 @@ impl SupervisedTask for RateLimitedTask {
 
         // Simulate occasional failures
         if count.is_multiple_of(4) {
-            return Err(foxtive_supervisor::SupervisorError::from("Simulated failure"));
+            return Err(foxtive_supervisor::SupervisorError::from(
+                "Simulated failure",
+            ));
         }
 
         Ok(())

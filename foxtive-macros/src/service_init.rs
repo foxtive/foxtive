@@ -101,17 +101,19 @@ pub fn derive_service_init(input: &DeriveInput) -> proc_macro2::TokenStream {
                 return true;
             }
             if attr.path().is_ident("foxtive")
-                && let Meta::List(meta_list) = &attr.meta {
-                    return meta_list.tokens.to_string().contains("dependency");
-                }
+                && let Meta::List(meta_list) = &attr.meta
+            {
+                return meta_list.tokens.to_string().contains("dependency");
+            }
             false
         });
 
         let has_default_attr = field.attrs.iter().any(|attr| {
             if attr.path().is_ident("foxtive")
-                && let Meta::List(meta_list) = &attr.meta {
-                    return meta_list.tokens.to_string().contains("default");
-                }
+                && let Meta::List(meta_list) = &attr.meta
+            {
+                return meta_list.tokens.to_string().contains("default");
+            }
             false
         });
 
@@ -181,7 +183,9 @@ pub fn derive_service_init(input: &DeriveInput) -> proc_macro2::TokenStream {
 
             // 3. Reject Lazy<InfraType>
             if let Some(infra_name) = get_type_name(&lazy_inner)
-                && INFRASTRUCTURE_TYPES.iter().any(|(n, _, _)| *n == infra_name)
+                && INFRASTRUCTURE_TYPES
+                    .iter()
+                    .any(|(n, _, _)| *n == infra_name)
             {
                 return syn::Error::new_spanned(
                     field_type,
@@ -378,9 +382,7 @@ fn get_type_name(ty: &Type) -> Option<String> {
     None
 }
 
-fn try_generate_infra_access(
-    field_type: &Type,
-) -> Option<proc_macro2::TokenStream> {
+fn try_generate_infra_access(field_type: &Type) -> Option<proc_macro2::TokenStream> {
     let (inner_type_name, is_arc_wrapper) = extract_type_name(field_type);
 
     for (infra_name, accessor, needs_clone) in INFRASTRUCTURE_TYPES {
@@ -415,11 +417,12 @@ fn extract_type_name(ty: &Type) -> (String, bool) {
         if let Some(last) = segments.last() {
             if last.ident == "Arc"
                 && let syn::PathArguments::AngleBracketed(args) = &last.arguments
-                    && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
-                        && let Type::Path(inner_path) = inner
-                            && let Some(inner_last) = inner_path.path.segments.last() {
-                                return (inner_last.ident.to_string(), true);
-                            }
+                && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+                && let Type::Path(inner_path) = inner
+                && let Some(inner_last) = inner_path.path.segments.last()
+            {
+                return (inner_last.ident.to_string(), true);
+            }
             return (last.ident.to_string(), false);
         }
     }
@@ -431,10 +434,11 @@ fn extract_arc_inner(ty: &Type) -> (Type, bool) {
         let segments = &type_path.path.segments;
         if let Some(last) = segments.last()
             && last.ident == "Arc"
-                && let syn::PathArguments::AngleBracketed(args) = &last.arguments
-                    && let Some(syn::GenericArgument::Type(inner)) = args.args.first() {
-                        return (inner.clone(), true);
-                    }
+            && let syn::PathArguments::AngleBracketed(args) = &last.arguments
+            && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+        {
+            return (inner.clone(), true);
+        }
     }
     (ty.clone(), false)
 }

@@ -116,7 +116,10 @@ impl JwtConfig {
         algorithm: JwtAlgorithm,
         token_lifetime: i64,
     ) -> AppResult<Self> {
-        if !matches!(algorithm, JwtAlgorithm::RS256 | JwtAlgorithm::RS384 | JwtAlgorithm::RS512) {
+        if !matches!(
+            algorithm,
+            JwtAlgorithm::RS256 | JwtAlgorithm::RS384 | JwtAlgorithm::RS512
+        ) {
             return Err(AppMessage::Infrastructure {
                 message: format!("Invalid RSA algorithm: {algorithm:?}"),
                 source: None,
@@ -180,7 +183,10 @@ impl JwtConfig {
         token_lifetime: i64,
     ) -> AppResult<Self> {
         // Validate that the algorithm is HMAC-based
-        if !matches!(algorithm, JwtAlgorithm::HS256 | JwtAlgorithm::HS384 | JwtAlgorithm::HS512) {
+        if !matches!(
+            algorithm,
+            JwtAlgorithm::HS256 | JwtAlgorithm::HS384 | JwtAlgorithm::HS512
+        ) {
             return Err(AppMessage::Infrastructure {
                 message: format!("Invalid HMAC algorithm: {algorithm:?}"),
                 source: None,
@@ -255,8 +261,16 @@ impl Jwt {
     }
 
     /// Convenience constructor from RSA PEM keys.
-    pub fn from_rsa_pem(public_pem: &str, private_pem: &str, token_lifetime: i64) -> AppResult<Self> {
-        Ok(Self::new(JwtConfig::rsa_pem(public_pem, private_pem, token_lifetime)?))
+    pub fn from_rsa_pem(
+        public_pem: &str,
+        private_pem: &str,
+        token_lifetime: i64,
+    ) -> AppResult<Self> {
+        Ok(Self::new(JwtConfig::rsa_pem(
+            public_pem,
+            private_pem,
+            token_lifetime,
+        )?))
     }
 
     /// Convenience constructor from HMAC secret.
@@ -337,11 +351,12 @@ impl Jwt {
         token: &str,
         validation: &Validation,
     ) -> AppResult<TokenData<C>> {
-        decode::<C>(token, &self.config.decoding_key, validation)
-            .map_err(|e| AppMessage::Infrastructure {
+        decode::<C>(token, &self.config.decoding_key, validation).map_err(|e| {
+            AppMessage::Infrastructure {
                 message: format!("JWT decode failed: {e}"),
                 source: Some(Box::new(e)),
-            })
+            }
+        })
     }
 
     /// Returns sample RSA keys for testing purposes.
@@ -353,8 +368,8 @@ impl Jwt {
     /// Only available in test builds or when the `test-utils` feature is enabled.
     #[cfg(any(test, feature = "test-utils"))]
     pub fn dummy_keys() -> (String, String) {
-        use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
         use rsa::RsaPrivateKey;
+        use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
 
         let mut rng = rsa::rand_core::OsRng;
         let private_key =
@@ -438,7 +453,10 @@ impl JwtVerifier {
         public_pem: &str,
         algorithm: JwtAlgorithm,
     ) -> AppResult<Self> {
-        if !matches!(algorithm, JwtAlgorithm::RS256 | JwtAlgorithm::RS384 | JwtAlgorithm::RS512) {
+        if !matches!(
+            algorithm,
+            JwtAlgorithm::RS256 | JwtAlgorithm::RS384 | JwtAlgorithm::RS512
+        ) {
             return Err(AppMessage::Infrastructure {
                 message: format!("Invalid RSA algorithm: {algorithm:?}"),
                 source: None,
@@ -478,11 +496,11 @@ impl JwtVerifier {
     ///
     /// * `secret` - Shared secret key bytes
     /// * `algorithm` - HMAC algorithm (HS256, HS384, or HS512)
-    pub fn from_hmac_with_algorithm(
-        secret: &[u8],
-        algorithm: JwtAlgorithm,
-    ) -> AppResult<Self> {
-        if !matches!(algorithm, JwtAlgorithm::HS256 | JwtAlgorithm::HS384 | JwtAlgorithm::HS512) {
+    pub fn from_hmac_with_algorithm(secret: &[u8], algorithm: JwtAlgorithm) -> AppResult<Self> {
+        if !matches!(
+            algorithm,
+            JwtAlgorithm::HS256 | JwtAlgorithm::HS384 | JwtAlgorithm::HS512
+        ) {
             return Err(AppMessage::Infrastructure {
                 message: format!("Invalid HMAC algorithm: {algorithm:?}"),
                 source: None,
@@ -518,11 +536,10 @@ impl JwtVerifier {
         token: &str,
         validation: &Validation,
     ) -> AppResult<TokenData<C>> {
-        decode::<C>(token, &self.decoding_key, validation)
-            .map_err(|e| AppMessage::Infrastructure {
-                message: format!("JWT decode failed: {e}"),
-                source: Some(Box::new(e)),
-            })
+        decode::<C>(token, &self.decoding_key, validation).map_err(|e| AppMessage::Infrastructure {
+            message: format!("JWT decode failed: {e}"),
+            source: Some(Box::new(e)),
+        })
     }
 
     pub fn algorithm(&self) -> JwtAlgorithm {
@@ -550,11 +567,7 @@ mod jwe_combined {
         ///
         /// * `claims` - The claims to encode and sign
         /// * `jwe` - JWE helper with default algorithms configured
-        pub fn generate_encrypted<C: Serialize>(
-            &self,
-            claims: C,
-            jwe: &Jwe,
-        ) -> AppResult<String> {
+        pub fn generate_encrypted<C: Serialize>(&self, claims: C, jwe: &Jwe) -> AppResult<String> {
             let token_data = self.generate(claims)?;
             jwe.encrypt(&token_data.access_token)
         }
@@ -637,7 +650,9 @@ mod tests {
         let mut validation = Validation::new(JwtAlgorithm::RS256);
         validation.set_audience(&["test_audience"]);
 
-        let decoded = jwt.decode::<JwtTokenClaims>(&token.access_token, &validation).unwrap();
+        let decoded = jwt
+            .decode::<JwtTokenClaims>(&token.access_token, &validation)
+            .unwrap();
         assert_eq!(decoded.claims.sub, claims.sub);
         assert_eq!(decoded.claims.iss, claims.iss);
     }
@@ -668,7 +683,9 @@ mod tests {
         let mut validation = Validation::new(JwtAlgorithm::HS256);
         validation.set_audience(&["test_audience"]);
 
-        let decoded = jwt.decode::<JwtTokenClaims>(&token.access_token, &validation).unwrap();
+        let decoded = jwt
+            .decode::<JwtTokenClaims>(&token.access_token, &validation)
+            .unwrap();
         assert_eq!(decoded.claims.sub, claims.sub);
     }
 
@@ -685,7 +702,9 @@ mod tests {
         let mut validation = Validation::new(JwtAlgorithm::HS384);
         validation.set_audience(&["test_audience"]);
 
-        let decoded = jwt.decode::<JwtTokenClaims>(&token.access_token, &validation).unwrap();
+        let decoded = jwt
+            .decode::<JwtTokenClaims>(&token.access_token, &validation)
+            .unwrap();
         assert_eq!(decoded.claims.sub, "test_subject");
     }
 
@@ -702,7 +721,9 @@ mod tests {
         let mut validation = Validation::new(JwtAlgorithm::HS512);
         validation.set_audience(&["test_audience"]);
 
-        let decoded = jwt.decode::<JwtTokenClaims>(&token.access_token, &validation).unwrap();
+        let decoded = jwt
+            .decode::<JwtTokenClaims>(&token.access_token, &validation)
+            .unwrap();
         assert_eq!(decoded.claims.iss, "test_issuer");
     }
 
@@ -718,10 +739,8 @@ mod tests {
     #[test]
     fn test_decode_invalid_token_fails() {
         let jwt = Jwt::from_hmac(b"secret", 60);
-        let result = jwt.decode::<JwtTokenClaims>(
-            "invalid.token.here",
-            &Validation::new(JwtAlgorithm::HS256),
-        );
+        let result = jwt
+            .decode::<JwtTokenClaims>("invalid.token.here", &Validation::new(JwtAlgorithm::HS256));
         assert!(result.is_err());
     }
 
@@ -732,10 +751,8 @@ mod tests {
 
         let token = jwt1.generate(sample_claims()).unwrap();
 
-        let result = jwt2.decode::<JwtTokenClaims>(
-            &token.access_token,
-            &Validation::new(JwtAlgorithm::HS256),
-        );
+        let result = jwt2
+            .decode::<JwtTokenClaims>(&token.access_token, &Validation::new(JwtAlgorithm::HS256));
         assert!(result.is_err());
     }
 
@@ -745,10 +762,8 @@ mod tests {
         let token = jwt.generate(sample_claims()).unwrap();
 
         // Try to decode with wrong algorithm
-        let result = jwt.decode::<JwtTokenClaims>(
-            &token.access_token,
-            &Validation::new(JwtAlgorithm::RS256),
-        );
+        let result = jwt
+            .decode::<JwtTokenClaims>(&token.access_token, &Validation::new(JwtAlgorithm::RS256));
         assert!(result.is_err());
     }
 
@@ -764,7 +779,9 @@ mod tests {
         let mut validation = Validation::new(JwtAlgorithm::HS256);
         validation.set_audience(&["test_audience"]);
 
-        let decoded = jwt2.decode::<JwtTokenClaims>(&token.access_token, &validation).unwrap();
+        let decoded = jwt2
+            .decode::<JwtTokenClaims>(&token.access_token, &validation)
+            .unwrap();
         assert_eq!(decoded.claims.sub, "test_subject");
     }
 
@@ -785,7 +802,9 @@ mod tests {
         let mut validation = Validation::new(JwtAlgorithm::RS384);
         validation.set_audience(&["test_audience"]);
 
-        let decoded = jwt.decode::<JwtTokenClaims>(&token.access_token, &validation).unwrap();
+        let decoded = jwt
+            .decode::<JwtTokenClaims>(&token.access_token, &validation)
+            .unwrap();
         assert_eq!(decoded.claims.sub, "test_subject");
     }
 
@@ -804,7 +823,9 @@ mod tests {
         let mut validation = Validation::new(JwtAlgorithm::RS512);
         validation.set_audience(&["test_audience"]);
 
-        let decoded = jwt.decode::<JwtTokenClaims>(&token.access_token, &validation).unwrap();
+        let decoded = jwt
+            .decode::<JwtTokenClaims>(&token.access_token, &validation)
+            .unwrap();
         assert_eq!(decoded.claims.iss, "test_issuer");
     }
 
@@ -827,7 +848,9 @@ mod tests {
         let mut validation = Validation::new(JwtAlgorithm::HS512);
         validation.set_audience(&["test_audience"]);
 
-        let decoded = jwt.decode::<JwtTokenClaims>(&token.access_token, &validation).unwrap();
+        let decoded = jwt
+            .decode::<JwtTokenClaims>(&token.access_token, &validation)
+            .unwrap();
         assert_eq!(decoded.claims.sub, "test_subject");
     }
 
@@ -846,7 +869,9 @@ mod tests {
         let mut validation = Validation::new(JwtAlgorithm::RS256);
         validation.set_audience(&["test_audience"]);
 
-        let decoded = verifier.decode::<JwtTokenClaims>(&token.access_token, &validation).unwrap();
+        let decoded = verifier
+            .decode::<JwtTokenClaims>(&token.access_token, &validation)
+            .unwrap();
         assert_eq!(decoded.claims.sub, "test_subject");
         assert_eq!(decoded.claims.iss, "test_issuer");
     }
@@ -855,20 +880,22 @@ mod tests {
     fn test_verifier_from_rsa_with_algorithm() {
         let (public_pem, private_pem) = Jwt::dummy_keys();
 
-        let config = JwtConfig::rsa_pem_with_algorithm(
-            &public_pem, &private_pem, JwtAlgorithm::RS384, 60
-        ).unwrap();
+        let config =
+            JwtConfig::rsa_pem_with_algorithm(&public_pem, &private_pem, JwtAlgorithm::RS384, 60)
+                .unwrap();
         let signer = Jwt::new(config);
         let token = signer.generate(sample_claims()).unwrap();
 
-        let verifier = JwtVerifier::from_rsa_public_key_with_algorithm(
-            &public_pem, JwtAlgorithm::RS384
-        ).unwrap();
+        let verifier =
+            JwtVerifier::from_rsa_public_key_with_algorithm(&public_pem, JwtAlgorithm::RS384)
+                .unwrap();
         assert_eq!(verifier.algorithm(), JwtAlgorithm::RS384);
 
         let mut validation = Validation::new(JwtAlgorithm::RS384);
         validation.set_audience(&["test_audience"]);
-        let decoded = verifier.decode::<JwtTokenClaims>(&token.access_token, &validation).unwrap();
+        let decoded = verifier
+            .decode::<JwtTokenClaims>(&token.access_token, &validation)
+            .unwrap();
         assert_eq!(decoded.claims.sub, "test_subject");
     }
 
@@ -882,7 +909,9 @@ mod tests {
         let mut validation = Validation::new(JwtAlgorithm::HS256);
         validation.set_audience(&["test_audience"]);
 
-        let decoded = verifier.decode::<JwtTokenClaims>(&token.access_token, &validation).unwrap();
+        let decoded = verifier
+            .decode::<JwtTokenClaims>(&token.access_token, &validation)
+            .unwrap();
         assert_eq!(decoded.claims.sub, "test_subject");
     }
 
@@ -898,7 +927,9 @@ mod tests {
         let mut validation = Validation::new(JwtAlgorithm::RS256);
         validation.set_audience(&["test_audience"]);
 
-        let decoded = verifier.decode::<JwtTokenClaims>(&token.access_token, &validation).unwrap();
+        let decoded = verifier
+            .decode::<JwtTokenClaims>(&token.access_token, &validation)
+            .unwrap();
         assert_eq!(decoded.claims.sub, "test_subject");
     }
 
@@ -907,10 +938,8 @@ mod tests {
         let (public_pem, _private_pem) = Jwt::dummy_keys();
         let verifier = JwtVerifier::from_rsa_public_key(&public_pem).unwrap();
 
-        let result = verifier.decode::<JwtTokenClaims>(
-            "invalid.token.here",
-            &Validation::new(JwtAlgorithm::RS256),
-        );
+        let result = verifier
+            .decode::<JwtTokenClaims>("invalid.token.here", &Validation::new(JwtAlgorithm::RS256));
         assert!(result.is_err());
     }
 
@@ -953,7 +982,9 @@ mod tests {
         let mut validation = Validation::new(JwtAlgorithm::RS256);
         validation.set_audience(&["test_audience"]);
 
-        let decoded = verifier2.decode::<JwtTokenClaims>(&token.access_token, &validation).unwrap();
+        let decoded = verifier2
+            .decode::<JwtTokenClaims>(&token.access_token, &validation)
+            .unwrap();
         assert_eq!(decoded.claims.sub, "test_subject");
     }
 }

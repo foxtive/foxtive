@@ -1,7 +1,7 @@
-use foxtive_supervisor::SupervisorResult;
 use async_trait::async_trait;
 use foxtive_supervisor::task_pool::{LoadBalancingStrategy, TaskPool};
 use foxtive_supervisor::SupervisedTask;
+use foxtive_supervisor::SupervisorResult;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};

@@ -10,8 +10,8 @@ use std::future::Future;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use crate::app::deps::ServiceResolutionError;
 use crate::app::App;
+use crate::app::deps::ServiceResolutionError;
 use crate::container::{Mutable, TypeMap};
 use crate::events::{Event, EventHandler};
 use crate::lifecycle::{AsyncInit, ClosureFactory, ServiceFactoryImpl, ServiceInit};
@@ -157,8 +157,7 @@ impl AppInit {
     /// # }
     /// ```
     pub fn register_service<T: ServiceInit>(&mut self) {
-        let factory =
-            ServiceFactoryImpl::<T>::new().with_dependencies(T::dependencies());
+        let factory = ServiceFactoryImpl::<T>::new().with_dependencies(T::dependencies());
         self.inner.service_factories.push(Box::new(factory));
     }
 
@@ -203,15 +202,20 @@ impl AppInit {
                         crate::app::DiError::ServiceConstructionFailed {
                             service: type_name_str.to_string(),
                             source: Box::new(e),
-                        }.into(),
+                        }
+                        .into(),
                     )
                 })?;
                 Ok(Box::new(service) as Box<dyn std::any::Any + Send + Sync>)
             })
         };
-        self.inner.service_factories.push(Box::new(ClosureFactory::new(
-            Box::new(wrapper), type_name_str, vec![],
-        )));
+        self.inner
+            .service_factories
+            .push(Box::new(ClosureFactory::new(
+                Box::new(wrapper),
+                type_name_str,
+                vec![],
+            )));
         self
     }
 
@@ -228,7 +232,12 @@ impl AppInit {
     pub fn try_register_service<T: ServiceInit>(&mut self) -> &mut Self {
         let type_name = std::any::type_name::<T>();
         // Check if already registered in service_factories
-        if self.inner.service_factories.iter().any(|f| f.type_name() == type_name) {
+        if self
+            .inner
+            .service_factories
+            .iter()
+            .any(|f| f.type_name() == type_name)
+        {
             return self;
         }
         let factory = ServiceFactoryImpl::<T>::new().with_dependencies(T::dependencies());
@@ -239,8 +248,16 @@ impl AppInit {
     /// Replace a previously registered service.
     pub fn replace_service<T: ServiceInit>(&mut self) -> &mut Self {
         let type_name = std::any::type_name::<T>();
-        if let Some(pos) = self.inner.service_factories.iter().position(|f| f.type_name() == type_name) {
-            tracing::info!(service = type_name, "Replacing previously registered service");
+        if let Some(pos) = self
+            .inner
+            .service_factories
+            .iter()
+            .position(|f| f.type_name() == type_name)
+        {
+            tracing::info!(
+                service = type_name,
+                "Replacing previously registered service"
+            );
             self.inner.service_factories.remove(pos);
         }
         let factory = ServiceFactoryImpl::<T>::new().with_dependencies(T::dependencies());
@@ -338,7 +355,8 @@ impl AppInit {
                         &phase2_errors,
                         &factories,
                         &constructed_set,
-                    ).into());
+                    )
+                    .into());
                 }
 
                 phase2_candidates = next_candidates;
@@ -349,7 +367,8 @@ impl AppInit {
                     &phase2_errors,
                     &factories,
                     &constructed_set,
-                ).into());
+                )
+                .into());
             }
         }
 

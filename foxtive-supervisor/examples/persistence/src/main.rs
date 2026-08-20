@@ -1,5 +1,5 @@
-use foxtive_supervisor::SupervisorResult;
 use async_trait::async_trait;
+use foxtive_supervisor::SupervisorResult;
 use foxtive_supervisor::{persistence::FsStateStore, SupervisedTask, Supervisor};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -41,7 +41,10 @@ impl SupervisedTask for MessageProcessor {
 
         // Simulate occasional failures
         if count.is_multiple_of(5) {
-            return Err(foxtive_supervisor::SupervisorError::from(format!("Simulated processing error at message {}", count)));
+            return Err(foxtive_supervisor::SupervisorError::from(format!(
+                "Simulated processing error at message {}",
+                count
+            )));
         }
 
         Ok(())

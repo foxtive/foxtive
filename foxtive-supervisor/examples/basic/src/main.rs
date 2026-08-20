@@ -24,7 +24,10 @@ impl SupervisedTask for BasicTask {
 
         let count = self.fail_count.fetch_add(1, Ordering::SeqCst);
         if count < self.max_fails {
-            return Err(foxtive_supervisor::SupervisorError::from(format!("Simulated failure {}", count)));
+            return Err(foxtive_supervisor::SupervisorError::from(format!(
+                "Simulated failure {}",
+                count
+            )));
         }
 
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;

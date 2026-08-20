@@ -65,7 +65,9 @@ impl SupervisedTask for BillingConsumer {
         info!("Billing consumer starting...");
         // Simulate a flakey connection that gets better over time (persisted state)
         tokio::time::sleep(Duration::from_secs(2)).await;
-        return Err(foxtive_supervisor::SupervisorError::from("Billing API timeout (simulated)"));
+        return Err(foxtive_supervisor::SupervisorError::from(
+            "Billing API timeout (simulated)",
+        ));
     }
 }
 

@@ -75,10 +75,19 @@ async fn main() -> AppResult<()> {
         .build()
         .await?;
 
-    assert!(app.get::<MetricsService>().is_some(), "MetricsService should be registered");
-    assert!(app.get::<LoggingService>().is_none(), "LoggingService should NOT be registered");
+    assert!(
+        app.get::<MetricsService>().is_some(),
+        "MetricsService should be registered"
+    );
+    assert!(
+        app.get::<LoggingService>().is_none(),
+        "LoggingService should NOT be registered"
+    );
     assert!(app.get::<u32>().is_some(), "u32 should be registered");
-    assert!(app.get::<String>().is_none(), "String should NOT be registered");
+    assert!(
+        app.get::<String>().is_none(),
+        "String should NOT be registered"
+    );
     println!("Conditional registration works correctly!");
 
     // 3. try_register_service: idempotent (silent skip on duplicate)
@@ -98,7 +107,10 @@ async fn main() -> AppResult<()> {
         .build()
         .await?;
 
-    assert!(app3.get::<OverrideServiceV2>().is_some(), "V2 should be registered after replace");
+    assert!(
+        app3.get::<OverrideServiceV2>().is_some(),
+        "V2 should be registered after replace"
+    );
     println!("Service replacement works correctly!");
 
     println!("\n=== Example complete ===");

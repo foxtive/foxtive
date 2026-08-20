@@ -7,8 +7,8 @@
 
 use std::sync::Arc;
 
-use foxtive::prelude::*;
 use foxtive::Environment;
+use foxtive::prelude::*;
 
 struct EmailJob;
 

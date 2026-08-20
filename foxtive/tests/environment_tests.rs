@@ -20,16 +20,34 @@ fn serde_round_trip_all_variants() {
 #[test]
 fn from_str_accepts_full_names() {
     assert_eq!("local".parse::<Environment>().unwrap(), Environment::Local);
-    assert_eq!("development".parse::<Environment>().unwrap(), Environment::Development);
-    assert_eq!("staging".parse::<Environment>().unwrap(), Environment::Staging);
-    assert_eq!("production".parse::<Environment>().unwrap(), Environment::Production);
+    assert_eq!(
+        "development".parse::<Environment>().unwrap(),
+        Environment::Development
+    );
+    assert_eq!(
+        "staging".parse::<Environment>().unwrap(),
+        Environment::Staging
+    );
+    assert_eq!(
+        "production".parse::<Environment>().unwrap(),
+        Environment::Production
+    );
 }
 
 #[test]
 fn from_str_accepts_common_aliases() {
-    assert_eq!("dev".parse::<Environment>().unwrap(), Environment::Development);
-    assert_eq!("stage".parse::<Environment>().unwrap(), Environment::Staging);
-    assert_eq!("prod".parse::<Environment>().unwrap(), Environment::Production);
+    assert_eq!(
+        "dev".parse::<Environment>().unwrap(),
+        Environment::Development
+    );
+    assert_eq!(
+        "stage".parse::<Environment>().unwrap(),
+        Environment::Staging
+    );
+    assert_eq!(
+        "prod".parse::<Environment>().unwrap(),
+        Environment::Production
+    );
 }
 
 #[test]

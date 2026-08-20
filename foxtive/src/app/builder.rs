@@ -2,22 +2,25 @@
 
 use std::collections::HashSet;
 use std::future::Future;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
 use zeroize::Zeroizing;
 
-use crate::app::init::AppInit;
+use crate::Environment;
 use crate::app::App;
+use crate::app::deps::ServiceResolutionError;
+use crate::app::init::AppInit;
 use crate::container::TypeMap;
 use crate::events::EventBus;
 use crate::health::HealthCheck;
-use crate::lifecycle::{ClosureFactory, Plugin, ServiceFactoryImpl, ServiceInit, ShutdownFuture, ShutdownHook, StartupFuture, StartupHook};
+use crate::lifecycle::{
+    ClosureFactory, Plugin, ServiceFactoryImpl, ServiceInit, ShutdownFuture, ShutdownHook,
+    StartupFuture, StartupHook,
+};
 use crate::metrics::MetricsSink;
-use crate::app::deps::ServiceResolutionError;
 use crate::results::AppResult;
-use crate::Environment;
 
 /// Type-erased callback that runs after infrastructure is initialized,
 /// receiving `&mut AppInit` so it can register infrastructure-dependent services.
@@ -31,17 +34,17 @@ use tracing::debug;
 
 #[cfg(feature = "cache")]
 use crate::cache::Cache;
-#[cfg(feature = "database")]
-use crate::database::{create_db_pool, DbConfig};
 #[cfg(feature = "database-async")]
-use crate::database::{create_async_db_pool, AsyncDBPool};
-#[cfg(feature = "jwt")]
-use crate::helpers::jwt::{Jwt, JwtConfig};
+use crate::database::{AsyncDBPool, create_async_db_pool};
+#[cfg(feature = "database")]
+use crate::database::{DbConfig, create_db_pool};
 #[cfg(feature = "jwe")]
 use crate::helpers::jwe::{Jwe, JweConfig};
-use crate::helpers::{RuntimeConfig, set_runtime_config};
+#[cfg(feature = "jwt")]
+use crate::helpers::jwt::{Jwt, JwtConfig};
 #[cfg(feature = "crypto")]
 use crate::helpers::password::Password;
+use crate::helpers::{RuntimeConfig, set_runtime_config};
 #[cfg(feature = "rabbitmq")]
 use crate::prelude::RabbitMQ;
 #[cfg(feature = "redis")]
@@ -52,9 +55,9 @@ use crate::rabbitmq::conn::create_rmq_conn_pool;
 use crate::redis::conn::create_redis_conn_pool;
 #[cfg(feature = "cache")]
 use crate::setup::CacheDriverSetup;
+use crate::tokio::Tokio;
 #[cfg(feature = "templating")]
 use tera::Tera;
-use crate::tokio::Tokio;
 
 /// A builder for constructing [`App`] instances.
 ///
@@ -508,14 +511,17 @@ impl AppBuilder {
                         crate::app::DiError::ServiceConstructionFailed {
                             service: type_name_str.to_string(),
                             source: Box::new(e),
-                        }.into(),
+                        }
+                        .into(),
                     )
                 })?;
                 Ok(Box::new(service) as Box<dyn std::any::Any + Send + Sync>)
             })
         };
         self.service_factories.push(Box::new(ClosureFactory::new(
-            Box::new(wrapper), type_name_str, vec![],
+            Box::new(wrapper),
+            type_name_str,
+            vec![],
         )));
         self
     }
@@ -546,8 +552,15 @@ impl AppBuilder {
     /// Logs the replacement. If no prior registration exists, acts as `register_service`.
     pub fn replace_service<T: ServiceInit>(mut self) -> Self {
         let type_name = std::any::type_name::<T>();
-        if let Some(pos) = self.service_factories.iter().position(|f| f.type_name() == type_name) {
-            tracing::info!(service = type_name, "Replacing previously registered service");
+        if let Some(pos) = self
+            .service_factories
+            .iter()
+            .position(|f| f.type_name() == type_name)
+        {
+            tracing::info!(
+                service = type_name,
+                "Replacing previously registered service"
+            );
             self.service_factories.remove(pos);
         }
         self.registered_service_types.insert(type_name);

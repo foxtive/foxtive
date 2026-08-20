@@ -205,7 +205,8 @@ fn test_decode_hs384_token_with_hs256_validation_fails() {
     let token = jwt.generate(sample_claims()).unwrap();
 
     // Try to validate with wrong algorithm
-    let result = jwt.decode::<JwtTokenClaims>(&token.access_token, &Validation::new(Algorithm::HS256));
+    let result =
+        jwt.decode::<JwtTokenClaims>(&token.access_token, &Validation::new(Algorithm::HS256));
     assert!(result.is_err());
 }
 
@@ -218,7 +219,8 @@ fn test_decode_rs384_token_with_rs256_validation_fails() {
 
     let token = jwt.generate(sample_claims()).unwrap();
 
-    let result = jwt.decode::<JwtTokenClaims>(&token.access_token, &Validation::new(Algorithm::RS256));
+    let result =
+        jwt.decode::<JwtTokenClaims>(&token.access_token, &Validation::new(Algorithm::RS256));
     assert!(result.is_err());
 }
 

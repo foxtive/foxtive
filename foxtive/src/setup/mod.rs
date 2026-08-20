@@ -32,10 +32,10 @@
 
 use tracing::{debug, info, warn};
 
-#[cfg(feature = "cache")]
-use std::sync::Arc;
 #[cfg(feature = "cache-redis")]
 use crate::redis::Redis;
+#[cfg(feature = "cache")]
+use std::sync::Arc;
 
 #[cfg(feature = "tracing-setup")]
 pub mod trace;

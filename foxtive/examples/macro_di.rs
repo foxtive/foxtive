@@ -1,8 +1,8 @@
 //! Example demonstrating macro-based dependency injection with `#[derive(Service)]`.
 
+use foxtive::App;
 use foxtive::lifecycle::Service;
 use foxtive::prelude::AppResult;
-use foxtive::App;
 use std::sync::Arc;
 
 #[derive(Service, Clone)]

@@ -99,8 +99,9 @@ mod query_params_tests {
 
     #[test]
     fn indexed_order_sorted_by_index() {
-        let params =
-            parse("order[1][column]=name&order[1][direction]=asc&order[0][column]=id&order[0][direction]=desc");
+        let params = parse(
+            "order[1][column]=name&order[1][direction]=asc&order[0][column]=id&order[0][direction]=desc",
+        );
         let orders = params.parse_indexed_ordering();
         assert_eq!(orders.len(), 2);
         assert_eq!(orders[0].column, "id");

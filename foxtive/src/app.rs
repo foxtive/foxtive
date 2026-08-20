@@ -6,15 +6,15 @@
 
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use zeroize::Zeroizing;
 
+use crate::Environment;
 use crate::container::{Lazy, Mutable, TypeMap};
 use crate::enums::AppMessage;
-use crate::Environment;
 use crate::events::EventBus;
 use crate::health::{HealthCheck, HealthReport, aggregate_status};
 use crate::lifecycle::{ServiceFactory, ShutdownHook, StartupHook};
@@ -22,22 +22,22 @@ use crate::metrics::{InfraEvent, MetricsSink};
 use crate::results::AppResult;
 use crate::tokio::Tokio;
 
-#[cfg(feature = "database")]
-use crate::database::DBPool;
-#[cfg(feature = "database-async")]
-use crate::database::AsyncDBPool;
-#[cfg(feature = "redis")]
-use crate::redis::Redis;
-#[cfg(feature = "rabbitmq")]
-use crate::rabbitmq::RabbitMQ;
 #[cfg(feature = "cache")]
 use crate::cache::Cache;
-#[cfg(feature = "jwt")]
-use crate::helpers::jwt::Jwt;
+#[cfg(feature = "database-async")]
+use crate::database::AsyncDBPool;
+#[cfg(feature = "database")]
+use crate::database::DBPool;
 #[cfg(feature = "jwe")]
 use crate::helpers::jwe::Jwe;
+#[cfg(feature = "jwt")]
+use crate::helpers::jwt::Jwt;
 #[cfg(feature = "crypto")]
 use crate::helpers::password::Password;
+#[cfg(feature = "rabbitmq")]
+use crate::rabbitmq::RabbitMQ;
+#[cfg(feature = "redis")]
+use crate::redis::Redis;
 #[cfg(feature = "templating")]
 use tera::{Context, Tera};
 
@@ -46,9 +46,9 @@ pub use builder::AppBuilder;
 pub use init::AppInit;
 
 mod builder;
-mod init;
 pub(crate) mod deps;
 pub(crate) mod di_error;
+mod init;
 
 pub use di_error::DiError;
 
@@ -248,7 +248,10 @@ impl App {
     /// exposes the actual secret key material. A tracing warning is emitted
     /// on each call to aid audit logging.
     pub fn app_key_raw(&self) -> &str {
-        tracing::warn!(app = self.app_name(), "app_key_raw() accessed - secret material exposed");
+        tracing::warn!(
+            app = self.app_name(),
+            "app_key_raw() accessed - secret material exposed"
+        );
         &self.app_key
     }
 
@@ -278,7 +281,10 @@ impl App {
     /// Prefer [`app_private_key()`](Self::app_private_key) for logging/display.
     /// A tracing warning is emitted on each call to aid audit logging.
     pub fn app_private_key_raw(&self) -> &str {
-        tracing::warn!(app = self.app_name(), "app_private_key_raw() accessed - secret material exposed");
+        tracing::warn!(
+            app = self.app_name(),
+            "app_private_key_raw() accessed - secret material exposed"
+        );
         &self.app_private_key
     }
 
@@ -333,11 +339,9 @@ impl App {
     /// Returns an error if the database feature is enabled but no pool was configured.
     #[cfg(feature = "database")]
     pub fn db(&self) -> AppResult<&DBPool> {
-        self.db.as_ref().ok_or_else(|| {
-            AppMessage::Infrastructure {
-                message: "Database pool not configured".to_string(),
-                source: None,
-            }
+        self.db.as_ref().ok_or_else(|| AppMessage::Infrastructure {
+            message: "Database pool not configured".to_string(),
+            source: None,
         })
     }
 
@@ -353,12 +357,12 @@ impl App {
     /// Returns an error if the database-async feature is enabled but no pool was configured.
     #[cfg(feature = "database-async")]
     pub fn async_db(&self) -> AppResult<&AsyncDBPool> {
-        self.async_db.as_ref().ok_or_else(|| {
-            AppMessage::Infrastructure {
+        self.async_db
+            .as_ref()
+            .ok_or_else(|| AppMessage::Infrastructure {
                 message: "Async database pool not configured".to_string(),
                 source: None,
-            }
-        })
+            })
     }
 
     /// Returns a reference to the async database pool, or `None` if not configured.
@@ -373,12 +377,12 @@ impl App {
     /// Returns an error if the redis feature is enabled but no redis was configured.
     #[cfg(feature = "redis")]
     pub fn redis(&self) -> AppResult<&Redis> {
-        self.redis.as_ref().ok_or_else(|| {
-            AppMessage::Infrastructure {
+        self.redis
+            .as_ref()
+            .ok_or_else(|| AppMessage::Infrastructure {
                 message: "Redis not configured".to_string(),
                 source: None,
-            }
-        })
+            })
     }
 
     /// Returns a reference to the Redis client, or `None` if not configured.
@@ -393,12 +397,12 @@ impl App {
     /// Returns an error if the redis feature is enabled but no pool was configured.
     #[cfg(feature = "redis")]
     pub fn redis_pool(&self) -> AppResult<deadpool_redis::Pool> {
-        self.redis_pool.clone().ok_or_else(|| {
-            AppMessage::Infrastructure {
+        self.redis_pool
+            .clone()
+            .ok_or_else(|| AppMessage::Infrastructure {
                 message: "Redis pool not configured".to_string(),
                 source: None,
-            }
-        })
+            })
     }
 
     /// Returns a clone of the Redis pool, or `None` if not configured.
@@ -413,12 +417,12 @@ impl App {
     /// Returns an error if RabbitMQ is enabled but was not configured.
     #[cfg(feature = "rabbitmq")]
     pub fn rabbitmq(&self) -> AppResult<&RabbitMQ> {
-        self.rabbitmq.as_ref().ok_or_else(|| {
-            AppMessage::Infrastructure {
+        self.rabbitmq
+            .as_ref()
+            .ok_or_else(|| AppMessage::Infrastructure {
                 message: "RabbitMQ not configured".to_string(),
                 source: None,
-            }
-        })
+            })
     }
 
     /// Returns a reference to the RabbitMQ client, or `None` if not configured.
@@ -433,12 +437,12 @@ impl App {
     /// Returns an error if RabbitMQ is enabled but no pool was configured.
     #[cfg(feature = "rabbitmq")]
     pub fn rabbitmq_pool(&self) -> AppResult<deadpool_lapin::Pool> {
-        self.rabbitmq_pool.clone().ok_or_else(|| {
-            AppMessage::Infrastructure {
+        self.rabbitmq_pool
+            .clone()
+            .ok_or_else(|| AppMessage::Infrastructure {
                 message: "RabbitMQ pool not configured".to_string(),
                 source: None,
-            }
-        })
+            })
     }
 
     /// Returns a clone of the RabbitMQ pool, or `None` if not configured.
@@ -453,12 +457,12 @@ impl App {
     /// Returns an error if cache is enabled but was not configured.
     #[cfg(feature = "cache")]
     pub fn cache(&self) -> AppResult<&Cache> {
-        self.cache.as_ref().ok_or_else(|| {
-            AppMessage::Infrastructure {
+        self.cache
+            .as_ref()
+            .ok_or_else(|| AppMessage::Infrastructure {
                 message: "Cache not configured".to_string(),
                 source: None,
-            }
-        })
+            })
     }
 
     /// Returns a reference to the Cache instance, or `None` if not configured.
@@ -476,12 +480,12 @@ impl App {
     /// Returns an error if templating is enabled but was not configured.
     #[cfg(feature = "templating")]
     pub fn tera(&self) -> AppResult<&Tera> {
-        self.tera.as_deref().ok_or_else(|| {
-            AppMessage::Infrastructure {
+        self.tera
+            .as_deref()
+            .ok_or_else(|| AppMessage::Infrastructure {
                 message: "Templating not configured".to_string(),
                 source: None,
-            }
-        })
+            })
     }
 
     /// Returns a reference to the Tera template engine, or `None` if not configured.
@@ -511,11 +515,9 @@ impl App {
     /// Returns an error if JWT is enabled but was not configured.
     #[cfg(feature = "jwt")]
     pub fn jwt(&self) -> AppResult<&Jwt> {
-        self.jwt.as_ref().ok_or_else(|| {
-            AppMessage::Infrastructure {
-                message: "JWT not configured".to_string(),
-                source: None,
-            }
+        self.jwt.as_ref().ok_or_else(|| AppMessage::Infrastructure {
+            message: "JWT not configured".to_string(),
+            source: None,
         })
     }
 
@@ -531,11 +533,9 @@ impl App {
     /// Returns an error if JWE is enabled but was not configured.
     #[cfg(feature = "jwe")]
     pub fn jwe(&self) -> AppResult<&Jwe> {
-        self.jwe.as_ref().ok_or_else(|| {
-            AppMessage::Infrastructure {
-                message: "JWE not configured".to_string(),
-                source: None,
-            }
+        self.jwe.as_ref().ok_or_else(|| AppMessage::Infrastructure {
+            message: "JWE not configured".to_string(),
+            source: None,
         })
     }
 
@@ -551,12 +551,12 @@ impl App {
     /// Returns an error if crypto is enabled but was not configured.
     #[cfg(feature = "crypto")]
     pub fn password(&self) -> AppResult<&Password> {
-        self.password.as_ref().ok_or_else(|| {
-            AppMessage::Infrastructure {
+        self.password
+            .as_ref()
+            .ok_or_else(|| AppMessage::Infrastructure {
                 message: "Password helper not configured".to_string(),
                 source: None,
-            }
-        })
+            })
     }
 
     /// Returns a reference to the password helper, or `None` if not configured.
@@ -613,7 +613,11 @@ impl App {
             );
         }
 
-        let futures: Vec<_> = self.startup_hooks.iter().map(|hook| hook(self.clone())).collect();
+        let futures: Vec<_> = self
+            .startup_hooks
+            .iter()
+            .map(|hook| hook(self.clone()))
+            .collect();
         let results = futures_util::future::join_all(futures).await;
         for result in &results {
             if let Err(e) = result {
@@ -675,7 +679,10 @@ impl App {
     /// ```
     pub async fn shutdown(self: &Arc<Self>) {
         if self.shutdown_initiated.swap(true, Ordering::SeqCst) {
-            tracing::debug!(app = self.app_name(), "Shutdown already in progress, skipping");
+            tracing::debug!(
+                app = self.app_name(),
+                "Shutdown already in progress, skipping"
+            );
             return;
         }
 
@@ -768,7 +775,6 @@ impl App {
             duration,
         }
     }
-
 }
 
 impl Debug for App {
@@ -784,31 +790,49 @@ impl Debug for App {
             .field("startup_hooks", &self.startup_hooks.len())
             .field("shutdown_hooks", &self.shutdown_hooks.len())
             .field("health_checks", &self.health_checks.len())
-            .field("is_shutting_down", &self.shutdown_initiated.load(Ordering::SeqCst));
+            .field(
+                "is_shutting_down",
+                &self.shutdown_initiated.load(Ordering::SeqCst),
+            );
 
         // Add pool status for debugging
         #[cfg(feature = "database")]
         if let Some(pool) = &self.db {
             let state = pool.state();
-            debug.field("db_pool", &format!("{}/{} connections", state.idle_connections, state.connections));
+            debug.field(
+                "db_pool",
+                &format!(
+                    "{}/{} connections",
+                    state.idle_connections, state.connections
+                ),
+            );
         }
 
         #[cfg(feature = "database-async")]
         if let Some(pool) = &self.async_db {
             let status = pool.status();
-            debug.field("async_db_pool", &format!("{}/{} connections", status.available, status.size));
+            debug.field(
+                "async_db_pool",
+                &format!("{}/{} connections", status.available, status.size),
+            );
         }
 
         #[cfg(feature = "redis")]
         if let Some(pool) = &self.redis_pool {
             let status = pool.status();
-            debug.field("redis_pool", &format!("{}/{} connections", status.available, status.size));
+            debug.field(
+                "redis_pool",
+                &format!("{}/{} connections", status.available, status.size),
+            );
         }
 
         #[cfg(feature = "rabbitmq")]
         if let Some(pool) = &self.rabbitmq_pool {
             let status = pool.status();
-            debug.field("rabbitmq_pool", &format!("{}/{} connections", status.available, status.size));
+            debug.field(
+                "rabbitmq_pool",
+                &format!("{}/{} connections", status.available, status.size),
+            );
         }
 
         debug.finish_non_exhaustive()

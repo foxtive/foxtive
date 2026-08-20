@@ -20,7 +20,7 @@
 //! (undeclared runtime dep), it is deferred to Phase 2 - a single retry pass
 //! that runs after all declared-dep services are in the TypeMap.
 
-use crate::app::di_error::{compute_blocked_services, short_type_name, DiError};
+use crate::app::di_error::{DiError, compute_blocked_services, short_type_name};
 use crate::enums::AppMessage;
 use crate::lifecycle::ServiceFactory;
 use crate::results::AppResult;

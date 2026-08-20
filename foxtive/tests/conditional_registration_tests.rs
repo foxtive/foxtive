@@ -131,10 +131,7 @@ async fn register_if_true_registers() {
 
 #[tokio::test]
 async fn app_init_try_register_service() {
-    let mut init = App::builder("test", "TST")
-        .build_init()
-        .await
-        .unwrap();
+    let mut init = App::builder("test", "TST").build_init().await.unwrap();
 
     init.try_register_service::<MetricsService>();
     init.try_register_service::<MetricsService>(); // duplicate - silently skipped
@@ -145,10 +142,7 @@ async fn app_init_try_register_service() {
 
 #[tokio::test]
 async fn app_init_replace_service() {
-    let mut init = App::builder("test", "TST")
-        .build_init()
-        .await
-        .unwrap();
+    let mut init = App::builder("test", "TST").build_init().await.unwrap();
 
     init.register_service::<OverrideV1>();
     init.replace_service::<OverrideV2>();
@@ -159,10 +153,7 @@ async fn app_init_replace_service() {
 
 #[tokio::test]
 async fn app_init_register_service_if() {
-    let mut init = App::builder("test", "TST")
-        .build_init()
-        .await
-        .unwrap();
+    let mut init = App::builder("test", "TST").build_init().await.unwrap();
 
     init.register_service_if::<MetricsService>(true);
     init.register_service_if::<LoggingService>(false);

@@ -5,7 +5,7 @@
 //! cargo run --example jwe_encryption --features jwe
 //! ```
 
-use foxtive::helpers::jwe::{Jwe, JweConfig, JweAlgorithm, JweEncryption};
+use foxtive::helpers::jwe::{Jwe, JweAlgorithm, JweConfig, JweEncryption};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -36,9 +36,7 @@ fn main() {
 
     println!("Plaintext: {:?}", data);
 
-    let token = jwe
-        .encrypt(&data)
-        .expect("encrypt");
+    let token = jwe.encrypt(&data).expect("encrypt");
 
     println!("JWE token: {}...\n", &token[..60]);
 

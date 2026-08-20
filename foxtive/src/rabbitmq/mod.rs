@@ -45,8 +45,8 @@ use futures_util::StreamExt;
 use futures_util::future::BoxFuture;
 use lapin::{Channel, ConnectionState};
 use std::future::Future;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
@@ -101,10 +101,7 @@ impl futures_util::Stream for ConsumerStream {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
         // Delegate to ReceiverStream which correctly registers wakers
-        tokio_stream::wrappers::ReceiverStream::poll_next(
-            std::pin::Pin::new(&mut self.inner),
-            cx,
-        )
+        tokio_stream::wrappers::ReceiverStream::poll_next(std::pin::Pin::new(&mut self.inner), cx)
     }
 }
 
@@ -405,12 +402,9 @@ impl RabbitMQ {
         let inner = self.inner.read().await;
         tokio::time::timeout(
             self.operation_timeout,
-            inner.publish_channel.exchange_declare(
-                exchange,
-                kind,
-                options,
-                args,
-            ),
+            inner
+                .publish_channel
+                .exchange_declare(exchange, kind, options, args),
         )
         .await
         .map_err(|_| RmqError::timeout("exchange_declare", self.operation_timeout))??;
@@ -464,12 +458,7 @@ impl RabbitMQ {
         Ok(())
     }
 
-    pub async fn publish<E, R>(
-        &self,
-        exchange: E,
-        routing_key: R,
-        payload: &[u8],
-    ) -> RmqResult<()>
+    pub async fn publish<E, R>(&self, exchange: E, routing_key: R, payload: &[u8]) -> RmqResult<()>
     where
         E: ToString,
         R: ToString,
@@ -505,7 +494,9 @@ impl RabbitMQ {
                     break;
                 }
                 Err(err) => {
-                    error!("[{tag}] Consumer encountered an error: {err:?}, retrying in {retry_delay:?}...");
+                    error!(
+                        "[{tag}] Consumer encountered an error: {err:?}, retrying in {retry_delay:?}..."
+                    );
                     sleep(retry_delay).await;
                     retry_delay = std::cmp::min(retry_delay.saturating_mul(2), MAX_RETRY_DELAY);
                 }
@@ -575,7 +566,8 @@ impl RabbitMQ {
             let inner = self.inner.read().await;
             tokio::time::timeout(
                 self.operation_timeout,
-                inner.consume_channel
+                inner
+                    .consume_channel
                     .basic_qos(self.prefetch_count, BasicQosOptions { global: false }),
             )
             .await
@@ -677,9 +669,7 @@ impl RabbitMQ {
         let tag = tag.to_owned();
         let queue = queue.to_owned();
         let instance = self.clone();
-        Handle::current().spawn(async move {
-            instance.consume(&queue, &tag, func).await
-        })
+        Handle::current().spawn(async move { instance.consume(&queue, &tag, func).await })
     }
 
     /// Consume a queue forever, restarting if it fails.
@@ -697,9 +687,7 @@ impl RabbitMQ {
         let tag = tag.to_owned();
         let queue = queue.to_owned();
         let instance = self.clone();
-        Handle::current().spawn(async move {
-            instance.consume_forever(&queue, &tag, func).await
-        })
+        Handle::current().spawn(async move { instance.consume_forever(&queue, &tag, func).await })
     }
 
     // ==================== Pull-Based Consumer Methods ====================
@@ -747,7 +735,8 @@ impl RabbitMQ {
             let inner = self.inner.read().await;
             tokio::time::timeout(
                 self.operation_timeout,
-                inner.consume_channel
+                inner
+                    .consume_channel
                     .basic_qos(self.prefetch_count, BasicQosOptions { global: false }),
             )
             .await
@@ -892,7 +881,8 @@ impl RabbitMQ {
         let inner = self.inner.read().await;
         tokio::time::timeout(
             self.operation_timeout,
-            inner.consume_channel
+            inner
+                .consume_channel
                 .basic_ack(delivery_tag, BasicAckOptions::default()),
         )
         .await
@@ -968,7 +958,10 @@ impl RabbitMQ {
                     &inner.consume_channel
                 };
                 let state = channel.status().state();
-                if matches!(state, ChannelState::Closed | ChannelState::Closing | ChannelState::Error) {
+                if matches!(
+                    state,
+                    ChannelState::Closed | ChannelState::Closing | ChannelState::Error
+                ) {
                     warn!(
                         "Channel({}) is not usable: {state:?}, recreating...",
                         channel.id()
@@ -1150,5 +1143,4 @@ mod tests {
         assert!(success.is_ok());
         assert!(failure.is_err());
     }
-
 }

@@ -1,16 +1,16 @@
-use std::sync::Arc;
 use lapin::ConnectionProperties;
+use std::sync::Arc;
 
 pub use deadpool::managed::QueueMode;
 pub use deadpool_lapin::{PoolConfig, Timeouts};
 use zeroize::Zeroizing;
 
 use crate::enums::AppMessage;
-use crate::results::AppResult;
-use crate::rabbitmq::{RabbitMQSetupFn, RmqResult};
-use std::time::Duration;
-use futures_util::future::BoxFuture;
 use crate::prelude::RabbitMQ;
+use crate::rabbitmq::{RabbitMQSetupFn, RmqResult};
+use crate::results::AppResult;
+use futures_util::future::BoxFuture;
+use std::time::Duration;
 
 #[derive(Clone)]
 pub struct RabbitmqConfig {

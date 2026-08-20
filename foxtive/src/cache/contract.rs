@@ -11,35 +11,59 @@ pub trait CacheDriverContract: Send + Sync {
     fn keys(&self) -> Pin<Box<dyn Future<Output = AppResult<Vec<String>>> + Send + '_>>;
 
     /// Retrieves all keys matching the specified pattern
-    fn keys_by_pattern(&self, pattern: &str) -> Pin<Box<dyn Future<Output = AppResult<Vec<String>>> + Send + '_>>;
+    fn keys_by_pattern(
+        &self,
+        pattern: &str,
+    ) -> Pin<Box<dyn Future<Output = AppResult<Vec<String>>> + Send + '_>>;
 
     /// Stores a raw string value in the cache
-    fn put_raw(&self, key: &str, value: String) -> Pin<Box<dyn Future<Output = AppResult<String>> + Send + '_>>;
+    fn put_raw(
+        &self,
+        key: &str,
+        value: String,
+    ) -> Pin<Box<dyn Future<Output = AppResult<String>> + Send + '_>>;
 
     /// Retrieves a raw string value from the cache
-    fn get_raw(&self, key: &str) -> Pin<Box<dyn Future<Output = AppResult<Option<String>>> + Send + '_>>;
+    fn get_raw(
+        &self,
+        key: &str,
+    ) -> Pin<Box<dyn Future<Output = AppResult<Option<String>>> + Send + '_>>;
 
     /// Removes a single key from the cache
     fn forget(&self, key: &str) -> Pin<Box<dyn Future<Output = AppResult<i32>> + Send + '_>>;
 
     /// Removes all keys matching the specified pattern
-    fn forget_by_pattern(&self, pattern: &str) -> Pin<Box<dyn Future<Output = AppResult<i32>> + Send + '_>>;
+    fn forget_by_pattern(
+        &self,
+        pattern: &str,
+    ) -> Pin<Box<dyn Future<Output = AppResult<i32>> + Send + '_>>;
 }
 
 /// Extension trait providing serialization-aware caching operations
 pub trait CacheDriverExt: CacheDriverContract {
     /// Stores a serializable value in the cache
-    fn put<'a, T>(&'a self, key: &'a str, value: &'a T) -> Pin<Box<dyn Future<Output = AppResult<String>> + Send + 'a>>
+    fn put<'a, T>(
+        &'a self,
+        key: &'a str,
+        value: &'a T,
+    ) -> Pin<Box<dyn Future<Output = AppResult<String>> + Send + 'a>>
     where
         T: Serialize + Sync + 'a;
 
     /// Retrieves and deserializes a value from the cache
-    fn get<'a, T>(&'a self, key: &'a str) -> Pin<Box<dyn Future<Output = AppResult<Option<T>>> + Send + 'a>>
+    fn get<'a, T>(
+        &'a self,
+        key: &'a str,
+    ) -> Pin<Box<dyn Future<Output = AppResult<Option<T>>> + Send + 'a>>
     where
         T: DeserializeOwned + Sync + 'a;
 
     /// Gets a value from cache or computes and stores it if missing
-    fn get_or_put<'a, Val, Fun, Fut>(&'a self, key: &'a str, setter: Fun) -> Pin<Box<dyn Future<Output = AppResult<Val>> + Send + 'a>>
+    fn get_or_put<'a, Val, Fun, Fut>(
+        &'a self,
+        key: &'a str,
+        setter: Fun,
+    ) -> Pin<Box<dyn Future<Output = AppResult<Val>> + Send + 'a>>
     where
         Val: Serialize + DeserializeOwned + Clone + Sync + Send + 'a,
         Fun: FnOnce() -> Fut + Send + 'a,
@@ -47,7 +71,11 @@ pub trait CacheDriverExt: CacheDriverContract {
 }
 
 impl<T: ?Sized + CacheDriverContract + Sync> CacheDriverExt for T {
-    fn put<'a, U>(&'a self, key: &'a str, value: &'a U) -> Pin<Box<dyn Future<Output = AppResult<String>> + Send + 'a>>
+    fn put<'a, U>(
+        &'a self,
+        key: &'a str,
+        value: &'a U,
+    ) -> Pin<Box<dyn Future<Output = AppResult<String>> + Send + 'a>>
     where
         U: Serialize + Sync + 'a,
     {
@@ -57,7 +85,10 @@ impl<T: ?Sized + CacheDriverContract + Sync> CacheDriverExt for T {
         })
     }
 
-    fn get<'a, U>(&'a self, key: &'a str) -> Pin<Box<dyn Future<Output = AppResult<Option<U>>> + Send + 'a>>
+    fn get<'a, U>(
+        &'a self,
+        key: &'a str,
+    ) -> Pin<Box<dyn Future<Output = AppResult<Option<U>>> + Send + 'a>>
     where
         U: DeserializeOwned + Sync + 'a,
     {
@@ -70,7 +101,11 @@ impl<T: ?Sized + CacheDriverContract + Sync> CacheDriverExt for T {
         })
     }
 
-    fn get_or_put<'a, Val, Fun, Fut>(&'a self, key: &'a str, setter: Fun) -> Pin<Box<dyn Future<Output = AppResult<Val>> + Send + 'a>>
+    fn get_or_put<'a, Val, Fun, Fut>(
+        &'a self,
+        key: &'a str,
+        setter: Fun,
+    ) -> Pin<Box<dyn Future<Output = AppResult<Val>> + Send + 'a>>
     where
         Val: Serialize + DeserializeOwned + Clone + Sync + Send + 'a,
         Fun: FnOnce() -> Fut + Send + 'a,

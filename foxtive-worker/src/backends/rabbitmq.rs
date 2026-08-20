@@ -229,9 +229,10 @@ impl RabbitMqRetryPublisher {
         message: &Message<serde_json::Value>,
         error_message: &str,
     ) -> WorkerResult<()> {
-        let dlq_name = self.dlq_name.as_ref().ok_or_else(|| {
-            WorkerError::BackendError("DLQ not configured".to_string())
-        })?;
+        let dlq_name = self
+            .dlq_name
+            .as_ref()
+            .ok_or_else(|| WorkerError::BackendError("DLQ not configured".to_string()))?;
 
         let payload =
             serde_json::to_vec(&message.payload).map_err(WorkerError::SerializationError)?;
@@ -270,15 +271,21 @@ impl RabbitMqRetryPublisher {
         })?;
 
         channel
-            .basic_publish("", dlq_name, BasicPublishOptions::default(), &payload, properties)
+            .basic_publish(
+                "",
+                dlq_name,
+                BasicPublishOptions::default(),
+                &payload,
+                properties,
+            )
             .await
-            .map_err(|e| {
-                WorkerError::BackendError(format!("Failed to publish to DLQ: {}", e))
-            })?;
+            .map_err(|e| WorkerError::BackendError(format!("Failed to publish to DLQ: {}", e)))?;
 
         tracing::info!(
             "Published message {} to DLQ '{}' after {} failed attempts",
-            message.id, dlq_name, message.metadata.attempt
+            message.id,
+            dlq_name,
+            message.metadata.attempt
         );
         Ok(())
     }
@@ -291,12 +298,15 @@ impl RetryPublisher for RabbitMqRetryPublisher {
         message: &Message<serde_json::Value>,
         delay_ms: u64,
     ) -> WorkerResult<()> {
-        let retry_queue = self.retry_queue_name.as_ref().ok_or_else(|| {
-            WorkerError::BackendError("Retry queue not configured".to_string())
-        })?;
-        let retry_exchange = self.retry_exchange_name.as_ref().ok_or_else(|| {
-            WorkerError::BackendError("Retry exchange not configured".to_string())
-        })?.clone();
+        let retry_queue = self
+            .retry_queue_name
+            .as_ref()
+            .ok_or_else(|| WorkerError::BackendError("Retry queue not configured".to_string()))?;
+        let retry_exchange = self
+            .retry_exchange_name
+            .as_ref()
+            .ok_or_else(|| WorkerError::BackendError("Retry exchange not configured".to_string()))?
+            .clone();
 
         let clamped_delay = delay_ms
             .max(self.config.min_retry_delay_ms)
@@ -352,7 +362,10 @@ impl RetryPublisher for RabbitMqRetryPublisher {
 
         tracing::info!(
             "Published message {} to retry queue '{}' via exchange '{}' with {}ms delay",
-            message.id, retry_queue, retry_exchange, clamped_delay
+            message.id,
+            retry_queue,
+            retry_exchange,
+            clamped_delay
         );
         Ok(())
     }
@@ -809,11 +822,7 @@ impl RabbitMqBackend {
         );
 
         channel
-            .queue_declare(
-                &retry_queue,
-                config.queue_declare_options,
-                args,
-            )
+            .queue_declare(&retry_queue, config.queue_declare_options, args)
             .await
             .map_err(|e| {
                 WorkerError::BackendError(format!("Failed to declare retry queue: {}", e))

@@ -11,12 +11,12 @@ pub fn create_db_pool(config: DbConfig) -> AppResult<crate::database::DBPool> {
         .min_idle(config.min_idle)
         .idle_timeout(config.idle_timeout)
         .connection_timeout(config.connection_timeout);
-    
+
     // Wire up connection validation if enabled
     if config.test_on_check_out {
         builder = builder.test_on_check_out(true);
     }
-    
+
     let pool = builder.build(manager)?;
     Ok(pool)
 }

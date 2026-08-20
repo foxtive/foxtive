@@ -34,8 +34,8 @@ impl foxtive::lifecycle::ServiceInit for BusinessService {
     async fn init(app: &App) -> AppResult<Self> {
         Ok(Self {
             config: app.require::<ConfigService>()?,
-            cache: app.get::<CacheService>(),       // Option<Arc<CacheService>>
-            timeout: app.get::<u32>().map(|v| *v),  // Option<u32>
+            cache: app.get::<CacheService>(), // Option<Arc<CacheService>>
+            timeout: app.get::<u32>().map(|v| *v), // Option<u32>
         })
     }
 }
@@ -74,7 +74,10 @@ async fn main() -> AppResult<()> {
     println!("config.app_name: {}", biz.config.app_name);
     println!(
         "cache: {}",
-        biz.cache.as_ref().map(|c| c.driver.as_str()).unwrap_or("None")
+        biz.cache
+            .as_ref()
+            .map(|c| c.driver.as_str())
+            .unwrap_or("None")
     );
     println!("timeout: {:?}", biz.timeout);
 
@@ -82,7 +85,11 @@ async fn main() -> AppResult<()> {
     println!("derived.config: {}", derived.config.app_name);
     println!(
         "derived.cache: {}",
-        derived.cache.as_ref().map(|c| c.driver.as_str()).unwrap_or("None")
+        derived
+            .cache
+            .as_ref()
+            .map(|c| c.driver.as_str())
+            .unwrap_or("None")
     );
 
     // Case 2: Optional deps are absent
@@ -101,7 +108,10 @@ async fn main() -> AppResult<()> {
     println!("config.app_name: {}", biz2.config.app_name);
     println!(
         "cache: {}",
-        biz2.cache.as_ref().map(|c| c.driver.as_str()).unwrap_or("None")
+        biz2.cache
+            .as_ref()
+            .map(|c| c.driver.as_str())
+            .unwrap_or("None")
     );
     println!("timeout: {:?}", biz2.timeout);
 

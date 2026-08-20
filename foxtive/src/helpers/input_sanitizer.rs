@@ -12,10 +12,7 @@ impl InputSanitizer {
     /// - Collapses consecutive dots to prevent `..` traversal
     pub fn sanitize_filename(input: &str) -> String {
         // Take only the final path segment to prevent directory traversal
-        let filename = input
-            .rsplit(['/', '\\'])
-            .next()
-            .unwrap_or(input);
+        let filename = input.rsplit(['/', '\\']).next().unwrap_or(input);
 
         let sanitized: String = filename
             .chars()

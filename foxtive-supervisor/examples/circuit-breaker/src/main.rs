@@ -39,7 +39,9 @@ impl SupervisedTask for ExternalServiceConsumer {
                 "[Consumer] Attempt {}: Simulated service failure",
                 count + 1
             );
-            return Err(foxtive_supervisor::SupervisorError::from("Service unavailable"));
+            return Err(foxtive_supervisor::SupervisorError::from(
+                "Service unavailable",
+            ));
         }
 
         info!("[Consumer] Attempt {}: Success!", count + 1);

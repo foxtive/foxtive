@@ -109,7 +109,11 @@ impl SupervisedTask for MockTask {
         let current_fails = self.fail_count.fetch_add(1, Ordering::SeqCst);
         let max = self.max_fails.load(Ordering::SeqCst);
         if current_fails < max {
-            return Err(foxtive_supervisor::SupervisorError::from(format!("Simulated failure {}/{}", current_fails + 1, max)));
+            return Err(foxtive_supervisor::SupervisorError::from(format!(
+                "Simulated failure {}/{}",
+                current_fails + 1,
+                max
+            )));
         }
         Ok(())
     }

@@ -115,7 +115,6 @@ pub mod rabbitmq;
 pub mod setup;
 pub mod tokio;
 
-
 /// Structured validation errors: field name → list of messages.
 ///
 /// A newtype wrapper around `HashMap<String, Vec<String>>` providing
@@ -234,19 +233,18 @@ impl<'a> IntoIterator for &'a ValidationErrors {
     }
 }
 
-pub use app::{App, AppBuilder, AppInit};
 pub use app::DiError;
-
+pub use app::{App, AppBuilder, AppInit};
 
 pub use ::http::StatusCode;
 
 pub use env::Environment;
 #[cfg(feature = "templating")]
-pub use tera::{Tera, Context as TemplateContext};
+pub use tera::{Context as TemplateContext, Tera};
 
 pub mod prelude {
-    pub use crate::app::{App, AppInit};
     pub use crate::app::DiError;
+    pub use crate::app::{App, AppInit};
     pub use crate::container::{Lazy, Mutable};
     pub use crate::enums::AppMessage;
     pub use crate::events::{Event, EventHandler};

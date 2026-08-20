@@ -22,8 +22,6 @@ pub(crate) type BlockedService = (String, String);
 /// A terminal error entry: `(service_name, error_message)`.
 pub(crate) type TerminalError = (String, String);
 
-
-
 /// Returns `true` when stderr is a TTY (colors are safe to emit).
 fn use_color() -> bool {
     std::io::stderr().is_terminal()
@@ -124,7 +122,6 @@ impl From<DiError> for AppMessage {
     }
 }
 
-
 fn format_di0001(e: &DiError) -> String {
     let DiError::CircularRuntimeDependency {
         cycles,
@@ -145,9 +142,13 @@ fn format_di0001(e: &DiError) -> String {
     let help_label = paint(style::LABEL, "= help:");
 
     if cycles.is_empty() {
-        out.push_str(&format!("{err_label}{code}: service construction deadlock detected\n"));
+        out.push_str(&format!(
+            "{err_label}{code}: service construction deadlock detected\n"
+        ));
     } else {
-        out.push_str(&format!("{err_label}{code}: circular runtime dependency detected\n"));
+        out.push_str(&format!(
+            "{err_label}{code}: circular runtime dependency detected\n"
+        ));
     }
 
     // --> pointer: first service in first cycle, or first blocked service
@@ -163,12 +164,16 @@ fn format_di0001(e: &DiError) -> String {
 
     if cycles.is_empty() {
         // Non-cycle deadlock
-        out.push_str(&format!("   {bar}  {note_label} Services have dependencies that could not be resolved.\n"));
+        out.push_str(&format!(
+            "   {bar}  {note_label} Services have dependencies that could not be resolved.\n"
+        ));
 
         // Show unregistered (root-cause) deps first
         if !unregistered_deps.is_empty() {
             out.push_str(&format!("   {bar}\n"));
-            out.push_str(&format!("   {bar}  The following dependencies are not registered as services:\n"));
+            out.push_str(&format!(
+                "   {bar}  The following dependencies are not registered as services:\n"
+            ));
             // Group by unregistered dep name
             let mut unique_unregistered: Vec<&str> = unregistered_deps
                 .iter()
@@ -197,7 +202,9 @@ fn format_di0001(e: &DiError) -> String {
         // Show blocked services (registered but can't be constructed)
         if !blocked_services.is_empty() {
             out.push_str(&format!("   {bar}\n"));
-            out.push_str(&format!("   {bar}  Blocked services (waiting for dependencies):\n"));
+            out.push_str(&format!(
+                "   {bar}  Blocked services (waiting for dependencies):\n"
+            ));
             // Group: show each service once with all its deps
             let mut service_deps: Vec<(&str, Vec<&str>)> = Vec::new();
             for (svc, dep) in blocked_services {
@@ -223,8 +230,12 @@ fn format_di0001(e: &DiError) -> String {
         out.push_str(&format!("   {bar}\n"));
         let lazy_help = paint(style::HELP, "Lazy<T>");
         if !unregistered_deps.is_empty() {
-            out.push_str(&format!("   {bar}  {help_label} Register the missing services, or provide them via\n"));
-            out.push_str(&format!("   {bar}         app.register() before calling build().\n"));
+            out.push_str(&format!(
+                "   {bar}  {help_label} Register the missing services, or provide them via\n"
+            ));
+            out.push_str(&format!(
+                "   {bar}         app.register() before calling build().\n"
+            ));
             out.push_str(&format!("   {bar}         If services depend on each other at runtime, wrap one side in {lazy_help}.\n"));
         } else {
             out.push_str(&format!("   {bar}  {help_label} If services depend on each other at runtime, wrap one side in {lazy_help}.\n"));
@@ -233,7 +244,9 @@ fn format_di0001(e: &DiError) -> String {
     } else {
         // Cycle deadlock
         out.push_str(&format!("   {bar}  {note_label} Services form a dependency cycle that cannot be resolved at runtime.\n"));
-        out.push_str(&format!("   {bar}          Phase 1 construction (topological sort) succeeded, but runtime\n"));
+        out.push_str(&format!(
+            "   {bar}          Phase 1 construction (topological sort) succeeded, but runtime\n"
+        ));
         out.push_str(&format!("   {bar}          dependencies discovered during init() create an unresolvable cycle.\n"));
         out.push_str(&format!("   {bar}\n"));
 
@@ -247,7 +260,9 @@ fn format_di0001(e: &DiError) -> String {
         }
 
         let lazy_help = paint(style::HELP, "Lazy<T>");
-        out.push_str(&format!("   {bar}  {help_label} Wrap one of these in {lazy_help} to break the cycle:\n"));
+        out.push_str(&format!(
+            "   {bar}  {help_label} Wrap one of these in {lazy_help} to break the cycle:\n"
+        ));
         if let Some(first_cycle) = cycles.first() {
             for name in first_cycle {
                 let name_bold = paint(style::BOLD, name);
@@ -264,7 +279,9 @@ fn format_di0001(e: &DiError) -> String {
             for (service, needs) in blocked_services {
                 let service_bold = paint(style::BOLD, service);
                 let needs_bold = paint(style::BOLD, needs);
-                out.push_str(&format!("   {bar}    • {service_bold} - needs {needs_bold}\n"));
+                out.push_str(&format!(
+                    "   {bar}    • {service_bold} - needs {needs_bold}\n"
+                ));
             }
         }
     }
@@ -286,14 +303,22 @@ fn format_di0002(e: &DiError) -> String {
     let note_label = paint(style::LABEL, "= note:");
     let help_label = paint(style::LABEL, "= help:");
 
-    out.push_str(&format!("{err_label}{code}: declared circular dependency in service graph\n"));
+    out.push_str(&format!(
+        "{err_label}{code}: declared circular dependency in service graph\n"
+    ));
 
     let pointer = chain.first().map(|s| s.as_str()).unwrap_or("unknown");
     out.push_str(&format!("  {arrow} {pointer}\n"));
-    out.push_str(&format!("   {bar}  {note_label} The `{arrow}` pointer shows the first service in the cycle chain\n"));
-    out.push_str(&format!("   {bar}          (the one where DFS detected the back-edge).\n"));
+    out.push_str(&format!(
+        "   {bar}  {note_label} The `{arrow}` pointer shows the first service in the cycle chain\n"
+    ));
+    out.push_str(&format!(
+        "   {bar}          (the one where DFS detected the back-edge).\n"
+    ));
     out.push_str(&format!("   {bar}\n"));
-    out.push_str(&format!("   {bar}  {note_label} Declared dependencies form a cycle that cannot be resolved:\n"));
+    out.push_str(&format!(
+        "   {bar}  {note_label} Declared dependencies form a cycle that cannot be resolved:\n"
+    ));
     out.push_str(&format!("   {bar}\n"));
     out.push_str(&format!("   {bar}  Dependency chain:\n"));
     let chain_str = chain.join(" \u{2192} ");
@@ -301,15 +326,24 @@ fn format_di0002(e: &DiError) -> String {
     out.push_str(&format!("   {bar}    {chain_bold}\n"));
 
     out.push_str(&format!("   {bar}\n"));
-    out.push_str(&format!("   {bar}  {help_label} This is detected during topological sort (Phase 1a) before any\n"));
-    out.push_str(&format!("   {bar}          services are constructed. To fix:\n"));
+    out.push_str(&format!(
+        "   {bar}  {help_label} This is detected during topological sort (Phase 1a) before any\n"
+    ));
+    out.push_str(&format!(
+        "   {bar}          services are constructed. To fix:\n"
+    ));
     out.push_str(&format!("   {bar}\n"));
-    out.push_str(&format!("   {bar}  Option 1: Remove the circular dependency\n"));
-    out.push_str(&format!("   {bar}    Review if both services truly need each other. Consider extracting\n"));
+    out.push_str(&format!(
+        "   {bar}  Option 1: Remove the circular dependency\n"
+    ));
+    out.push_str(&format!(
+        "   {bar}    Review if both services truly need each other. Consider extracting\n"
+    ));
     out.push_str(&format!("   {bar}    shared logic into a third service.\n"));
     out.push_str(&format!("   {bar}\n"));
     let lazy_type_header = format!("Lazy<{}>", paint(style::BOLD, &chain[1]));
-    out.push_str(&format!("   {bar}  Option 2: Use {lazy_type_help} for one direction\n",
+    out.push_str(&format!(
+        "   {bar}  Option 2: Use {lazy_type_help} for one direction\n",
         lazy_type_help = paint(style::HELP, &lazy_type_header)
     ));
 
@@ -318,15 +352,11 @@ fn format_di0002(e: &DiError) -> String {
         out.push_str(&format!("   {bar}    In {svc0}, change:\n"));
         let snake = to_snake_case(&chain[1]);
         let svc1 = paint(style::BOLD, &chain[1]);
-        out.push_str(&format!(
-            "   {bar}      {snake}: Arc<{svc1}>\n"
-        ));
+        out.push_str(&format!("   {bar}      {snake}: Arc<{svc1}>\n"));
         out.push_str(&format!("   {bar}    to:\n"));
         let lazy_type_suggest = format!("Lazy<{}>", paint(style::BOLD, &chain[1]));
         let lazy_type_styled = paint(style::HELP, &lazy_type_suggest);
-        out.push_str(&format!(
-            "   {bar}      {snake}: {lazy_type_styled}\n"
-        ));
+        out.push_str(&format!("   {bar}      {snake}: {lazy_type_styled}\n"));
     }
 
     out
@@ -350,14 +380,24 @@ fn format_di0003(e: &DiError) -> String {
     out.push_str(&format!("{err_label}{code}: service construction failed\n"));
     out.push_str(&format!("  {arrow} {service_bold}\n"));
     out.push_str(&format!("   {bar}\n"));
-    out.push_str(&format!("   {bar}  {note_label} Service initialization returned an error:\n"));
+    out.push_str(&format!(
+        "   {bar}  {note_label} Service initialization returned an error:\n"
+    ));
     out.push_str(&format!("   {bar}          {source}\n"));
     out.push_str(&format!("   {bar}\n"));
-    out.push_str(&format!("   {bar}  {help_label} This is a terminal error - the service cannot be constructed.\n"));
+    out.push_str(&format!(
+        "   {bar}  {help_label} This is a terminal error - the service cannot be constructed.\n"
+    ));
     out.push_str(&format!("   {bar}         Check:\n"));
-    out.push_str(&format!("   {bar}    • The service's dependencies are correctly configured\n"));
-    out.push_str(&format!("   {bar}    • External resources (database, cache, etc.) are accessible\n"));
-    out.push_str(&format!("   {bar}    • Environment variables are set correctly\n"));
+    out.push_str(&format!(
+        "   {bar}    • The service's dependencies are correctly configured\n"
+    ));
+    out.push_str(&format!(
+        "   {bar}    • External resources (database, cache, etc.) are accessible\n"
+    ));
+    out.push_str(&format!(
+        "   {bar}    • Environment variables are set correctly\n"
+    ));
     out.push_str(&format!("   {bar}\n"));
     out.push_str(&format!("   {bar}  Original error:\n"));
     out.push_str(&format!("   {bar}    {source}\n"));
@@ -377,7 +417,6 @@ fn to_snake_case(name: &str) -> String {
     }
     result
 }
-
 
 /// Extract the short type name from a fully-qualified path.
 ///
@@ -446,8 +485,7 @@ pub(crate) fn compute_blocked_services(
                     if let Some(&dep_idx) = type_to_idx.get(dep_name)
                         && !constructed_set.contains(&dep_idx)
                     {
-                        let dep_short =
-                            short_type_name(factories[dep_idx].type_name()).to_string();
+                        let dep_short = short_type_name(factories[dep_idx].type_name()).to_string();
                         blocked.push((service_name.clone(), dep_short));
                     }
                 }
@@ -464,7 +502,6 @@ pub(crate) fn compute_blocked_services(
 
     (blocked, terminal_errors)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -534,7 +571,10 @@ mod tests {
             unregistered_deps: vec![],
         };
         let text = strip_ansi(&err.to_string());
-        assert!(text.contains("error[DI0001]"), "should have error code: {text}");
+        assert!(
+            text.contains("error[DI0001]"),
+            "should have error code: {text}"
+        );
         assert!(
             text.contains("circular runtime dependency"),
             "should mention cycle: {text}"
@@ -549,10 +589,7 @@ mod tests {
             text.contains("2 services blocked"),
             "should show impact: {text}"
         );
-        assert!(
-            !text.contains("ocean::"),
-            "should use short names: {text}"
-        );
+        assert!(!text.contains("ocean::"), "should use short names: {text}");
     }
 
     #[test]
@@ -563,12 +600,13 @@ mod tests {
                 ("AuthService".into(), "UserService".into()),
                 ("UserService".into(), "SomeOtherService".into()),
             ],
-            unregistered_deps: vec![
-                ("UserService".into(), "SomeOtherService".into()),
-            ],
+            unregistered_deps: vec![("UserService".into(), "SomeOtherService".into())],
         };
         let text = strip_ansi(&err.to_string());
-        assert!(text.contains("error[DI0001]"), "should have error code: {text}");
+        assert!(
+            text.contains("error[DI0001]"),
+            "should have error code: {text}"
+        );
         assert!(
             text.contains("service construction deadlock"),
             "should mention deadlock: {text}"
@@ -583,14 +621,13 @@ mod tests {
     #[test]
     fn test_di0002_display() {
         let err = DiError::DeclaredCircularDependency {
-            chain: vec![
-                "ServiceA".into(),
-                "ServiceB".into(),
-                "ServiceA".into(),
-            ],
+            chain: vec!["ServiceA".into(), "ServiceB".into(), "ServiceA".into()],
         };
         let text = strip_ansi(&err.to_string());
-        assert!(text.contains("error[DI0002]"), "should have error code: {text}");
+        assert!(
+            text.contains("error[DI0002]"),
+            "should have error code: {text}"
+        );
         assert!(
             text.contains("declared circular dependency"),
             "should describe error: {text}"
@@ -615,7 +652,10 @@ mod tests {
             }),
         };
         let text = strip_ansi(&err.to_string());
-        assert!(text.contains("error[DI0003]"), "should have error code: {text}");
+        assert!(
+            text.contains("error[DI0003]"),
+            "should have error code: {text}"
+        );
         assert!(
             text.contains("service construction failed"),
             "should describe error: {text}"

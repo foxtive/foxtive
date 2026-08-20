@@ -258,7 +258,9 @@ async fn test_hierarchy_with_failing_task() {
 
         async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.attempts.fetch_add(1, Ordering::SeqCst);
-            Err(foxtive_supervisor::SupervisorError::internal("Intentional failure"))
+            Err(foxtive_supervisor::SupervisorError::internal(
+                "Intentional failure",
+            ))
         }
     }
 

@@ -1,6 +1,6 @@
 use foxtive_cron::{Cron, CronResult};
-use foxtive_supervisor::error::SupervisorError;
 use foxtive_supervisor::contracts::SupervisedTask;
+use foxtive_supervisor::error::SupervisorError;
 use tracing::{info, warn};
 
 pub struct CronJobTask;
@@ -33,7 +33,8 @@ impl SupervisedTask for CronJobTask {
             "Impulse",
             "*/15 * * * * * *", // every 15 seconds
             async_runner,
-        ).map_err(SupervisorError::wrap)?;
+        )
+        .map_err(SupervisorError::wrap)?;
 
         cron.run().await;
 

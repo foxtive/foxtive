@@ -124,7 +124,10 @@ mod tests {
         );
         assert_eq!(StringHelper::uc_words(""), ""); // Test empty string
         assert_eq!(StringHelper::uc_words("a b c"), "A B C"); // Test single characters
-        assert_eq!(StringHelper::uc_words("multiple    spaces"), "Multiple Spaces"); // Test multiple spaces
+        assert_eq!(
+            StringHelper::uc_words("multiple    spaces"),
+            "Multiple Spaces"
+        ); // Test multiple spaces
         assert_eq!(StringHelper::uc_words("123 hello"), "123 Hello"); // Test with non-alphabetic characters
     }
 
@@ -135,7 +138,10 @@ mod tests {
         assert!(StringHelper::is_username_valid("abc1234".to_string()).unwrap());
         assert!(StringHelper::is_username_valid("a.b.c".to_string()).unwrap());
         assert!(StringHelper::is_username_valid("username1".to_string()).unwrap());
-        assert!(StringHelper::is_username_valid("a123456789012345678901234567890123".to_string()).unwrap());
+        assert!(
+            StringHelper::is_username_valid("a123456789012345678901234567890123".to_string())
+                .unwrap()
+        );
         // 37 chars
     }
 
@@ -162,7 +168,8 @@ mod tests {
         assert!(uuid.chars().all(|c| c.is_ascii_hexdigit()));
 
         // Generate a few UUIDs and check that they are unique
-        let uuid_set: std::collections::HashSet<_> = (0..1000).map(|_| StringHelper::uuid()).collect();
+        let uuid_set: std::collections::HashSet<_> =
+            (0..1000).map(|_| StringHelper::uuid()).collect();
         assert_eq!(uuid_set.len(), 1000); // Check for uniqueness
     }
 
@@ -189,7 +196,10 @@ mod tests {
 
     #[test]
     fn test_count_occurrences() {
-        assert_eq!(StringHelper::count_occurrences("hello hello hello", "hello"), 3);
+        assert_eq!(
+            StringHelper::count_occurrences("hello hello hello", "hello"),
+            3
+        );
         assert_eq!(StringHelper::count_occurrences("aaa", "aa"), 1);
         assert_eq!(StringHelper::count_occurrences("test", ""), 0);
     }
@@ -214,7 +224,10 @@ mod tests {
     fn test_to_camel_case() {
         assert_eq!(StringHelper::camel_case("hello_world"), "helloWorld");
         assert_eq!(StringHelper::camel_case("user_id"), "userId");
-        assert_eq!(StringHelper::camel_case("already_camelCase"), "alreadyCamelCase");
+        assert_eq!(
+            StringHelper::camel_case("already_camelCase"),
+            "alreadyCamelCase"
+        );
         assert_eq!(StringHelper::camel_case(""), "");
     }
 

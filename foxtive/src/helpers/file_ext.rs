@@ -21,7 +21,10 @@ impl FileExtHelper {
         }
         let mut sorted_exts: Vec<String> = known_exts.iter().cloned().collect();
         sorted_exts.sort_by_key(|b| std::cmp::Reverse(b.len()));
-        Self { known_exts, sorted_exts }
+        Self {
+            known_exts,
+            sorted_exts,
+        }
     }
 
     /// Create a new handler with default extensions plus custom ones

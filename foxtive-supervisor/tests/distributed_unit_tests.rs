@@ -29,7 +29,11 @@ mod tests {
 
     #[async_trait::async_trait]
     impl CoordinationBackend for MockCoordinationBackend {
-        async fn try_acquire_lock(&self, key: &str, ttl_secs: u64) -> foxtive_supervisor::SupervisorResult<bool> {
+        async fn try_acquire_lock(
+            &self,
+            key: &str,
+            ttl_secs: u64,
+        ) -> foxtive_supervisor::SupervisorResult<bool> {
             let mut locks = self.locks.lock().await;
             let now = Instant::now();
 
@@ -56,13 +60,20 @@ mod tests {
             Ok(locks.contains_key(key))
         }
 
-        async fn heartbeat(&self, instance_id: &str, _ttl_secs: u64) -> foxtive_supervisor::SupervisorResult<()> {
+        async fn heartbeat(
+            &self,
+            instance_id: &str,
+            _ttl_secs: u64,
+        ) -> foxtive_supervisor::SupervisorResult<()> {
             let mut heartbeats = self.heartbeats.lock().await;
             heartbeats.insert(instance_id.to_string(), Instant::now());
             Ok(())
         }
 
-        async fn is_instance_alive(&self, instance_id: &str) -> foxtive_supervisor::SupervisorResult<bool> {
+        async fn is_instance_alive(
+            &self,
+            instance_id: &str,
+        ) -> foxtive_supervisor::SupervisorResult<bool> {
             let heartbeats = self.heartbeats.lock().await;
             Ok(heartbeats.contains_key(instance_id))
         }

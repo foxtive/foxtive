@@ -52,11 +52,7 @@ async fn register_with_accesses_app() {
         .register_with(|app| {
             let dep = app.get::<DepService>().unwrap();
             let val = dep.value.clone();
-            async move {
-                Ok(HttpClient {
-                    base_url: val,
-                })
-            }
+            async move { Ok(HttpClient { base_url: val }) }
         })
         .build()
         .await
@@ -83,10 +79,7 @@ async fn register_with_failing_factory() {
 
 #[tokio::test]
 async fn register_with_on_app_init() {
-    let mut init = App::builder("test", "TST")
-        .build_init()
-        .await
-        .unwrap();
+    let mut init = App::builder("test", "TST").build_init().await.unwrap();
 
     init.register_with(|_app| async {
         Ok(HttpClient {
@@ -107,9 +100,7 @@ async fn register_with_foreign_type() {
     }
 
     let app = App::builder("test", "TST")
-        .register_with(|_app| async {
-            Ok(ForeignConfig { setting: true })
-        })
+        .register_with(|_app| async { Ok(ForeignConfig { setting: true }) })
         .build()
         .await
         .unwrap();

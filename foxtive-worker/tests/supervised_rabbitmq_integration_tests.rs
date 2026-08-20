@@ -5,8 +5,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::create_test_message;
-use foxtive_supervisor::contracts::SupervisedTask;
 use foxtive_supervisor::SupervisorError;
+use foxtive_supervisor::contracts::SupervisedTask;
 use foxtive_worker::backends::{MemoryBackend, MessageBackend, ReceiveResult};
 use foxtive_worker::error::WorkerResult;
 use foxtive_worker::{AckNackMiddleware, ReceivedMessage, Worker, WorkerPool, WorkerPoolBuilder};

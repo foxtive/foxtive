@@ -26,7 +26,9 @@ impl SupervisedTask for TracedTask {
             let count = self.fail_count.fetch_add(1, Ordering::SeqCst);
             if count < self.max_fails {
                 info!("Simulating failure {}/{}", count + 1, self.max_fails);
-                return Err(foxtive_supervisor::SupervisorError::from("Simulated business logic failure"));
+                return Err(foxtive_supervisor::SupervisorError::from(
+                    "Simulated business logic failure",
+                ));
             }
 
             info!("Business logic completed successfully");

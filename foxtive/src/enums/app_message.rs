@@ -1,7 +1,7 @@
 use crate::ValidationErrors;
+use crate::app::di_error::DiError;
 #[cfg(feature = "reqwest")]
 use crate::helpers::reqwest::ReqwestResponseError;
-use crate::app::di_error::DiError;
 use http::StatusCode;
 use std::borrow::Cow;
 use std::env::VarError;

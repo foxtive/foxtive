@@ -26,7 +26,7 @@ impl FsStateStore {
 impl TaskStateStore for FsStateStore {
     async fn save_state(&self, state: PersistedTaskState) -> SupervisorResult<()> {
         let file_path = self.state_file_path(&state.task_id);
-        let json = serde_json::to_string(&state)?;  // Compact JSON for production
+        let json = serde_json::to_string(&state)?; // Compact JSON for production
         let mut file = fs::File::create(&file_path).await?;
         file.write_all(json.as_bytes()).await?;
         file.sync_data().await?; // Sync data only (faster than sync_all)
@@ -35,7 +35,7 @@ impl TaskStateStore for FsStateStore {
 
     async fn load_state(&self, task_id: &str) -> SupervisorResult<Option<PersistedTaskState>> {
         let file_path = self.state_file_path(task_id);
-        
+
         // Open directly and handle NotFound to avoid TOCTOU race
         let mut file = match fs::File::open(&file_path).await {
             Ok(file) => file,
@@ -82,7 +82,7 @@ impl TaskStateStore for FsStateStore {
 
     async fn delete_state(&self, task_id: &str) -> SupervisorResult<()> {
         let file_path = self.state_file_path(task_id);
-        
+
         // Remove directly and handle NotFound to avoid TOCTOU race
         match fs::remove_file(&file_path).await {
             Ok(_) => Ok(()),

@@ -2,8 +2,8 @@ mod common;
 
 use foxtive::metrics::{InfraEvent, MetricsSink};
 use std::borrow::Cow;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 #[test]

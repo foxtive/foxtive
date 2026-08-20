@@ -1,12 +1,12 @@
 mod common;
 
+use foxtive::App;
 use foxtive::container::Lazy;
+use foxtive::enums::AppMessage;
 use foxtive::lifecycle::{Service, ServiceInit};
 use foxtive::prelude::AppResult;
-use foxtive::App;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use foxtive::enums::AppMessage;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 // Simple service that doesn't depend on anything
 struct SimpleService {

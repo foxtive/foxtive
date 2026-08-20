@@ -1,10 +1,10 @@
 mod common;
 
+use foxtive::App;
 use foxtive::events::{Event, EventHandler};
 use foxtive::prelude::AppResult;
-use foxtive::App;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Event, Clone, Debug)]
 struct TestEvent {
@@ -53,7 +53,10 @@ async fn event_bus_dispatches_to_typed_handler() {
     assert_eq!(init.events().total_handler_count(), 1);
 
     let app = init.freeze().await.unwrap();
-    app.events().emit(TestEvent { value: 42 }, &app).await.unwrap();
+    app.events()
+        .emit(TestEvent { value: 42 }, &app)
+        .await
+        .unwrap();
     assert_eq!(count.load(Ordering::SeqCst), 1);
 }
 
@@ -74,7 +77,10 @@ async fn event_bus_dispatches_to_closure_handler() {
     assert_eq!(init.events().handler_count::<TestEvent>(), 1);
 
     let app = init.freeze().await.unwrap();
-    app.events().emit(TestEvent { value: 99 }, &app).await.unwrap();
+    app.events()
+        .emit(TestEvent { value: 99 }, &app)
+        .await
+        .unwrap();
     assert_eq!(count.load(Ordering::SeqCst), 1);
 }
 
@@ -102,7 +108,10 @@ async fn event_bus_dispatches_to_multiple_handlers() {
     assert_eq!(init.events().total_handler_count(), 2);
 
     let app = init.freeze().await.unwrap();
-    app.events().emit(TestEvent { value: 1 }, &app).await.unwrap();
+    app.events()
+        .emit(TestEvent { value: 1 }, &app)
+        .await
+        .unwrap();
     assert_eq!(count1.load(Ordering::SeqCst), 1);
     assert_eq!(count2.load(Ordering::SeqCst), 1);
 }
@@ -139,7 +148,10 @@ async fn event_bus_different_event_types_are_isolated() {
     assert_eq!(init.events().total_handler_count(), 2);
 
     let app = init.freeze().await.unwrap();
-    app.events().emit(TestEvent { value: 1 }, &app).await.unwrap();
+    app.events()
+        .emit(TestEvent { value: 1 }, &app)
+        .await
+        .unwrap();
     assert_eq!(test_count.load(Ordering::SeqCst), 1);
     assert_eq!(another_count.load(Ordering::SeqCst), 0);
 
@@ -171,7 +183,10 @@ async fn event_bus_handler_receives_correct_event_data() {
     });
 
     let app = init.freeze().await.unwrap();
-    app.events().emit(TestEvent { value: 123 }, &app).await.unwrap();
+    app.events()
+        .emit(TestEvent { value: 123 }, &app)
+        .await
+        .unwrap();
     assert_eq!(*received_value.lock().unwrap(), Some(123));
 }
 
@@ -180,7 +195,10 @@ async fn event_bus_handler_can_access_app() {
     let app_name_received = Arc::new(std::sync::Mutex::new(None));
     let app_name_clone = app_name_received.clone();
 
-    let mut init = App::builder("My Test App", "TEST").build_init().await.unwrap();
+    let mut init = App::builder("My Test App", "TEST")
+        .build_init()
+        .await
+        .unwrap();
     init.on_event::<TestEvent, _, _>(move |_event, app| {
         let name = app_name_clone.clone();
         async move {
@@ -190,7 +208,10 @@ async fn event_bus_handler_can_access_app() {
     });
 
     let app = init.freeze().await.unwrap();
-    app.events().emit(TestEvent { value: 1 }, &app).await.unwrap();
+    app.events()
+        .emit(TestEvent { value: 1 }, &app)
+        .await
+        .unwrap();
     assert_eq!(
         *app_name_received.lock().unwrap(),
         Some("My Test App".to_string())

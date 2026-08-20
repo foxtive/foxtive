@@ -40,7 +40,9 @@ impl SupervisedTask for HttpServerTask {
 
         let app = Router::new().route("/", get(handler));
 
-        let listener = TcpListener::bind(&self.addr).await.map_err(foxtive_supervisor::SupervisorError::wrap)?;
+        let listener = TcpListener::bind(&self.addr)
+            .await
+            .map_err(foxtive_supervisor::SupervisorError::wrap)?;
 
         // Create a shutdown receiver for this run
         let mut shutdown_rx = self.shutdown_tx.subscribe();
@@ -51,7 +53,8 @@ impl SupervisedTask for HttpServerTask {
                 shutdown_rx.recv().await.ok();
                 info!("Axum server received shutdown signal");
             })
-            .await.map_err(foxtive_supervisor::SupervisorError::wrap)?;
+            .await
+            .map_err(foxtive_supervisor::SupervisorError::wrap)?;
 
         Ok(())
     }

@@ -47,17 +47,18 @@ impl TypeMap {
     pub fn insert<T: Send + Sync + 'static>(&mut self, value: T) -> Option<T> {
         let old = self.inner.insert(TypeId::of::<T>(), Arc::new(value))?;
         // Downcast to concrete type, then try to extract the value
-        let result = old.downcast::<T>()
+        let result = old
+            .downcast::<T>()
             .ok()
             .and_then(|arc| Arc::try_unwrap(arc).ok());
-        
+
         if result.is_none() {
             tracing::warn!(
                 type_name = std::any::type_name::<T>(),
                 "TypeMap::insert: old value had multiple Arc references and could not be returned"
             );
         }
-        
+
         result
     }
 
@@ -145,12 +146,10 @@ impl TypeMap {
     /// Get a trait object by its `?Sized` type key.
     /// Returns a cloned `Arc<T>` (no double-Arc).
     pub fn get_trait<T: ?Sized + Send + Sync + 'static>(&self) -> Option<Arc<T>> {
-        self.inner
-            .get(&TypeId::of::<T>())
-            .and_then(|arc| {
-                let typed: Arc<Arc<T>> = Arc::clone(arc).downcast().ok()?;
-                Some(Arc::clone(&*typed))
-            })
+        self.inner.get(&TypeId::of::<T>()).and_then(|arc| {
+            let typed: Arc<Arc<T>> = Arc::clone(arc).downcast().ok()?;
+            Some(Arc::clone(&*typed))
+        })
     }
 
     /// Check if a trait binding exists.

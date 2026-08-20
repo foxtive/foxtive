@@ -89,10 +89,10 @@ pub mod fs;
 #[cfg(feature = "hmac")]
 pub mod hmac;
 pub mod json;
-#[cfg(feature = "jwt")]
-pub mod jwt;
 #[cfg(feature = "jwe")]
 pub mod jwe;
+#[cfg(feature = "jwt")]
+pub mod jwt;
 pub mod number;
 #[cfg(feature = "crypto")]
 pub mod password;
@@ -114,15 +114,15 @@ pub mod serde_json;
 pub use tokio::RuntimeConfig;
 pub(crate) use tokio::set_runtime_config;
 
-pub use file_ext::{FileExtHelper, COMPOUND_EXTENSIONS};
+pub use file_ext::{COMPOUND_EXTENSIONS, FileExtHelper};
 
 pub use input_sanitizer::*;
 
 pub use string::StringHelper;
 
+use crate::enums::AppMessage;
 #[cfg(feature = "base64")]
 pub use base64::Base64;
-use crate::enums::AppMessage;
 
 pub fn fox_wrap(e: impl std::error::Error + Send + Sync + 'static) -> AppMessage {
     AppMessage::wrap(e)

@@ -7,14 +7,14 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use crate::app::AppInit;
-use crate::health::HealthCheck;
 use crate::App;
 use crate::app::AppBuilder;
+use crate::app::AppInit;
+use crate::health::HealthCheck;
 
 // Re-export the derive macros
-pub use foxtive_macros::Service;
 pub use foxtive_macros::FromApp;
+pub use foxtive_macros::Service;
 
 /// A future produced by a startup hook.
 pub type StartupFuture = Pin<Box<dyn Future<Output = AppResult<()>> + Send + 'static>>;
@@ -26,8 +26,13 @@ pub type ShutdownFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 ///
 /// Returns `ServiceResolutionError` to distinguish retryable dependency
 /// failures (`DependencyMissing`) from terminal failures (`Terminal`).
-pub(crate) type ServiceFactoryFuture<'a> =
-    Pin<Box<dyn Future<Output = Result<Box<dyn std::any::Any + Send + Sync>, ServiceResolutionError>> + Send + 'a>>;
+pub(crate) type ServiceFactoryFuture<'a> = Pin<
+    Box<
+        dyn Future<Output = Result<Box<dyn std::any::Any + Send + Sync>, ServiceResolutionError>>
+            + Send
+            + 'a,
+    >,
+>;
 
 /// Trait for services that need async initialization after construction.
 ///
@@ -219,10 +224,7 @@ pub(crate) trait ServiceFactory: Send + Sync {
         &[]
     }
     /// Construct the service and return it as Box<dyn Any>.
-    fn create<'a>(
-        &'a self,
-        app: &'a App,
-    ) -> ServiceFactoryFuture<'a>;
+    fn create<'a>(&'a self, app: &'a App) -> ServiceFactoryFuture<'a>;
 
     /// Fill all `Lazy<T>` fields. Default: no-op.
     fn wire_lazy(&self, _app: &App) -> AppResult<()> {
@@ -271,24 +273,23 @@ impl<T: ServiceInit> ServiceFactory for ServiceFactoryImpl<T> {
         &self.dependencies
     }
 
-    fn create<'a>(
-        &'a self,
-        app: &'a App,
-    ) -> ServiceFactoryFuture<'a>
-    {
+    fn create<'a>(&'a self, app: &'a App) -> ServiceFactoryFuture<'a> {
         let type_name = self.type_name();
         let short_name = short_type_name(type_name).to_string();
         Box::pin(async move {
             let mut service = T::init(app).await.map_err(|e| match e {
-                crate::enums::AppMessage::NotFound(msg) => ServiceResolutionError::DependencyMissing {
-                    service: type_name,
-                    missing_type: msg,
-                },
+                crate::enums::AppMessage::NotFound(msg) => {
+                    ServiceResolutionError::DependencyMissing {
+                        service: type_name,
+                        missing_type: msg,
+                    }
+                }
                 other => ServiceResolutionError::Terminal(
                     DiError::ServiceConstructionFailed {
                         service: short_name.clone(),
                         source: Box::new(other),
-                    }.into(),
+                    }
+                    .into(),
                 ),
             })?;
             T::after_init(&mut service, app).map_err(|e| {
@@ -296,11 +297,13 @@ impl<T: ServiceInit> ServiceFactory for ServiceFactoryImpl<T> {
                     DiError::ServiceConstructionFailed {
                         service: short_name.clone(),
                         source: Box::new(e),
-                    }.into(),
+                    }
+                    .into(),
                 )
             })?;
             if self.force_mutable || T::is_mutable() {
-                Ok(Box::new(crate::container::Mutable::new(service)) as Box<dyn std::any::Any + Send + Sync>)
+                Ok(Box::new(crate::container::Mutable::new(service))
+                    as Box<dyn std::any::Any + Send + Sync>)
             } else {
                 Ok(Box::new(service) as Box<dyn std::any::Any + Send + Sync>)
             }
@@ -329,13 +332,21 @@ impl ClosureFactory {
         type_name_str: &'static str,
         deps: Vec<&'static str>,
     ) -> Self {
-        Self { closure, type_name_str, deps }
+        Self {
+            closure,
+            type_name_str,
+            deps,
+        }
     }
 }
 
 impl ServiceFactory for ClosureFactory {
-    fn type_name(&self) -> &'static str { self.type_name_str }
-    fn dependencies(&self) -> &[&'static str] { &self.deps }
+    fn type_name(&self) -> &'static str {
+        self.type_name_str
+    }
+    fn dependencies(&self) -> &[&'static str] {
+        &self.deps
+    }
     fn create<'a>(&'a self, app: &'a App) -> ServiceFactoryFuture<'a> {
         // 'static future can be coerced to any lifetime 'a
         (self.closure)(app)
@@ -475,12 +486,10 @@ pub trait Shutdown: Send + Sync {
 }
 
 /// Type-erased startup hook (closure form).
-pub(crate) type StartupHook =
-    Box<dyn Fn(Arc<App>) -> StartupFuture + Send + Sync + 'static>;
+pub(crate) type StartupHook = Box<dyn Fn(Arc<App>) -> StartupFuture + Send + Sync + 'static>;
 
 /// Type-erased shutdown hook (closure form).
-pub(crate) type ShutdownHook =
-    Box<dyn Fn(Arc<App>) -> ShutdownFuture + Send + Sync + 'static>;
+pub(crate) type ShutdownHook = Box<dyn Fn(Arc<App>) -> ShutdownFuture + Send + Sync + 'static>;
 
 /// A self-contained module that bundles services, lifecycle hooks, and health checks.
 ///

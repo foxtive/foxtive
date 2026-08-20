@@ -5,8 +5,8 @@
 
 #[cfg(feature = "cache-filesystem")]
 mod filesystem_cache_tests {
-    use foxtive::cache::drivers::FilesystemCacheDriver;
     use foxtive::cache::Cache;
+    use foxtive::cache::drivers::FilesystemCacheDriver;
     use serde::{Deserialize, Serialize};
     use std::sync::Arc;
     use tempfile::TempDir;
@@ -106,8 +106,8 @@ mod filesystem_cache_tests {
 
 #[cfg(feature = "cache-in-memory")]
 mod in_memory_cache_tests {
-    use foxtive::cache::drivers::InMemoryDriver;
     use foxtive::cache::Cache;
+    use foxtive::cache::drivers::InMemoryDriver;
     use serde::{Deserialize, Serialize};
     use std::sync::Arc;
 

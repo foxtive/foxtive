@@ -7,10 +7,10 @@
 //! This is especially important for production deployments where load balancers
 //! may poll the health endpoint every 100ms.
 
+use crate::App;
 use crate::metrics::{InfraEvent, MetricsSink};
 #[cfg(feature = "database")]
 use crate::tokio::Tokio;
-use crate::App;
 use std::borrow::Cow;
 use std::fmt;
 use std::future::Future;
@@ -544,7 +544,9 @@ pub struct RedisHealthCheck {
 #[cfg(feature = "redis")]
 impl RedisHealthCheck {
     pub fn new() -> Self {
-        Self { timeout: Duration::from_secs(5) }
+        Self {
+            timeout: Duration::from_secs(5),
+        }
     }
 
     /// Set a custom timeout for the health check operation.
@@ -558,7 +560,9 @@ impl RedisHealthCheck {
 
 #[cfg(feature = "redis")]
 impl Default for RedisHealthCheck {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(feature = "redis")]
@@ -619,7 +623,9 @@ pub struct RabbitMqHealthCheck {
 #[cfg(feature = "rabbitmq")]
 impl RabbitMqHealthCheck {
     pub fn new() -> Self {
-        Self { timeout: Duration::from_secs(5) }
+        Self {
+            timeout: Duration::from_secs(5),
+        }
     }
 
     /// Set a custom timeout for the health check operation.
@@ -633,7 +639,9 @@ impl RabbitMqHealthCheck {
 
 #[cfg(feature = "rabbitmq")]
 impl Default for RabbitMqHealthCheck {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(feature = "rabbitmq")]

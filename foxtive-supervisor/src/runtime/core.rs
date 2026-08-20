@@ -253,10 +253,7 @@ impl TaskRuntime {
     ) -> Result<(), SupervisorError> {
         let id = task.id();
         if self.tasks.contains_key(id) {
-            return Err(SupervisorError::config(
-                id,
-                "Task already exists",
-            ));
+            return Err(SupervisorError::config(id, "Task already exists"));
         }
 
         self.register(task);
@@ -658,7 +655,9 @@ impl TaskRuntime {
     /// Aggregated HealthStatus for the group
     pub async fn get_group_health(&self, group_id: &str) -> HealthStatus {
         // Fire all health checks concurrently for tasks in this group
-        let group_tasks: Vec<_> = self.tasks.values()
+        let group_tasks: Vec<_> = self
+            .tasks
+            .values()
             .filter(|entry| entry.task.group_id() == Some(group_id))
             .collect();
 
@@ -666,7 +665,8 @@ impl TaskRuntime {
             return HealthStatus::Unknown;
         }
 
-        let health_futures: Vec<_> = group_tasks.iter()
+        let health_futures: Vec<_> = group_tasks
+            .iter()
             .map(|entry| entry.task.health_check())
             .collect();
         let results = futures_util::future::join_all(health_futures).await;
@@ -709,11 +709,14 @@ impl TaskRuntime {
     /// Vector of TaskSummary for each task in the group
     pub async fn get_group_health_details(&self, group_id: &str) -> Vec<TaskSummary> {
         // Fire all health checks concurrently for tasks in this group
-        let group_tasks: Vec<_> = self.tasks.iter()
+        let group_tasks: Vec<_> = self
+            .tasks
+            .iter()
             .filter(|(_, entry)| entry.task.group_id() == Some(group_id))
             .collect();
 
-        let health_futures: Vec<_> = group_tasks.iter()
+        let health_futures: Vec<_> = group_tasks
+            .iter()
             .map(|(task_id, entry)| async move {
                 let health = entry.task.health_check().await;
                 TaskSummary {
@@ -828,12 +831,15 @@ impl TaskRuntime {
     /// Lists summaries of all currently registered tasks.
     pub async fn list_tasks(&self) -> Vec<TaskSummary> {
         // Fire all health checks concurrently
-        let health_futures: Vec<_> = self.tasks.values()
+        let health_futures: Vec<_> = self
+            .tasks
+            .values()
             .map(|entry| entry.task.health_check())
             .collect();
         let health_results = futures_util::future::join_all(health_futures).await;
 
-        self.tasks.iter()
+        self.tasks
+            .iter()
             .zip(health_results)
             .map(|((id, entry), health)| TaskSummary {
                 id: id.to_string(),

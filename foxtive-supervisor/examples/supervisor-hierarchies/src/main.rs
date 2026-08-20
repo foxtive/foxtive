@@ -1,6 +1,6 @@
-use foxtive_supervisor::SupervisorResult;
 use async_trait::async_trait;
 use foxtive_supervisor::hierarchy::SupervisorHierarchy;
+use foxtive_supervisor::SupervisorResult;
 use foxtive_supervisor::{SupervisedTask, Supervisor};
 use tokio::time::{sleep, Duration};
 use tracing::{info, Level};

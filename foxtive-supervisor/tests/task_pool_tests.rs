@@ -327,9 +327,10 @@ async fn test_pool_with_failing_workers() {
             if self.worker_index.is_multiple_of(2) {
                 // Even workers fail
                 self.failure_count.fetch_add(1, Ordering::SeqCst);
-                Err(foxtive_supervisor::SupervisorError::from(
-                    format!("Worker {} intentionally failing", self.worker_index)
-                ))
+                Err(foxtive_supervisor::SupervisorError::from(format!(
+                    "Worker {} intentionally failing",
+                    self.worker_index
+                )))
             } else {
                 // Odd workers succeed
                 tokio::time::sleep(Duration::from_millis(10)).await;

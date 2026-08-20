@@ -171,9 +171,7 @@ impl Hmac {
     pub fn verify(&self, value: &str, hash: &str) -> AppResult<bool> {
         let computed = self.hash(value)?;
         // Constant-time comparison to prevent timing attacks
-        Ok(bool::from(
-            computed.as_bytes().ct_eq(hash.as_bytes()),
-        ))
+        Ok(bool::from(computed.as_bytes().ct_eq(hash.as_bytes())))
     }
 
     /// Converts a byte slice to its hexadecimal string representation.
@@ -228,8 +226,7 @@ mod tests {
     fn test_hmac_valid() {
         let hmac = Hmac::new("mysecret", HashFunc::Sha256);
         let value = "my message";
-        let provided_hmac =
-            "6df7d0cf7d3a52a08acbd7c12a2ab86b15820de24a78bd51e264e257de3316b0";
+        let provided_hmac = "6df7d0cf7d3a52a08acbd7c12a2ab86b15820de24a78bd51e264e257de3316b0";
 
         let is_valid = hmac.verify(value, provided_hmac).unwrap();
 

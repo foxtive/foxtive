@@ -8,15 +8,15 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use foxtive::prelude::*;
 use foxtive::Environment;
+use foxtive::prelude::*;
 
 struct MetricsCollector;
 
 impl MetricsCollector {
     async fn run(&self, cancellation: tokio_util::sync::CancellationToken) {
         println!("Metrics collector started");
-        
+
         loop {
             tokio::select! {
                 _ = cancellation.cancelled() => {
@@ -70,7 +70,7 @@ async fn main() -> AppResult<()> {
 
     let cancellation = tokio_util::sync::CancellationToken::new();
     let cancel_clone = cancellation.clone();
-    
+
     let handle = tokio::spawn(async move {
         collector.run(cancel_clone).await;
     });

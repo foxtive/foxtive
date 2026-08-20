@@ -47,10 +47,7 @@ async fn register_trait_eager_resolves() {
 
 #[tokio::test]
 async fn register_trait_missing_returns_error() {
-    let app = App::builder("test", "TST")
-        .build()
-        .await
-        .unwrap();
+    let app = App::builder("test", "TST").build().await.unwrap();
 
     let result = app.require_trait::<dyn Notifier>();
     assert!(result.is_err());
@@ -58,10 +55,7 @@ async fn register_trait_missing_returns_error() {
 
 #[tokio::test]
 async fn register_trait_on_app_init() {
-    let mut init = App::builder("test", "TST")
-        .build_init()
-        .await
-        .unwrap();
+    let mut init = App::builder("test", "TST").build_init().await.unwrap();
 
     init.register_trait::<dyn Notifier>(Arc::new(SmsNotifier));
     let app = init.freeze().await.unwrap();
@@ -112,10 +106,7 @@ async fn trait_and_concrete_coexist() {
 
 #[tokio::test]
 async fn get_trait_returns_none_when_missing() {
-    let app = App::builder("test", "TST")
-        .build()
-        .await
-        .unwrap();
+    let app = App::builder("test", "TST").build().await.unwrap();
 
     assert!(app.get_trait::<dyn Notifier>().is_none());
 }

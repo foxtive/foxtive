@@ -1,5 +1,5 @@
-use foxtive_supervisor::SupervisorResult;
 use async_trait::async_trait;
+use foxtive_supervisor::SupervisorResult;
 use foxtive_supervisor::{enums::HealthStatus, SupervisedTask, Supervisor};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -34,7 +34,9 @@ impl SupervisedTask for DatabaseService {
         sleep(Duration::from_secs(2)).await;
 
         if !self.ready.load(Ordering::SeqCst) {
-            return Err(foxtive_supervisor::SupervisorError::from("Database not ready"));
+            return Err(foxtive_supervisor::SupervisorError::from(
+                "Database not ready",
+            ));
         }
 
         info!("Database health check passed");

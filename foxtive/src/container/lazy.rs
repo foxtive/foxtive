@@ -73,10 +73,7 @@ use crate::results::AppResult;
 #[macro_export]
 macro_rules! lazy {
     () => {
-        $crate::container::Lazy::new(
-            concat!(file!(), ":", line!()),
-            "<manual>",
-        )
+        $crate::container::Lazy::new(concat!(file!(), ":", line!()), "<manual>")
     };
 }
 
@@ -130,29 +127,34 @@ impl<T> Lazy<T> {
     /// Called by the framework during `freeze()` phase 2. The value is
     /// typically obtained via `app.require::<T>()`.
     pub fn fill(&self, value: Arc<T>) -> AppResult<()> {
-        self.inner.set(value).map_err(|_| AppMessage::Infrastructure {
-            message: format!(
-                "Lazy<{}> on {}.{} already filled",
-                std::any::type_name::<T>(),
-                self.owner_type,
-                self.field_name,
-            ),
-            source: None,
-        })
+        self.inner
+            .set(value)
+            .map_err(|_| AppMessage::Infrastructure {
+                message: format!(
+                    "Lazy<{}> on {}.{} already filled",
+                    std::any::type_name::<T>(),
+                    self.owner_type,
+                    self.field_name,
+                ),
+                source: None,
+            })
     }
 
     /// Returns `&T` via double-deref through `Arc<T>`.
     ///
     /// Panics with owner/field metadata if unfilled.
     pub fn get(&self) -> &T {
-        self.inner.get().unwrap_or_else(|| {
-            panic!(
-                "Lazy<{}> on {}.{} not filled - was freeze() completed?",
-                std::any::type_name::<T>(),
-                self.owner_type,
-                self.field_name,
-            )
-        }).as_ref()
+        self.inner
+            .get()
+            .unwrap_or_else(|| {
+                panic!(
+                    "Lazy<{}> on {}.{} not filled - was freeze() completed?",
+                    std::any::type_name::<T>(),
+                    self.owner_type,
+                    self.field_name,
+                )
+            })
+            .as_ref()
     }
 
     /// Non-panicking access. Returns `None` if unfilled.
@@ -167,14 +169,17 @@ impl<T> Lazy<T> {
     /// Use this in hot paths to cache the `Arc` and avoid repeated atomic
     /// reads from `OnceLock::get()`. Panics if unfilled.
     pub fn resolve(&self) -> Arc<T> {
-        self.inner.get().unwrap_or_else(|| {
-            panic!(
-                "Lazy<{}> on {}.{} not filled - was freeze() completed?",
-                std::any::type_name::<T>(),
-                self.owner_type,
-                self.field_name,
-            )
-        }).clone()
+        self.inner
+            .get()
+            .unwrap_or_else(|| {
+                panic!(
+                    "Lazy<{}> on {}.{} not filled - was freeze() completed?",
+                    std::any::type_name::<T>(),
+                    self.owner_type,
+                    self.field_name,
+                )
+            })
+            .clone()
     }
 
     /// Returns `true` if the lazy has been filled.

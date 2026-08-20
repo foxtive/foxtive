@@ -297,12 +297,18 @@ async fn cycle_error_includes_edge_details() {
         .await;
 
     let err = strip_ansi(&result.unwrap_err().to_string());
-    assert!(err.contains("DI0002") || err.contains("circular dependency"), "should mention circular: {err}");
+    assert!(
+        err.contains("DI0002") || err.contains("circular dependency"),
+        "should mention circular: {err}"
+    );
     assert!(
         err.contains("\u{2192}") || err.contains("Dependency chain"),
         "should show dep chain: {err}"
     );
-    assert!(err.contains("Lazy<CycleY>"), "should suggest concrete Lazy type: {err}");
+    assert!(
+        err.contains("Lazy<CycleY>"),
+        "should suggest concrete Lazy type: {err}"
+    );
 }
 
 // Unfilled Lazy caught at startup
@@ -315,9 +321,7 @@ struct NonExistentService;
 
 impl ServiceInit for BrokenLazyService {
     async fn init(_app: &App) -> AppResult<Self> {
-        Ok(Self {
-            dep: lazy!(),
-        })
+        Ok(Self { dep: lazy!() })
     }
 
     fn dependencies() -> Vec<&'static str> {

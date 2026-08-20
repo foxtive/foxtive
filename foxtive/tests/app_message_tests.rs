@@ -100,7 +100,11 @@ fn validation_error_carries_field_details() {
 fn validation_errors_returns_none_for_non_validation_variants() {
     assert!(AppMessage::success("ok").validation_errors().is_none());
     assert!(AppMessage::not_found("x").validation_errors().is_none());
-    assert!(AppMessage::internal_server_error("x").validation_errors().is_none());
+    assert!(
+        AppMessage::internal_server_error("x")
+            .validation_errors()
+            .is_none()
+    );
 }
 
 #[test]
@@ -130,7 +134,8 @@ fn infrastructure_variant_without_source() {
 
 #[test]
 fn missing_environment_variable_maps_to_500() {
-    let msg = AppMessage::missing_environment_variable("DATABASE_URL", std::env::VarError::NotPresent);
+    let msg =
+        AppMessage::missing_environment_variable("DATABASE_URL", std::env::VarError::NotPresent);
     assert_eq!(msg.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
     assert!(msg.is_server_error());
     assert!(msg.message().contains("DATABASE_URL"));
@@ -145,8 +150,14 @@ fn kind_name_returns_stable_identifiers() {
     assert_eq!(AppMessage::forbidden("").kind_name(), "forbidden");
     assert_eq!(AppMessage::not_found("").kind_name(), "not_found");
     assert_eq!(AppMessage::conflict("").kind_name(), "conflict");
-    assert_eq!(AppMessage::unprocessable_entity("").kind_name(), "unprocessable_entity");
-    assert_eq!(AppMessage::internal_server_error("").kind_name(), "internal_server_error");
+    assert_eq!(
+        AppMessage::unprocessable_entity("").kind_name(),
+        "unprocessable_entity"
+    );
+    assert_eq!(
+        AppMessage::internal_server_error("").kind_name(),
+        "internal_server_error"
+    );
 }
 
 #[test]

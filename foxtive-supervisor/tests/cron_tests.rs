@@ -307,7 +307,10 @@ async fn test_rate_limiting_restart_interval() {
             // Fail first 2 times to trigger restarts
             let count = self.fail_count.fetch_add(1, Ordering::SeqCst);
             if count < 2 {
-                return Err(foxtive_supervisor::SupervisorError::from(format!("Intentional failure {}", count)));
+                return Err(foxtive_supervisor::SupervisorError::from(format!(
+                    "Intentional failure {}",
+                    count
+                )));
             }
             Ok(())
         }
@@ -607,7 +610,9 @@ async fn test_combined_initial_delay_and_restart_backoff() {
         async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             let mut times = self.run_times.lock().await;
             times.push(Instant::now());
-            Err(foxtive_supervisor::SupervisorError::internal("Intentional failure"))
+            Err(foxtive_supervisor::SupervisorError::internal(
+                "Intentional failure",
+            ))
         }
     }
 

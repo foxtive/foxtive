@@ -66,8 +66,8 @@ mod tests {
 
     #[test]
     fn test_recover_from_result() {
-        let result: AppResult<String> = Err(AppMessage::success("User created"))
-            .recover_from(|err| {
+        let result: AppResult<String> =
+            Err(AppMessage::success("User created")).recover_from(|err| {
                 assert_eq!(err.status_code(), StatusCode::OK);
                 assert_eq!(err.message(), "User created");
                 Ok("recovered".to_string())

@@ -4,8 +4,8 @@ use crate::database::Model;
 use crate::prelude::AppResult;
 use crate::results::{AppOptionalResult, AppPaginationResult};
 use diesel::result::Error;
-use diesel_async::pooled_connection::deadpool::{Object, Pool};
 use diesel_async::AsyncPgConnection;
+use diesel_async::pooled_connection::deadpool::{Object, Pool};
 use serde::Serialize;
 
 /// Async counterpart to [`DatabaseConnectionExt`](crate::database::ext::DatabaseConnectionExt).

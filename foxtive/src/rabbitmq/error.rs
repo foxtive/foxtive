@@ -328,7 +328,9 @@ mod tests {
         let msg5 = try_convert(RmqError::stream_terminated("queue", "tag"));
         assert!(msg5.message().contains("queue"));
 
-        let msg6 = try_convert(RmqError::Configuration { message: "bad config".to_string() });
+        let msg6 = try_convert(RmqError::Configuration {
+            message: "bad config".to_string(),
+        });
         assert!(msg6.message().contains("bad config"));
 
         let msg7 = try_convert(RmqError::ReconnectionFailed { attempts: 3 });
@@ -388,7 +390,10 @@ mod tests {
 
         assert!(app_msg.message().contains("test_op"));
         assert!(app_msg.message().contains("5s"));
-        assert_eq!(app_msg.status_code(), http::StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            app_msg.status_code(),
+            http::StatusCode::INTERNAL_SERVER_ERROR
+        );
     }
 
     #[test]

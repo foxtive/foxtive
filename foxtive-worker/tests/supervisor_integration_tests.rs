@@ -85,7 +85,9 @@ async fn test_supervisor_restart_on_failure() {
 
         async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
             self.restarts.fetch_add(1, Ordering::SeqCst);
-            Err(foxtive_supervisor::SupervisorError::internal("Intentional failure"))
+            Err(foxtive_supervisor::SupervisorError::internal(
+                "Intentional failure",
+            ))
         }
 
         fn restart_policy(&self) -> RestartPolicy {

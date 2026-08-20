@@ -31,7 +31,8 @@ pub trait CoordinationBackend: Send + Sync {
     async fn is_instance_alive(&self, instance_id: &str) -> SupervisorResult<bool>;
 
     /// Try to become the leader (acquire leader lock)
-    async fn try_become_leader(&self, instance_id: &str, lease_secs: u64) -> SupervisorResult<bool>;
+    async fn try_become_leader(&self, instance_id: &str, lease_secs: u64)
+    -> SupervisorResult<bool>;
 
     /// Check if this instance is currently the leader
     async fn is_leader(&self, instance_id: &str) -> SupervisorResult<bool>;

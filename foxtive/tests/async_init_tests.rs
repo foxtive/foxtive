@@ -1,12 +1,12 @@
 mod common;
 
+use foxtive::App;
 use foxtive::app::AppInit;
+use foxtive::enums::AppMessage;
 use foxtive::lifecycle::AsyncInit;
 use foxtive::prelude::AppResult;
-use foxtive::App;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
-use foxtive::enums::AppMessage;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 struct SimpleService {
     initialized: Arc<AtomicBool>,
@@ -122,17 +122,11 @@ async fn async_init_replaces_existing_service() {
 
     // Register first instance
     init.register(CountingService { id: 1 });
-    assert_eq!(
-        init.get::<CountingService>().unwrap().id,
-        1
-    );
+    assert_eq!(init.get::<CountingService>().unwrap().id, 1);
 
     // Init should replace it
     init.init_service::<CountingService>().await.unwrap();
-    assert_eq!(
-        init.get::<CountingService>().unwrap().id,
-        1
-    );
+    assert_eq!(init.get::<CountingService>().unwrap().id, 1);
 }
 
 #[tokio::test]

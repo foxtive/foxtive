@@ -57,11 +57,7 @@ pub trait Event: Clone + Send + Sync + 'static {}
 /// through the [`EventBus`].
 pub trait EventHandler<T: Event>: Send + Sync + 'static {
     /// Handle the event. Receives a reference to the app for accessing services.
-    fn handle(
-        &self,
-        event: &T,
-        app: &App,
-    ) -> impl Future<Output = AppResult<()>> + Send;
+    fn handle(&self, event: &T, app: &App) -> impl Future<Output = AppResult<()>> + Send;
 }
 
 type BoxFuture<'a> = Pin<Box<dyn Future<Output = AppResult<()>> + Send + 'a>>;
@@ -69,7 +65,11 @@ type BoxFuture<'a> = Pin<Box<dyn Future<Output = AppResult<()>> + Send + 'a>>;
 /// Type-erased handler collection for a single event type.
 /// Avoids per-emit downcast by dispatching directly through a trait object.
 trait ErasedHandlerVec: Send + Sync {
-    fn dispatch(&self, event: Arc<dyn std::any::Any + Send + Sync>, app: Arc<App>) -> Option<Vec<BoxFuture<'_>>>;
+    fn dispatch(
+        &self,
+        event: Arc<dyn std::any::Any + Send + Sync>,
+        app: Arc<App>,
+    ) -> Option<Vec<BoxFuture<'_>>>;
     fn len(&self) -> usize;
 }
 
@@ -79,12 +79,20 @@ struct ErasedTypedHandler<T: Event, H: EventHandler<T>> {
 }
 
 impl<T: Event, H: EventHandler<T>> ErasedHandlerVec for ErasedTypedHandler<T, H> {
-    fn dispatch(&self, event: Arc<dyn std::any::Any + Send + Sync>, app: Arc<App>) -> Option<Vec<BoxFuture<'_>>> {
+    fn dispatch(
+        &self,
+        event: Arc<dyn std::any::Any + Send + Sync>,
+        app: Arc<App>,
+    ) -> Option<Vec<BoxFuture<'_>>> {
         let event = event.downcast::<T>().ok()?;
         let inner = Arc::clone(&self.inner);
-        Some(vec![Box::pin(async move { inner.handle(&event, &app).await })])
+        Some(vec![Box::pin(
+            async move { inner.handle(&event, &app).await },
+        )])
     }
-    fn len(&self) -> usize { 1 }
+    fn len(&self) -> usize {
+        1
+    }
 }
 
 struct ErasedClosureHandler<T: Event, F, Fut>
@@ -101,12 +109,18 @@ where
     F: Fn(Arc<T>, Arc<App>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = AppResult<()>> + Send + 'static,
 {
-    fn dispatch(&self, event: Arc<dyn std::any::Any + Send + Sync>, app: Arc<App>) -> Option<Vec<BoxFuture<'_>>> {
+    fn dispatch(
+        &self,
+        event: Arc<dyn std::any::Any + Send + Sync>,
+        app: Arc<App>,
+    ) -> Option<Vec<BoxFuture<'_>>> {
         let event = event.downcast::<T>().ok()?;
         let f = Arc::clone(&self.inner);
         Some(vec![Box::pin(async move { f(event, app).await })])
     }
-    fn len(&self) -> usize { 1 }
+    fn len(&self) -> usize {
+        1
+    }
 }
 
 /// In-process event bus that dispatches events to registered handlers.
@@ -226,6 +240,9 @@ impl EventBus {
 
     /// Returns the total number of registered handlers across all event types.
     pub fn total_handler_count(&self) -> usize {
-        self.handlers.values().map(|v| v.iter().map(|h| h.len()).sum::<usize>()).sum()
+        self.handlers
+            .values()
+            .map(|v| v.iter().map(|h| h.len()).sum::<usize>())
+            .sum()
     }
 }

@@ -2,10 +2,10 @@
 //!
 //! `#[service(all)]` treats all fields as dependencies unless marked `#[foxtive(default)]`.
 
+use foxtive::App;
 use foxtive::container::Lazy;
 use foxtive::lifecycle::Service;
 use foxtive::prelude::AppResult;
-use foxtive::App;
 use std::sync::Arc;
 
 #[derive(Service, Default)]

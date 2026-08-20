@@ -308,9 +308,7 @@ mod tests {
         let invalid_hash = "invalid_hash";
         let pwd = "my_password";
 
-        let err = password
-            .verify(invalid_hash, pwd)
-            .unwrap_err();
+        let err = password.verify(invalid_hash, pwd).unwrap_err();
 
         assert!(err.is_server_error());
     }

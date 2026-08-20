@@ -2,8 +2,8 @@ mod common;
 
 #[cfg(feature = "database")]
 mod db_config {
-    use std::time::Duration;
     use foxtive::database::DbConfig;
+    use std::time::Duration;
 
     #[test]
     fn valid_config_passes_validation() {
@@ -59,8 +59,8 @@ mod db_config {
 
 #[cfg(feature = "redis")]
 mod redis_config {
-    use std::time::Duration;
     use foxtive::redis::config::RedisConfig;
+    use std::time::Duration;
 
     #[test]
     fn valid_config_passes_validation() {
@@ -84,16 +84,16 @@ mod redis_config {
 
     #[test]
     fn zero_timeout_is_accepted() {
-        let config = RedisConfig::create("redis://localhost:6379")
-            .wait_timeout(Duration::from_secs(0));
+        let config =
+            RedisConfig::create("redis://localhost:6379").wait_timeout(Duration::from_secs(0));
         assert!(config.validate().is_ok());
     }
 }
 
 #[cfg(feature = "rabbitmq")]
 mod rabbitmq_config {
-    use std::time::Duration;
     use foxtive::rabbitmq::config::RabbitmqConfig;
+    use std::time::Duration;
 
     #[test]
     fn valid_config_passes_validation() {

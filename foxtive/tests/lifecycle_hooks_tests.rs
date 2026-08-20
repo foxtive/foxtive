@@ -4,11 +4,11 @@
 
 mod common;
 
+use foxtive::App;
 use foxtive::lifecycle::{Service, ServiceHooks, ServiceInit};
 use foxtive::prelude::AppResult;
-use foxtive::App;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 // after_init via manual ServiceInit (no derive)
 

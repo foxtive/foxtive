@@ -131,7 +131,11 @@ impl CoordinationBackend for RedisCoordination {
         Ok(exists)
     }
 
-    async fn try_become_leader(&self, instance_id: &str, lease_secs: u64) -> SupervisorResult<bool> {
+    async fn try_become_leader(
+        &self,
+        instance_id: &str,
+        lease_secs: u64,
+    ) -> SupervisorResult<bool> {
         let leader_key = "leader:current";
 
         let mut conn = self.get_conn().await?;

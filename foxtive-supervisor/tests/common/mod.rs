@@ -77,7 +77,10 @@ impl SupervisedTask for MockTask {
     async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         let count = self.fail_count.fetch_add(1, Ordering::SeqCst);
         if count < self.max_fails {
-            return Err(foxtive_supervisor::SupervisorError::from(format!("Simulated failure {}", count)));
+            return Err(foxtive_supervisor::SupervisorError::from(format!(
+                "Simulated failure {}",
+                count
+            )));
         }
         Ok(())
     }
@@ -178,7 +181,9 @@ impl SupervisedTask for HookTrackingTask {
 
     async fn run(&self) -> foxtive_supervisor::SupervisorResult<()> {
         if self.fail_once.swap(false, Ordering::SeqCst) {
-            return Err(foxtive_supervisor::SupervisorError::from("First attempt fails"));
+            return Err(foxtive_supervisor::SupervisorError::from(
+                "First attempt fails",
+            ));
         }
         Ok(())
     }

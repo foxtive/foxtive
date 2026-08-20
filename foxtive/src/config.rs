@@ -98,7 +98,10 @@ pub fn load<T: DeserializeOwned>(service: &str, prefix: &str) -> AppResult<T> {
     let file_path = exe_dir
         .as_ref()
         .map(|dir| dir.join(service).join("config.json"))
-        .or_else(|| cwd.as_ref().map(|dir| dir.join(service).join("config.json")));
+        .or_else(|| {
+            cwd.as_ref()
+                .map(|dir| dir.join(service).join("config.json"))
+        });
 
     if let Some(path) = file_path
         && path.exists()
