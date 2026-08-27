@@ -39,8 +39,8 @@ async fn test_attempt_count_preservation() {
     let payload = serde_json::to_vec(&message.payload).unwrap();
     channel
         .basic_publish(
-            "",
-            "test_attempt_count",
+            "".into(),
+            "test_attempt_count".into(),
             BasicPublishOptions::default(),
             &payload,
             BasicProperties::default()
@@ -167,8 +167,8 @@ async fn test_multiple_retries_count_sequence() {
     let payload = serde_json::to_vec(&message.payload).unwrap();
     channel
         .basic_publish(
-            "",
-            "test_retry_sequence",
+            "".into(),
+            "test_retry_sequence".into(),
             BasicPublishOptions::default(),
             &payload,
             BasicProperties::default()
@@ -243,8 +243,8 @@ async fn test_attempt_count_with_routing_key() {
     let payload = serde_json::to_vec(&message.payload).unwrap();
     channel
         .basic_publish(
-            "",
-            "custom.routing.key",
+            "".into(),
+            "custom.routing.key".into(),
             BasicPublishOptions::default(),
             &payload,
             BasicProperties::default()
@@ -387,8 +387,8 @@ async fn test_attempt_count_with_varying_delays() {
     let payload = serde_json::to_vec(&message.payload).unwrap();
     channel
         .basic_publish(
-            "",
-            "test_varying_delays",
+            "".into(),
+            "test_varying_delays".into(),
             BasicPublishOptions::default(),
             &payload,
             BasicProperties::default()
@@ -459,8 +459,8 @@ async fn test_concurrent_retries_attempt_isolation() {
         let payload = serde_json::to_vec(&message.payload).unwrap();
         channel
             .basic_publish(
-                "",
-                "test_concurrent_attempts",
+                "".into(),
+                "test_concurrent_attempts".into(),
                 BasicPublishOptions::default(),
                 &payload,
                 BasicProperties::default()

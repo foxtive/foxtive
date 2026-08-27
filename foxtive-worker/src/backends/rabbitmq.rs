@@ -272,8 +272,8 @@ impl RabbitMqRetryPublisher {
 
         channel
             .basic_publish(
-                "",
-                dlq_name,
+                "".into(),
+                dlq_name.as_str().into(),
                 BasicPublishOptions::default(),
                 &payload,
                 properties,
@@ -349,8 +349,8 @@ impl RetryPublisher for RabbitMqRetryPublisher {
 
         channel
             .basic_publish(
-                &retry_exchange,
-                routing_key,
+                retry_exchange.as_str().into(),
+                routing_key.into(),
                 BasicPublishOptions::default(),
                 &payload,
                 properties,
@@ -511,8 +511,9 @@ impl RabbitMqBackend {
         config: RabbitMqConsumerConfig,
     ) -> WorkerResult<Self> {
         // Create connection pool
+        let runtime = async_rs::Runtime::tokio_current();
         let manager =
-            deadpool_lapin::Manager::new(amqp_url.into(), lapin::ConnectionProperties::default());
+            deadpool_lapin::Manager::new(amqp_url.into(), lapin::ConnectionProperties::default, runtime);
 
         let pool = deadpool_lapin::Pool::builder(manager)
             .build()
@@ -540,7 +541,7 @@ impl RabbitMqBackend {
         // Declare queue (idempotent) — use user-provided options and args
         consume_channel
             .queue_declare(
-                &config.queue_name,
+                config.queue_name.as_str().into(),
                 config.queue_declare_options,
                 config.queue_args.clone(),
             )
@@ -566,8 +567,8 @@ impl RabbitMqBackend {
         // Create the lapin consumer
         let mut lapin_consumer = consume_channel
             .basic_consume(
-                &queue_name,
-                &consumer_tag,
+                queue_name.as_str().into(),
+                consumer_tag.as_str().into(),
                 BasicConsumeOptions {
                     no_ack: config.auto_ack,
                     ..Default::default()
@@ -795,7 +796,7 @@ impl RabbitMqBackend {
         // Declare the dead letter exchange as Topic to support wildcard routing
         channel
             .exchange_declare(
-                &retry_exchange,
+                retry_exchange.as_str().into(),
                 lapin::ExchangeKind::Topic,
                 ExchangeDeclareOptions {
                     durable: true,
@@ -822,7 +823,7 @@ impl RabbitMqBackend {
         );
 
         channel
-            .queue_declare(&retry_queue, config.queue_declare_options, args)
+            .queue_declare(retry_queue.as_str().into(), config.queue_declare_options, args)
             .await
             .map_err(|e| {
                 WorkerError::BackendError(format!("Failed to declare retry queue: {}", e))
@@ -832,9 +833,9 @@ impl RabbitMqBackend {
         // Use '#' wildcard to match all routing keys, since messages can have different routing keys
         channel
             .queue_bind(
-                &retry_queue,
-                &retry_exchange,
-                "#", // Match all routing keys
+                retry_queue.as_str().into(),
+                retry_exchange.as_str().into(),
+                "#".into(), // Match all routing keys
                 QueueBindOptions::default(),
                 FieldTable::default(),
             )
@@ -845,7 +846,7 @@ impl RabbitMqBackend {
         let dlq_name = format!("{}-dlq", config.queue_name);
         channel
             .queue_declare(
-                &dlq_name,
+                dlq_name.as_str().into(),
                 config.queue_declare_options,
                 config.queue_args.clone(),
             )
@@ -1002,8 +1003,8 @@ impl RabbitMqBackend {
         // Publish to retry exchange with the ORIGINAL routing key (preserved from message metadata)
         channel
             .basic_publish(
-                &retry_exchange,
-                routing_key, // Use original routing key, not queue name
+                retry_exchange.as_str().into(),
+                routing_key.into(), // Use original routing key, not queue name
                 BasicPublishOptions::default(),
                 &payload,
                 properties,
@@ -1105,8 +1106,8 @@ impl RabbitMqBackend {
         // Publish to DLQ using default exchange with DLQ name as routing key
         channel
             .basic_publish(
-                "",       // Default exchange
-                dlq_name, // Routing key = DLQ queue name
+                "".into(),       // Default exchange
+                dlq_name.as_str().into(), // Routing key = DLQ queue name
                 BasicPublishOptions::default(),
                 &payload,
                 properties,

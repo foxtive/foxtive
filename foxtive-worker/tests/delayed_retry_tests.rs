@@ -194,8 +194,8 @@ async fn test_end_to_end_delayed_retry() {
     let payload = serde_json::to_vec(&message.payload).unwrap();
     channel
         .basic_publish(
-            "",
-            "test_e2e_retry",
+            "".into(),
+            "test_e2e_retry".into(),
             BasicPublishOptions::default(),
             &payload,
             BasicProperties::default()

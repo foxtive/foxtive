@@ -344,8 +344,8 @@ async fn test_full_retry_flow_to_dlq() {
     let payload = serde_json::to_vec(&message.payload).unwrap();
     channel
         .basic_publish(
-            "",
-            "test_full_flow",
+            "".into(),
+            "test_full_flow".into(),
             BasicPublishOptions::default(),
             &payload,
             BasicProperties::default()

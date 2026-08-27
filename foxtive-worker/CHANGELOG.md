@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-08-27
+
+### Changed
+- bump(foxtive): 1.0.0 -> 1.2.0
+- bump(uuid): 1.24.1 -> 1.26.0
+- bump(lapin): 3.7.2 -> 4.10.0
+- bump(deadpool-lapin): 0.13.1 -> 0.14.0
+- bump(deadpool-redis): 0.23.0 -> 0.23.1
+- feat(rabbitmq): adapt to lapin 4.x API (ShortString parameters, deadpool-lapin Manager closure-based connection properties with async-rs runtime)
+
+### Added
+- dep(async-rs): 0.8 (required by deadpool-lapin 0.14 for Manager runtime)
+
+---
+
 ## [0.6.1] - 2026-08-19
 
 ### Changed
