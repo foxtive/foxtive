@@ -512,8 +512,11 @@ impl RabbitMqBackend {
     ) -> WorkerResult<Self> {
         // Create connection pool
         let runtime = async_rs::Runtime::tokio_current();
-        let manager =
-            deadpool_lapin::Manager::new(amqp_url.into(), lapin::ConnectionProperties::default, runtime);
+        let manager = deadpool_lapin::Manager::new(
+            amqp_url.into(),
+            lapin::ConnectionProperties::default,
+            runtime,
+        );
 
         let pool = deadpool_lapin::Pool::builder(manager)
             .build()
@@ -823,7 +826,11 @@ impl RabbitMqBackend {
         );
 
         channel
-            .queue_declare(retry_queue.as_str().into(), config.queue_declare_options, args)
+            .queue_declare(
+                retry_queue.as_str().into(),
+                config.queue_declare_options,
+                args,
+            )
             .await
             .map_err(|e| {
                 WorkerError::BackendError(format!("Failed to declare retry queue: {}", e))
@@ -1106,7 +1113,7 @@ impl RabbitMqBackend {
         // Publish to DLQ using default exchange with DLQ name as routing key
         channel
             .basic_publish(
-                "".into(),       // Default exchange
+                "".into(),                // Default exchange
                 dlq_name.as_str().into(), // Routing key = DLQ queue name
                 BasicPublishOptions::default(),
                 &payload,
