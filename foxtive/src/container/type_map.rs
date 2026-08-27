@@ -156,6 +156,67 @@ impl TypeMap {
     pub fn contains_trait<T: ?Sized + Send + Sync + 'static>(&self) -> bool {
         self.inner.contains_key(&TypeId::of::<T>())
     }
+
+    /// Remove all entries from the map.
+    ///
+    /// After calling `clear()`, `len()` returns 0 and `is_empty()` returns true.
+    /// Existing `Arc` clones held by callers remain valid (they still point to
+    /// the original values), but the map no longer references them.
+    pub fn clear(&mut self) {
+        self.inner.clear();
+    }
+
+    /// Get the value of type `T`, or insert a newly constructed value.
+    ///
+    /// The closure is only called if `T` is not already present.
+    /// Returns an `Arc<T>` to the (possibly newly inserted) value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use foxtive::container::TypeMap;
+    ///
+    /// let mut map = TypeMap::new();
+    /// let value = map.get_or_insert_with(|| 42u32);
+    /// assert_eq!(*value, 42);
+    /// ```
+    pub fn get_or_insert_with<T, F>(&mut self, f: F) -> Arc<T>
+    where
+        T: Send + Sync + 'static,
+        F: FnOnce() -> T,
+    {
+        if let Some(existing) = self.get::<T>() {
+            return existing;
+        }
+        let value = f();
+        self.insert(value);
+        self.get::<T>().unwrap()
+    }
+
+    /// Returns all `TypeId` keys currently in the map.
+    ///
+    /// Useful for debugging — combine with known type names to inspect
+    /// what is registered. `TypeId` does not carry the original type name
+    /// at runtime in stable Rust.
+    pub fn type_ids(&self) -> Vec<TypeId> {
+        self.inner.keys().copied().collect()
+    }
+
+    /// Get a cloned copy of the inner value.
+    ///
+    /// Shorthand for `map.get::<T>().map(|arc| arc.as_ref().clone())`.
+    /// Requires `T: Clone`. Returns `None` if not registered.
+    pub fn get_cloned<T: Clone + Send + Sync + 'static>(&self) -> Option<T> {
+        self.get::<T>().map(|arc| arc.as_ref().clone())
+    }
+
+    /// Get a cloned copy of a trait object.
+    ///
+    /// Shorthand for `map.get_trait::<T>().map(|arc| arc.as_ref().clone())`.
+    /// Requires `T: Clone`. Returns `None` if not registered.
+    pub fn get_trait_cloned<T: Clone + Send + Sync + 'static>(&self) -> Option<T> {
+        self.get_trait::<T>().map(|arc| arc.as_ref().clone())
+    }
 }
 
 impl Default for TypeMap {
@@ -235,5 +296,73 @@ mod tests {
         let a = map.get::<u32>().unwrap();
         let b = map.get::<u32>().unwrap();
         assert!(Arc::ptr_eq(&a, &b));
+    }
+
+    #[test]
+    fn test_clear_empties_map() {
+        let mut map = TypeMap::new();
+        map.insert(42u32);
+        map.insert("hello".to_string());
+        assert_eq!(map.len(), 2);
+
+        map.clear();
+        assert!(map.is_empty());
+        assert_eq!(map.len(), 0);
+        assert!(map.get::<u32>().is_none());
+        assert!(map.get::<String>().is_none());
+    }
+
+    #[test]
+    fn test_clear_existing_arc_still_valid() {
+        let mut map = TypeMap::new();
+        map.insert(42u32);
+        let arc = map.get::<u32>().unwrap();
+
+        map.clear();
+        // Arc clone still holds the value
+        assert_eq!(*arc, 42);
+    }
+
+    #[test]
+    fn test_get_or_insert_with_inserts_when_missing() {
+        let mut map = TypeMap::new();
+        let value = map.get_or_insert_with(|| 42u32);
+        assert_eq!(*value, 42);
+        assert_eq!(map.len(), 1);
+    }
+
+    #[test]
+    fn test_get_or_insert_with_returns_existing() {
+        let mut map = TypeMap::new();
+        map.insert(10u32);
+        let value = map.get_or_insert_with(|| 99u32);
+        assert_eq!(*value, 10); // existing value, not 99
+    }
+
+    #[test]
+    fn test_type_ids_returns_keys() {
+        let mut map = TypeMap::new();
+        assert!(map.type_ids().is_empty());
+
+        map.insert(42u32);
+        map.insert("hello".to_string());
+        let ids = map.type_ids();
+        assert_eq!(ids.len(), 2);
+        assert!(ids.contains(&TypeId::of::<u32>()));
+        assert!(ids.contains(&TypeId::of::<String>()));
+    }
+
+    #[test]
+    fn test_get_cloned_returns_value() {
+        let mut map = TypeMap::new();
+        map.insert(42u32);
+        let value: u32 = map.get_cloned::<u32>().unwrap();
+        assert_eq!(value, 42);
+    }
+
+    #[test]
+    fn test_get_cloned_returns_none_when_missing() {
+        let map = TypeMap::new();
+        assert!(map.get_cloned::<u32>().is_none());
     }
 }

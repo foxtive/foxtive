@@ -404,7 +404,7 @@ impl RabbitMQ {
             self.operation_timeout,
             inner
                 .publish_channel
-                .exchange_declare(exchange, kind, options, args),
+                .exchange_declare(exchange.into(), kind, options, args),
         )
         .await
         .map_err(|_| RmqError::timeout("exchange_declare", self.operation_timeout))??;
@@ -423,7 +423,7 @@ impl RabbitMQ {
         let inner = self.inner.read().await;
         tokio::time::timeout(
             self.operation_timeout,
-            inner.publish_channel.queue_declare(queue, options, args),
+            inner.publish_channel.queue_declare(queue.into(), options, args),
         )
         .await
         .map_err(|_| RmqError::timeout("queue_declare", self.operation_timeout))??;
@@ -445,9 +445,9 @@ impl RabbitMQ {
         tokio::time::timeout(
             self.operation_timeout,
             inner.publish_channel.queue_bind(
-                queue,
-                exchange,
-                &routing_key.to_string(),
+                queue.into(),
+                exchange.into(),
+                routing_key.to_string().into(),
                 options,
                 args,
             ),
@@ -551,8 +551,8 @@ impl RabbitMQ {
             tokio::time::timeout(
                 self.operation_timeout,
                 inner.consume_channel.basic_consume(
-                    queue,
-                    tag,
+                    queue.into(),
+                    tag.into(),
                     self.default_consume_options,
                     FieldTable::default(),
                 ),
@@ -604,11 +604,11 @@ impl RabbitMQ {
                                     }
 
                                     let inner = self.inner.read().await;
-                                    let channel_state = inner.consume_channel.status().state();
+                                    let channel_status = inner.consume_channel.status().clone();
                                     drop(inner);
-                                    if matches!(channel_state, ChannelState::Closed | ChannelState::Closing | ChannelState::Error) {
-                                        warn!("[{tag}] Health check failed - channel state: {channel_state:?}");
-                                        return Err(RmqError::channel_error(format!("{:?}", channel_state), 0));
+                                    if !channel_status.connected() || channel_status.closing() {
+                                        warn!("[{tag}] Health check failed - channel status: {channel_status:?}");
+                                        return Err(RmqError::channel_error(format!("{:?}", channel_status), 0));
                                     }
                                 }
                             }
@@ -751,8 +751,8 @@ impl RabbitMQ {
             tokio::time::timeout(
                 self.operation_timeout,
                 inner.consume_channel.basic_consume(
-                    queue,
-                    tag,
+                    queue.into(),
+                    tag.into(),
                     self.default_consume_options,
                     FieldTable::default(),
                 ),
@@ -919,7 +919,7 @@ impl RabbitMQ {
     pub async fn close(&self, reply_code: ReplyCode, reply_text: &str) -> RmqResult<()> {
         let connection = self.conn_pool.get().await?;
         self.can_reconnect.store(false, Ordering::SeqCst);
-        Ok(connection.close(reply_code, reply_text).await?)
+        Ok(connection.close(reply_code, reply_text.into()).await?)
     }
 
     /// Acquire connection pool in use by this instance
@@ -929,8 +929,8 @@ impl RabbitMQ {
 
     pub async fn close_channels(&self, reply_code: ReplyCode, reply_text: &str) -> RmqResult<()> {
         let inner = self.inner.read().await;
-        inner.publish_channel.close(reply_code, reply_text).await?;
-        inner.consume_channel.close(reply_code, reply_text).await?;
+        inner.publish_channel.close(reply_code, reply_text.into()).await?;
+        inner.consume_channel.close(reply_code, reply_text.into()).await?;
         Ok(())
     }
 
@@ -957,13 +957,10 @@ impl RabbitMQ {
                 } else {
                     &inner.consume_channel
                 };
-                let state = channel.status().state();
-                if matches!(
-                    state,
-                    ChannelState::Closed | ChannelState::Closing | ChannelState::Error
-                ) {
+                let status = channel.status();
+                if !status.connected() || status.closing() {
                     warn!(
-                        "Channel({}) is not usable: {state:?}, recreating...",
+                        "Channel({}) is not usable: {status:?}, recreating...",
                         channel.id()
                     );
                     true
@@ -1010,10 +1007,9 @@ impl RabbitMQ {
         }
 
         let connection = self.conn_pool.get().await?;
-        let state = connection.status().state();
 
-        if state != ConnectionState::Connected {
-            warn!("Connection is not usable: {state:?}, attempting to re-establish...");
+        if !connection.status().connected() {
+            warn!("Connection is not usable: {:?}, attempting to re-establish...", connection.status());
             self.recreate_connection().await?;
         }
 
@@ -1113,7 +1109,10 @@ mod tests {
             ..Default::default()
         };
         let pool = config
-            .create_pool(Some(deadpool_lapin::Runtime::Tokio1))
+            .create_pool(
+                lapin::ConnectionProperties::default,
+                deadpool_lapin::Runtime::Tokio1,
+            )
             .unwrap();
 
         // Expect failure without running server

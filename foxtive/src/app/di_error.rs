@@ -516,7 +516,7 @@ mod tests {
             if c == '\x1b' {
                 // Skip ESC [ ... final byte (0x40-0x7E)
                 if chars.next() == Some('[') {
-                    while let Some(p) = chars.next() {
+                    for p in chars.by_ref() {
                         if (0x40..=0x7E).contains(&(p as u32)) {
                             break;
                         }

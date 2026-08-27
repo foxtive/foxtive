@@ -1,6 +1,6 @@
 [package]
 name = "foxtive"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2024"
 rust-version = "1.97"
 license = "MIT"
@@ -12,7 +12,7 @@ authors = ["ahmard"]
 database = ["dep:diesel", "diesel/r2d2"]
 database-async = ["dep:diesel-async", "dep:diesel"]
 openapi = ["dep:utoipa"]
-rabbitmq = ["dep:lapin", "dep:deadpool", "dep:deadpool-lapin"]
+rabbitmq = ["dep:lapin", "dep:deadpool", "dep:deadpool-lapin", "dep:async-rs"]
 redis = ["dep:redis", "dep:deadpool", "dep:deadpool-redis"]
 base64 = ["dep:base64"]
 hmac = ["dep:hmac", "dep:hex", "dep:sha2", "dep:rand"]
@@ -38,24 +38,25 @@ tracing-setup = ["dep:tracing-subscriber"]
 [dependencies]
 utoipa = {version = "5.5.0", features = ["chrono", "uuid"], optional = true}
 
-deadpool = { version = "0.13.0", optional = true }
+deadpool = { version = "0.13.1", optional = true }
 
 # RabbitMQ
-lapin = { version = "3.7.2", optional = true }
-deadpool-lapin = { version = "0.13.1", features = ["rt_tokio_1"], optional = true }
+lapin = { version = "4.10.0", optional = true }
+deadpool-lapin = { version = "0.14.0", features = ["rt_tokio_1"], optional = true }
+async-rs = { version = "0.8", default-features = false, features = ["tokio"], optional = true }
 
 # Redis
 redis = { version = "1.6.0", default-features = false, optional = true, features = [
     "tokio-native-tls-comp", "connection-manager"
 ] }
-deadpool-redis = { version = "0.23.0", features = ["rt_tokio_1"], optional = true }
+deadpool-redis = { version = "0.23.1", features = ["rt_tokio_1"], optional = true }
 
 # Dashmap
 dashmap = { version = "6.1.0", optional = true }
 
 http = "1.5.0"
 thiserror = "2.0.20"
-uuid = { version = "1.24.1", features = ["v4", "serde"] }
+uuid = { version = "1.26.0", features = ["v4", "serde"] }
 serde = { version = "1.0.229", features = ["derive"] }
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "time", "macros", "net"] }
 tokio-util = { version = "0.7.19", features = ["rt"] }
@@ -69,11 +70,11 @@ hex = { version = "0.4.3", optional = true }
 sha2 = { version = "0.11.0", optional = true }
 hmac = { version = "0.13.0", optional = true }
 fancy-regex = { version = "0.19.0", optional = true }
-tera = { version = "2.1.1", optional = true, features = ["glob_fs"] }
+tera = { version = "2.3.0", optional = true, features = ["glob_fs"] }
 reqwest = { version = "0.13.4", features = ["native-tls"], optional = true }
 diesel = { version = "2.3.12", features = ["postgres"], optional = true }
 diesel-async = { version = "0.9.2", features = ["postgres", "deadpool"], optional = true }
-jsonwebtoken = { version = "10.4.0", optional = true, features = ["rust_crypto"] }
+jsonwebtoken = { version = "11.0.0", optional = true, features = ["rust_crypto"] }
 jose-rs = { version = "0.7", optional = true }
 rsa = { version = "0.9", optional = true }
 strum = { version = "0.28.0", default-features = false, features = ["std"], optional = true }

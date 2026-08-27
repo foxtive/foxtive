@@ -13,7 +13,7 @@ fn strip_ansi(s: &str) -> String {
         if c == '\x1b' {
             // Skip ESC [ ... final byte (0x40-0x7E)
             if chars.next() == Some('[') {
-                while let Some(p) = chars.next() {
+                for p in chars.by_ref() {
                     if (0x40..=0x7E).contains(&(p as u32)) {
                         break;
                     }
@@ -72,7 +72,7 @@ async fn lazy_resolution_correctness() {
     let b_direct = app.require::<ServiceB>().unwrap();
 
     // They should point to the same instance
-    assert!(Arc::ptr_eq(&a.b.resolve(), &b_direct));
+    assert!(Arc::ptr_eq(&a.b.resolve().unwrap(), &b_direct));
     let _ = b_via_lazy; // just verify we can deref
 }
 
@@ -254,7 +254,7 @@ async fn lazy_mutable_works() {
     assert!(owner.counter.is_filled());
 
     // Access through Lazy<Mutable<T>>
-    let mutable = owner.counter.resolve();
+    let mutable = owner.counter.resolve().unwrap();
     assert_eq!(mutable.read().count, 0);
     mutable.write().count = 42;
     assert_eq!(mutable.read().count, 42);

@@ -85,9 +85,9 @@ macro_rules! lazy {
 ///
 /// # Access Patterns
 ///
-/// - `Deref` (`&lazy`) - convenient, but performs atomic read on every access.
-/// - `resolve()` - returns `Arc<T>` directly. Cache in hot paths to avoid
-///   repeated atomic reads.
+/// - `Deref` (`&lazy`) - convenient, but **panics** if unfilled.
+/// - `resolve()` - returns `AppResult<Arc<T>>`. Fallsible, preferred in
+///   error-handling contexts. Cache in hot paths to avoid repeated atomic reads.
 /// - `try_get()` - non-panicking access. Returns `None` if unfilled.
 ///
 /// # Performance
@@ -95,13 +95,13 @@ macro_rules! lazy {
 /// In tight loops, cache the `Arc<T>` via `resolve()`:
 ///
 /// ```ignore
-/// // BAD: atomic read on every iteration
+/// // BAD: atomic read on every iteration (panics if unfilled)
 /// for item in items {
 ///     self.lazy_dep.process(item);
 /// }
 ///
-/// // GOOD: cache the Arc, single atomic read
-/// let dep = self.lazy_dep.resolve();
+/// // GOOD: cache the Arc, single atomic read, fallible
+/// let dep = self.lazy_dep.resolve()?;
 /// for item in items {
 ///     dep.process(item);
 /// }
@@ -142,7 +142,11 @@ impl<T> Lazy<T> {
 
     /// Returns `&T` via double-deref through `Arc<T>`.
     ///
-    /// Panics with owner/field metadata if unfilled.
+    /// # Panics
+    ///
+    /// Panics with owner/field metadata if unfilled. Use [`try_get()`](Self::try_get)
+    /// for non-panicking access, or [`resolve()`](Self::resolve) for a
+    /// `Result`-based API with error details.
     pub fn get(&self) -> &T {
         self.inner
             .get()
@@ -164,22 +168,27 @@ impl<T> Lazy<T> {
         self.inner.get().map(|arc| arc.as_ref())
     }
 
-    /// Returns the inner `Arc<T>` directly.
+    /// Returns the inner `Arc<T>`.
     ///
+    /// Returns `Ok(Arc<T>)` if filled, or an error if unfilled.
     /// Use this in hot paths to cache the `Arc` and avoid repeated atomic
-    /// reads from `OnceLock::get()`. Panics if unfilled.
-    pub fn resolve(&self) -> Arc<T> {
-        self.inner
-            .get()
-            .unwrap_or_else(|| {
-                panic!(
-                    "Lazy<{}> on {}.{} not filled - was freeze() completed?",
-                    std::any::type_name::<T>(),
-                    self.owner_type,
-                    self.field_name,
-                )
-            })
-            .clone()
+    /// reads from `OnceLock::get()`.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let dep = lazy_dep.resolve()?;
+    /// dep.do_something();
+    /// ```
+    pub fn resolve(&self) -> AppResult<Arc<T>> {
+        self.inner.get().cloned().ok_or_else(|| {
+            AppMessage::not_found(format!(
+                "Lazy<{}> on {}.{} not filled - was freeze() completed?",
+                std::any::type_name::<T>(),
+                self.owner_type,
+                self.field_name,
+            ))
+        })
     }
 
     /// Returns `true` if the lazy has been filled.
@@ -201,6 +210,12 @@ impl<T> Lazy<T> {
 impl<T> Deref for Lazy<T> {
     type Target = T;
 
+    /// Dereference to `&T`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the lazy dependency has not been filled. Use [`try_get()`](Self::try_get)
+    /// or [`resolve()`](Self::resolve) for non-panicking access.
     fn deref(&self) -> &T {
         self.get()
     }
@@ -250,6 +265,12 @@ impl<T: fmt::Debug> fmt::Debug for Lazy<T> {
 }
 
 impl<T> AsRef<T> for Lazy<T> {
+    /// Returns `&T`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the lazy dependency has not been filled. Use [`try_get()`](Self::try_get)
+    /// or [`resolve()`](Self::resolve) for non-panicking access.
     fn as_ref(&self) -> &T {
         self.get()
     }
@@ -332,15 +353,19 @@ mod tests {
     fn resolve_returns_arc_when_filled() {
         let lazy = Lazy::<u32>::new("Owner", "field");
         lazy.fill(Arc::new(42)).unwrap();
-        let arc: Arc<u32> = lazy.resolve();
+        let arc: Arc<u32> = lazy.resolve().unwrap();
         assert_eq!(*arc, 42);
     }
 
     #[test]
-    #[should_panic(expected = "not filled")]
-    fn resolve_panics_when_unfilled() {
+    fn resolve_returns_error_when_unfilled() {
         let lazy = Lazy::<u32>::new("Owner", "field");
-        lazy.resolve();
+        let result = lazy.resolve();
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("not filled"));
+        assert!(err.to_string().contains("Owner"));
+        assert!(err.to_string().contains("field"));
     }
 
     #[test]

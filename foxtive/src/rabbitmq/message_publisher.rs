@@ -158,8 +158,8 @@ impl<'a> MessagePublisher<'a> {
         tokio::time::timeout(
             self.rabbitmq.operation_timeout,
             inner.publish_channel.basic_publish(
-                &exchange,
-                &routing_key,
+                exchange.into(),
+                routing_key.into(),
                 self.rabbitmq.default_publish_options,
                 &payload,
                 final_props,
@@ -200,7 +200,10 @@ mod tests {
             ..Default::default()
         };
         let pool = config
-            .create_pool(Some(deadpool_lapin::Runtime::Tokio1))
+            .create_pool(
+                lapin::ConnectionProperties::default,
+                deadpool_lapin::Runtime::Tokio1,
+            )
             .unwrap();
 
         let rmq = match RabbitMQ::new(pool).await {
@@ -231,7 +234,10 @@ mod tests {
             ..Default::default()
         };
         let pool = config
-            .create_pool(Some(deadpool_lapin::Runtime::Tokio1))
+            .create_pool(
+                lapin::ConnectionProperties::default,
+                deadpool_lapin::Runtime::Tokio1,
+            )
             .unwrap();
 
         let rmq = match RabbitMQ::new(pool).await {
@@ -259,7 +265,10 @@ mod tests {
             ..Default::default()
         };
         let pool = config
-            .create_pool(Some(deadpool_lapin::Runtime::Tokio1))
+            .create_pool(
+                lapin::ConnectionProperties::default,
+                deadpool_lapin::Runtime::Tokio1,
+            )
             .unwrap();
 
         let rmq = match RabbitMQ::new(pool).await {

@@ -1,6 +1,48 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 1.2.0 (2026-08-27)
+
+#### Breaking Changes
+- **BREAKING** feat(container): `Lazy::resolve()` now returns `AppResult<Arc<T>>` instead of panicking on unfilled lazy dependencies; redundant `try_resolve()` removed
+- **BREAKING** feat(container): `App::get_lazy()` now returns `AppResult<()>` instead of `()`, propagating errors for missing services and duplicate fills instead of silently logging
+
+#### API Completeness
+- feat(app): add `App::has_service::<T>()` and `AppInit::has_service::<T>()` for checking whether a service type is registered
+- feat(app): add `App::service_type_ids()` to return `TypeId` keys of all registered services (for debugging/introspection)
+- feat(app): add owned-value accessors: `get_cloned()`, `require_cloned()`, `get_trait_cloned()`, `require_trait_cloned()` — shorthand for resolving and cloning the inner value without manual `Arc` unwrapping
+
+#### TypeMap Utilities
+- feat(container): add `TypeMap::clear()` to remove all entries from the map
+- feat(container): add `TypeMap::get_or_insert_with()` for get-or-construct semantics with a single lookup
+
+#### Dependencies
+- bump(jsonwebtoken): 10.4.0 -> 11.0.0
+- bump(uuid): 1.24.1 -> 1.26.0
+- bump(tera): 2.1.1 -> 2.3.0
+- bump(lapin): 3.7.2 -> 4.10.0
+- bump(deadpool-lapin): 0.13.1 -> 0.14.0
+- bump(deadpool): 0.13.0 -> 0.13.1
+- bump(deadpool-redis): 0.23.0 -> 0.23.1
+- feat(rabbitmq): adapt to lapin 4.x API (ShortString parameters, new channel/connection status API, deadpool-lapin Manager closure-based connection properties)
+
+#### Migration Guide
+
+```rust
+// Lazy::resolve() — before (1.1.x):
+let arc = lazy.resolve();          // panics if unfilled
+let arc = lazy.try_resolve()?;     // fallible
+
+// Lazy::resolve() — after (1.2.0):
+let arc = lazy.resolve()?;         // returns AppResult<Arc<T>>
+
+// App::get_lazy() — before (1.1.x):
+app.get_lazy(&self.field);  // returns (), errors silently logged
+
+// App::get_lazy() — after (1.2.0):
+app.get_lazy(&self.field)?;  // returns AppResult<()>, errors propagated
+```
+
 ### 1.1.0 (2026-08-19)
 
 #### DI Container

@@ -4,7 +4,8 @@ use deadpool_lapin::{Manager, Pool, Runtime};
 
 pub async fn create_rmq_conn_pool(mut config: RabbitmqConfig) -> AppResult<Pool> {
     config.apply_timeouts();
-    let manager = Manager::new(config.dsn.to_string(), config.conn_props);
+    let runtime = async_rs::Runtime::tokio_current();
+    let manager = Manager::new(config.dsn.to_string(), move || config.conn_props.clone(), runtime);
 
     Pool::builder(manager)
         .config(config.pool_config)

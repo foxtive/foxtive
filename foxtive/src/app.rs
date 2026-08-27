@@ -196,6 +196,61 @@ impl App {
         })
     }
 
+    /// Returns `true` if a service of type `T` is registered in the container.
+    ///
+    /// Shorthand for `app.get::<T>().is_some()` — more self-documenting
+    /// for existence checks.
+    pub fn has_service<T: Send + Sync + 'static>(&self) -> bool {
+        self.services.contains::<T>()
+    }
+
+    /// Returns the `TypeId` keys of all registered services (for debugging).
+    ///
+    /// Combine with `std::any::type_name::<KnownType>()` to correlate.
+    /// `TypeId` does not carry the original type name at runtime.
+    pub fn service_type_ids(&self) -> Vec<std::any::TypeId> {
+        self.services.type_ids()
+    }
+
+    /// Resolve a service and clone the inner value.
+    ///
+    /// Shorthand for `app.get::<T>().map(|arc| arc.as_ref().clone())`.
+    /// Requires `T: Clone`. Returns `None` if not registered.
+    ///
+    /// Use when you need an owned `T` and `T` is cheap to clone
+    /// (e.g., config structs, small value types). For expensive-to-clone
+    /// types, prefer `get()` and work with `Arc<T>`.
+    pub fn get_cloned<T: Clone + Send + Sync + 'static>(&self) -> Option<T> {
+        self.get::<T>().map(|arc| arc.as_ref().clone())
+    }
+
+    /// Resolve a service and clone the inner value, returning an error if missing.
+    pub fn require_cloned<T: Clone + Send + Sync + 'static>(&self) -> AppResult<T> {
+        self.get_cloned::<T>().ok_or_else(|| {
+            AppMessage::not_found(format!(
+                "Service of type {} not registered",
+                std::any::type_name::<T>()
+            ))
+        })
+    }
+
+    /// Resolve a trait binding and clone the inner value.
+    ///
+    /// Shorthand for `app.get_trait::<T>().map(|arc| arc.as_ref().clone())`.
+    pub fn get_trait_cloned<T: Clone + Send + Sync + 'static>(&self) -> Option<T> {
+        self.get_trait::<T>().map(|arc| arc.as_ref().clone())
+    }
+
+    /// Resolve a trait binding and clone the inner value, returning an error if missing.
+    pub fn require_trait_cloned<T: Clone + Send + Sync + 'static>(&self) -> AppResult<T> {
+        self.get_trait_cloned::<T>().ok_or_else(|| {
+            AppMessage::not_found(format!(
+                "Trait binding for {} not registered",
+                std::any::type_name::<T>()
+            ))
+        })
+    }
+
     /// Resolve `T` from the container and fill the `Lazy<T>` field.
     /// Returns error if `T` is not registered.
     pub fn require_lazy<T: Send + Sync + 'static>(&self, lazy: &Lazy<T>) -> AppResult<()> {
@@ -203,17 +258,22 @@ impl App {
     }
 
     /// Resolve `T` from the container and fill the `Lazy<T>` field.
-    /// No-op if `T` is not registered (for optional dependencies).
-    /// Logs at trace level if the field was already filled (masks bugs in production).
-    pub fn get_lazy<T: Send + Sync + 'static>(&self, lazy: &Lazy<T>) {
-        if let Some(arc) = self.get::<T>()
-            && let Err(e) = lazy.fill(arc)
-        {
-            tracing::trace!(
-                error = %e,
-                "get_lazy: field already filled - possible duplicate wiring"
-            );
-        }
+    ///
+    /// Returns `Ok(())` on success. Returns an error if:
+    /// - `T` is not registered in the container (dependency missing)
+    /// - The `Lazy<T>` field was already filled (duplicate wiring)
+    ///
+    /// This is the fallible counterpart to [`require_lazy()`](Self::require_lazy).
+    /// Unlike the previous version, errors are propagated to the caller
+    /// instead of being silently logged.
+    pub fn get_lazy<T: Send + Sync + 'static>(&self, lazy: &Lazy<T>) -> AppResult<()> {
+        let arc = self.get::<T>().ok_or_else(|| {
+            AppMessage::not_found(format!(
+                "Service of type {} not registered",
+                std::any::type_name::<T>()
+            ))
+        })?;
+        lazy.fill(arc)
     }
 
     /// Returns the application environment.
