@@ -423,7 +423,9 @@ impl RabbitMQ {
         let inner = self.inner.read().await;
         tokio::time::timeout(
             self.operation_timeout,
-            inner.publish_channel.queue_declare(queue.into(), options, args),
+            inner
+                .publish_channel
+                .queue_declare(queue.into(), options, args),
         )
         .await
         .map_err(|_| RmqError::timeout("queue_declare", self.operation_timeout))??;
@@ -929,8 +931,14 @@ impl RabbitMQ {
 
     pub async fn close_channels(&self, reply_code: ReplyCode, reply_text: &str) -> RmqResult<()> {
         let inner = self.inner.read().await;
-        inner.publish_channel.close(reply_code, reply_text.into()).await?;
-        inner.consume_channel.close(reply_code, reply_text.into()).await?;
+        inner
+            .publish_channel
+            .close(reply_code, reply_text.into())
+            .await?;
+        inner
+            .consume_channel
+            .close(reply_code, reply_text.into())
+            .await?;
         Ok(())
     }
 
@@ -1009,7 +1017,10 @@ impl RabbitMQ {
         let connection = self.conn_pool.get().await?;
 
         if !connection.status().connected() {
-            warn!("Connection is not usable: {:?}, attempting to re-establish...", connection.status());
+            warn!(
+                "Connection is not usable: {:?}, attempting to re-establish...",
+                connection.status()
+            );
             self.recreate_connection().await?;
         }
 
