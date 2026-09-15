@@ -1,6 +1,20 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 1.3.0 (2026-09-15)
+
+#### String Utilities
+- feat(string): add case conversions (`snake_case`, `kebab_case`, `pascal_case`, `title_case`)
+- feat(string): add validation helpers (`is_email`, `is_url`, `is_uuid`)
+- feat(string): add manipulation methods (`slugify`, `words`, `lines`, `repeat`, `starts_with_any`, `ends_with_any`)
+- fix(string): `uc_first()` now lowercases the rest of the string
+- feat(string): all new methods available via `StringExt` trait
+
+#### Dependencies
+- bump: lapin 4.11.0, utoipa 5.5.0, tera 2.4.0, reqwest 0.13.5, diesel 2.3.13
+- bump: tokio 1.53.1, chrono 0.4.45, uuid 1.26.0, serde 1.0.229, thiserror 2.0.20
+- bump: tracing 0.1.44, fancy-regex 0.19.2, dashmap 6.1.0, ammonia 4.1.4
+
 ### 1.2.0 (2026-08-27)
 
 #### Breaking Changes

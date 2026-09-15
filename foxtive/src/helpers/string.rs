@@ -7,7 +7,10 @@ impl StringHelper {
         let mut chars = s.chars();
         match chars.next() {
             None => String::new(),
-            Some(first_char) => first_char.to_uppercase().collect::<String>() + chars.as_str(),
+            Some(first_char) => {
+                let rest: String = chars.as_str().to_lowercase();
+                first_char.to_uppercase().to_string() + &rest
+            }
         }
     }
 
@@ -99,6 +102,193 @@ impl StringHelper {
             format!("{}{}", pad_char.to_string().repeat(width - s.len()), s)
         }
     }
+
+    /// Converts a string into a URL-friendly slug.
+    ///
+    /// Lowercases the string, replaces non-alphanumeric characters with hyphens,
+    /// collapses consecutive hyphens, and trims leading/trailing hyphens.
+    pub fn slugify(s: &str) -> String {
+        let mut slug = String::with_capacity(s.len());
+        let mut prev_hyphen = false;
+
+        for c in s.chars() {
+            if c.is_alphanumeric() {
+                slug.push(c.to_ascii_lowercase());
+                prev_hyphen = false;
+            } else if !prev_hyphen && !slug.is_empty() {
+                slug.push('-');
+                prev_hyphen = true;
+            }
+        }
+
+        slug.trim_end_matches('-').to_string()
+    }
+
+    /// Converts a string to snake_case.
+    ///
+    /// Handles camelCase, PascalCase, kebab-case, and space-separated words.
+    pub fn snake_case(s: &str) -> String {
+        if s.is_empty() {
+            return String::new();
+        }
+
+        let mut result = String::with_capacity(s.len() + 4);
+        let chars: Vec<char> = s.chars().collect();
+
+        for (i, &c) in chars.iter().enumerate() {
+            if c == '-' || c == ' ' || c == '_' {
+                if !result.is_empty() && !result.ends_with('_') {
+                    result.push('_');
+                }
+            } else if c.is_ascii_uppercase() {
+                let prev_is_lower = i > 0 && chars[i - 1].is_ascii_lowercase();
+                let next_is_lower = i + 1 < chars.len() && chars[i + 1].is_ascii_lowercase();
+
+                if !result.is_empty() && !result.ends_with('_') {
+                    if prev_is_lower || next_is_lower {
+                        result.push('_');
+                    }
+                }
+                result.push(c.to_ascii_lowercase());
+            } else {
+                result.push(c);
+            }
+        }
+
+        result.trim_end_matches('_').to_string()
+    }
+
+    /// Converts a string to kebab-case.
+    ///
+    /// Handles camelCase, PascalCase, snake_case, and space-separated words.
+    pub fn kebab_case(s: &str) -> String {
+        Self::snake_case(s).replace('_', "-")
+    }
+
+    /// Converts a string to PascalCase.
+    ///
+    /// Handles snake_case, kebab-case, camelCase, and space-separated words.
+    pub fn pascal_case(s: &str) -> String {
+        if s.is_empty() {
+            return String::new();
+        }
+
+        let mut result = String::with_capacity(s.len());
+        let mut capitalize_next = true;
+
+        for c in s.chars() {
+            if c == '_' || c == '-' || c == ' ' {
+                capitalize_next = true;
+            } else if capitalize_next {
+                result.push(c.to_ascii_uppercase());
+                capitalize_next = false;
+            } else {
+                result.push(c);
+            }
+        }
+
+        result
+    }
+
+    /// Converts a string to Title Case (alias for uc_words).
+    pub fn title_case(s: &str) -> String {
+        Self::uc_words(s)
+    }
+
+    /// Checks if the string is a valid email format (basic check).
+    pub fn is_email(s: &str) -> bool {
+        if s.is_empty() {
+            return false;
+        }
+
+        let parts: Vec<&str> = s.split('@').collect();
+        if parts.len() != 2 {
+            return false;
+        }
+
+        let local = parts[0];
+        let domain = parts[1];
+
+        if local.is_empty() || domain.is_empty() {
+            return false;
+        }
+
+        if !domain.contains('.') {
+            return false;
+        }
+
+        let domain_parts: Vec<&str> = domain.split('.').collect();
+        if domain_parts.iter().any(|p| p.is_empty()) {
+            return false;
+        }
+
+        true
+    }
+
+    /// Checks if the string is a valid URL format (basic check).
+    pub fn is_url(s: &str) -> bool {
+        if s.is_empty() {
+            return false;
+        }
+
+        let lower = s.to_lowercase();
+        if !lower.starts_with("http://") && !lower.starts_with("https://") {
+            return false;
+        }
+
+        let without_scheme = if lower.starts_with("https://") {
+            &s[8..]
+        } else {
+            &s[7..]
+        };
+
+        !without_scheme.is_empty() && without_scheme.contains('.')
+    }
+
+    /// Checks if the string is a valid UUID format.
+    pub fn is_uuid(s: &str) -> bool {
+        if s.len() != 36 {
+            return false;
+        }
+
+        let chars: Vec<char> = s.chars().collect();
+        for (i, c) in chars.iter().enumerate() {
+            if [8, 13, 18, 23].contains(&i) {
+                if *c != '-' {
+                    return false;
+                }
+            } else if !c.is_ascii_hexdigit() {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// Splits the string into words.
+    pub fn words(s: &str) -> Vec<&str> {
+        s.split_whitespace().collect()
+    }
+
+    /// Splits the string into lines.
+    pub fn lines(s: &str) -> Vec<&str> {
+        s.lines().collect()
+    }
+
+    /// Repeats the string n times.
+    pub fn repeat(s: &str, n: usize) -> String {
+        s.repeat(n)
+    }
+
+    /// Checks if the string starts with any of the given prefixes.
+    pub fn starts_with_any(s: &str, prefixes: &[&str]) -> bool {
+        prefixes.iter().any(|p| s.starts_with(p))
+    }
+
+    /// Checks if the string ends with any of the given suffixes.
+    pub fn ends_with_any(s: &str, suffixes: &[&str]) -> bool {
+        suffixes.iter().any(|p| s.ends_with(p))
+    }
 }
 
 #[cfg(test)]
@@ -109,14 +299,15 @@ mod tests {
     fn test_uc_first() {
         assert_eq!(StringHelper::uc_first("hello"), "Hello");
         assert_eq!(StringHelper::uc_first("rust"), "Rust");
-        assert_eq!(StringHelper::uc_first(""), ""); // Test empty string
-        assert_eq!(StringHelper::uc_first("a"), "A"); // Test single character
-        assert_eq!(StringHelper::uc_first("hELLO"), "HELLO"); // Test capitalizing first char but not modifying others
-        assert_eq!(StringHelper::uc_first("1world"), "1world"); // Test first character is non-alphabetic
+        assert_eq!(StringHelper::uc_first(""), "");
+        assert_eq!(StringHelper::uc_first("a"), "A");
+        assert_eq!(StringHelper::uc_first("hELLO"), "Hello");
+        assert_eq!(StringHelper::uc_first("1world"), "1world");
     }
 
     #[test]
     fn test_uc_words() {
+        assert_eq!(StringHelper::uc_words("PLANET MARS"), "Planet Mars");
         assert_eq!(StringHelper::uc_words("hello world"), "Hello World");
         assert_eq!(
             StringHelper::uc_words("rust programming language"),
@@ -237,6 +428,134 @@ mod tests {
         assert_eq!(StringHelper::pad_left("abc", 3, '0'), "abc");
         assert_eq!(StringHelper::pad_left("", 2, '*'), "**");
     }
+
+    #[test]
+    fn test_slugify() {
+        assert_eq!(StringHelper::slugify("Hello MARS"), "hello-mars");
+        assert_eq!(StringHelper::slugify("Hello World"), "hello-world");
+        assert_eq!(StringHelper::slugify("  Foo   Bar  "), "foo-bar");
+        assert_eq!(StringHelper::slugify("Rust is great!"), "rust-is-great");
+        assert_eq!(StringHelper::slugify("already-slug"), "already-slug");
+        assert_eq!(StringHelper::slugify("---leading-trailing---"), "leading-trailing");
+        assert_eq!(StringHelper::slugify(""), "");
+        assert_eq!(StringHelper::slugify("CamelCase Text"), "camelcase-text");
+    }
+
+    #[test]
+    fn test_snake_case() {
+        assert_eq!(StringHelper::snake_case("camelCase"), "camel_case");
+        assert_eq!(StringHelper::snake_case("PascalCase"), "pascal_case");
+        assert_eq!(StringHelper::snake_case("kebab-case"), "kebab_case");
+        assert_eq!(StringHelper::snake_case("hello world"), "hello_world");
+        assert_eq!(StringHelper::snake_case("already_snake"), "already_snake");
+        assert_eq!(StringHelper::snake_case("HTMLParser"), "html_parser");
+        assert_eq!(StringHelper::snake_case(""), "");
+        assert_eq!(StringHelper::snake_case("ABC"), "abc");
+    }
+
+    #[test]
+    fn test_kebab_case() {
+        assert_eq!(StringHelper::kebab_case("camelCase"), "camel-case");
+        assert_eq!(StringHelper::kebab_case("PascalCase"), "pascal-case");
+        assert_eq!(StringHelper::kebab_case("snake_case"), "snake-case");
+        assert_eq!(StringHelper::kebab_case("hello world"), "hello-world");
+        assert_eq!(StringHelper::kebab_case("already-kebab"), "already-kebab");
+        assert_eq!(StringHelper::kebab_case(""), "");
+    }
+
+    #[test]
+    fn test_pascal_case() {
+        assert_eq!(StringHelper::pascal_case("snake_case"), "SnakeCase");
+        assert_eq!(StringHelper::pascal_case("kebab-case"), "KebabCase");
+        assert_eq!(StringHelper::pascal_case("camelCase"), "CamelCase");
+        assert_eq!(StringHelper::pascal_case("hello world"), "HelloWorld");
+        assert_eq!(StringHelper::pascal_case("AlreadyPascal"), "AlreadyPascal");
+        assert_eq!(StringHelper::pascal_case(""), "");
+    }
+
+    #[test]
+    fn test_title_case() {
+        assert_eq!(StringHelper::title_case("hello world"), "Hello World");
+        assert_eq!(StringHelper::title_case("rust programming"), "Rust Programming");
+        assert_eq!(StringHelper::title_case(""), "");
+    }
+
+    #[test]
+    fn test_is_email() {
+        assert!(StringHelper::is_email("user@example.com"));
+        assert!(StringHelper::is_email("test.user@domain.org"));
+        assert!(StringHelper::is_email("a@b.c"));
+        assert!(!StringHelper::is_email(""));
+        assert!(!StringHelper::is_email("invalid"));
+        assert!(!StringHelper::is_email("@domain.com"));
+        assert!(!StringHelper::is_email("user@"));
+        assert!(!StringHelper::is_email("user@domain"));
+        assert!(!StringHelper::is_email("user@.com"));
+        assert!(!StringHelper::is_email("user@domain."));
+    }
+
+    #[test]
+    fn test_is_url() {
+        assert!(StringHelper::is_url("http://example.com"));
+        assert!(StringHelper::is_url("https://example.com"));
+        assert!(StringHelper::is_url("https://sub.domain.org/path"));
+        assert!(!StringHelper::is_url(""));
+        assert!(!StringHelper::is_url("example.com"));
+        assert!(!StringHelper::is_url("ftp://example.com"));
+        assert!(!StringHelper::is_url("http://"));
+        assert!(!StringHelper::is_url("https://nodot"));
+    }
+
+    #[test]
+    fn test_is_uuid() {
+        assert!(StringHelper::is_uuid("550e8400-e29b-41d4-a716-446655440000"));
+        assert!(StringHelper::is_uuid("6ba7b810-9dad-11d1-80b4-00c04fd430c8"));
+        assert!(!StringHelper::is_uuid(""));
+        assert!(!StringHelper::is_uuid("550e8400-e29b-41d4-a716-44665544000"));
+        assert!(!StringHelper::is_uuid("550e8400e29b41d4a716446655440000"));
+        assert!(!StringHelper::is_uuid("550e8400-e29b-41d4-a716-44665544000g"));
+    }
+
+    #[test]
+    fn test_words() {
+        assert_eq!(StringHelper::words("hello world"), vec!["hello", "world"]);
+        assert_eq!(StringHelper::words("  multiple   spaces  "), vec!["multiple", "spaces"]);
+        assert_eq!(StringHelper::words(""), Vec::<&str>::new());
+        assert_eq!(StringHelper::words("single"), vec!["single"]);
+    }
+
+    #[test]
+    fn test_lines() {
+        assert_eq!(StringHelper::lines("line1\nline2\nline3"), vec!["line1", "line2", "line3"]);
+        assert_eq!(StringHelper::lines("single"), vec!["single"]);
+        assert_eq!(StringHelper::lines(""), Vec::<&str>::new());
+    }
+
+    #[test]
+    fn test_repeat() {
+        assert_eq!(StringHelper::repeat("abc", 3), "abcabcabc");
+        assert_eq!(StringHelper::repeat("x", 5), "xxxxx");
+        assert_eq!(StringHelper::repeat("hello", 0), "");
+        assert_eq!(StringHelper::repeat("", 10), "");
+    }
+
+    #[test]
+    fn test_starts_with_any() {
+        assert!(StringHelper::starts_with_any("hello world", &["hello", "hi"]));
+        assert!(StringHelper::starts_with_any("hi there", &["hello", "hi"]));
+        assert!(!StringHelper::starts_with_any("hey", &["hello", "hi"]));
+        assert!(!StringHelper::starts_with_any("test", &[]));
+        assert!(!StringHelper::starts_with_any("", &["a", "b"]));
+    }
+
+    #[test]
+    fn test_ends_with_any() {
+        assert!(StringHelper::ends_with_any("hello world", &["world", "earth"]));
+        assert!(StringHelper::ends_with_any("hello earth", &["world", "earth"]));
+        assert!(!StringHelper::ends_with_any("hello", &["world", "earth"]));
+        assert!(!StringHelper::ends_with_any("test", &[]));
+        assert!(!StringHelper::ends_with_any("", &["a", "b"]));
+    }
 }
 
 #[cfg(test)]
@@ -248,7 +567,7 @@ mod ext_tests {
     #[test]
     fn test_uc_first_ext() {
         assert_eq!("hello".uc_first(), "Hello");
-        assert_eq!("hELLO".uc_first(), "HELLO");
+        assert_eq!("hELLO".uc_first(), "Hello");
         assert_eq!("".uc_first(), "");
         assert_eq!("1world".uc_first(), "1world");
         assert_eq!(String::from("hello").uc_first(), "Hello");
@@ -341,5 +660,85 @@ mod ext_tests {
         assert_eq!("abc".pad_left(3, '0'), "abc");
         assert_eq!("".pad_left(2, '*'), "**");
         assert_eq!(String::from("42").pad_left(4, '-'), "--42");
+    }
+
+    #[test]
+    fn test_snake_case_ext() {
+        assert_eq!("camelCase".snake_case(), "camel_case");
+        assert_eq!("PascalCase".snake_case(), "pascal_case");
+        assert_eq!(String::from("hello world").snake_case(), "hello_world");
+    }
+
+    #[test]
+    fn test_kebab_case_ext() {
+        assert_eq!("camelCase".kebab_case(), "camel-case");
+        assert_eq!("snake_case".kebab_case(), "snake-case");
+        assert_eq!(String::from("hello world").kebab_case(), "hello-world");
+    }
+
+    #[test]
+    fn test_pascal_case_ext() {
+        assert_eq!("snake_case".pascal_case(), "SnakeCase");
+        assert_eq!("hello world".pascal_case(), "HelloWorld");
+        assert_eq!(String::from("kebab-case").pascal_case(), "KebabCase");
+    }
+
+    #[test]
+    fn test_title_case_ext() {
+        assert_eq!("hello world".title_case(), "Hello World");
+        assert_eq!(String::from("rust programming").title_case(), "Rust Programming");
+    }
+
+    #[test]
+    fn test_is_email_ext() {
+        assert!("user@example.com".is_email());
+        assert!(!"invalid".is_email());
+        assert!(String::from("a@b.c").is_email());
+    }
+
+    #[test]
+    fn test_is_url_ext() {
+        assert!("https://example.com".is_url());
+        assert!(!"example.com".is_url());
+        assert!(String::from("http://test.org").is_url());
+    }
+
+    #[test]
+    fn test_is_uuid_ext() {
+        assert!("550e8400-e29b-41d4-a716-446655440000".is_uuid());
+        assert!(!"not-a-uuid".is_uuid());
+        assert!(String::from("6ba7b810-9dad-11d1-80b4-00c04fd430c8").is_uuid());
+    }
+
+    #[test]
+    fn test_words_ext() {
+        assert_eq!("hello world".words(), vec!["hello", "world"]);
+        assert_eq!(String::from("single").words(), vec!["single"]);
+    }
+
+    #[test]
+    fn test_lines_ext() {
+        assert_eq!(StringExt::lines("a\nb\nc"), vec!["a", "b", "c"]);
+        assert_eq!(String::from("single").lines(), vec!["single"]);
+    }
+
+    #[test]
+    fn test_repeat_str_ext() {
+        assert_eq!("abc".repeat_str(3), "abcabcabc");
+        assert_eq!(String::from("x").repeat_str(4), "xxxx");
+    }
+
+    #[test]
+    fn test_starts_with_any_ext() {
+        assert!("hello".starts_with_any(&["he", "hi"]));
+        assert!(!"hello".starts_with_any(&["hi", "ho"]));
+        assert!(String::from("test").starts_with_any(&["te"]));
+    }
+
+    #[test]
+    fn test_ends_with_any_ext() {
+        assert!("hello".ends_with_any(&["lo", "lo"]));
+        assert!(!"hello".ends_with_any(&["hi", "ho"]));
+        assert!(String::from("test").ends_with_any(&["st"]));
     }
 }
