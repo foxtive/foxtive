@@ -144,10 +144,8 @@ impl StringHelper {
                 let prev_is_lower = i > 0 && chars[i - 1].is_ascii_lowercase();
                 let next_is_lower = i + 1 < chars.len() && chars[i + 1].is_ascii_lowercase();
 
-                if !result.is_empty() && !result.ends_with('_') {
-                    if prev_is_lower || next_is_lower {
-                        result.push('_');
-                    }
+                if !result.is_empty() && !result.ends_with('_') && prev_is_lower || next_is_lower {
+                    result.push('_');
                 }
                 result.push(c.to_ascii_lowercase());
             } else {
@@ -436,7 +434,10 @@ mod tests {
         assert_eq!(StringHelper::slugify("  Foo   Bar  "), "foo-bar");
         assert_eq!(StringHelper::slugify("Rust is great!"), "rust-is-great");
         assert_eq!(StringHelper::slugify("already-slug"), "already-slug");
-        assert_eq!(StringHelper::slugify("---leading-trailing---"), "leading-trailing");
+        assert_eq!(
+            StringHelper::slugify("---leading-trailing---"),
+            "leading-trailing"
+        );
         assert_eq!(StringHelper::slugify(""), "");
         assert_eq!(StringHelper::slugify("CamelCase Text"), "camelcase-text");
     }
@@ -476,7 +477,10 @@ mod tests {
     #[test]
     fn test_title_case() {
         assert_eq!(StringHelper::title_case("hello world"), "Hello World");
-        assert_eq!(StringHelper::title_case("rust programming"), "Rust Programming");
+        assert_eq!(
+            StringHelper::title_case("rust programming"),
+            "Rust Programming"
+        );
         assert_eq!(StringHelper::title_case(""), "");
     }
 
@@ -508,25 +512,39 @@ mod tests {
 
     #[test]
     fn test_is_uuid() {
-        assert!(StringHelper::is_uuid("550e8400-e29b-41d4-a716-446655440000"));
-        assert!(StringHelper::is_uuid("6ba7b810-9dad-11d1-80b4-00c04fd430c8"));
+        assert!(StringHelper::is_uuid(
+            "550e8400-e29b-41d4-a716-446655440000"
+        ));
+        assert!(StringHelper::is_uuid(
+            "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+        ));
         assert!(!StringHelper::is_uuid(""));
-        assert!(!StringHelper::is_uuid("550e8400-e29b-41d4-a716-44665544000"));
+        assert!(!StringHelper::is_uuid(
+            "550e8400-e29b-41d4-a716-44665544000"
+        ));
         assert!(!StringHelper::is_uuid("550e8400e29b41d4a716446655440000"));
-        assert!(!StringHelper::is_uuid("550e8400-e29b-41d4-a716-44665544000g"));
+        assert!(!StringHelper::is_uuid(
+            "550e8400-e29b-41d4-a716-44665544000g"
+        ));
     }
 
     #[test]
     fn test_words() {
         assert_eq!(StringHelper::words("hello world"), vec!["hello", "world"]);
-        assert_eq!(StringHelper::words("  multiple   spaces  "), vec!["multiple", "spaces"]);
+        assert_eq!(
+            StringHelper::words("  multiple   spaces  "),
+            vec!["multiple", "spaces"]
+        );
         assert_eq!(StringHelper::words(""), Vec::<&str>::new());
         assert_eq!(StringHelper::words("single"), vec!["single"]);
     }
 
     #[test]
     fn test_lines() {
-        assert_eq!(StringHelper::lines("line1\nline2\nline3"), vec!["line1", "line2", "line3"]);
+        assert_eq!(
+            StringHelper::lines("line1\nline2\nline3"),
+            vec!["line1", "line2", "line3"]
+        );
         assert_eq!(StringHelper::lines("single"), vec!["single"]);
         assert_eq!(StringHelper::lines(""), Vec::<&str>::new());
     }
@@ -541,7 +559,10 @@ mod tests {
 
     #[test]
     fn test_starts_with_any() {
-        assert!(StringHelper::starts_with_any("hello world", &["hello", "hi"]));
+        assert!(StringHelper::starts_with_any(
+            "hello world",
+            &["hello", "hi"]
+        ));
         assert!(StringHelper::starts_with_any("hi there", &["hello", "hi"]));
         assert!(!StringHelper::starts_with_any("hey", &["hello", "hi"]));
         assert!(!StringHelper::starts_with_any("test", &[]));
@@ -550,8 +571,14 @@ mod tests {
 
     #[test]
     fn test_ends_with_any() {
-        assert!(StringHelper::ends_with_any("hello world", &["world", "earth"]));
-        assert!(StringHelper::ends_with_any("hello earth", &["world", "earth"]));
+        assert!(StringHelper::ends_with_any(
+            "hello world",
+            &["world", "earth"]
+        ));
+        assert!(StringHelper::ends_with_any(
+            "hello earth",
+            &["world", "earth"]
+        ));
         assert!(!StringHelper::ends_with_any("hello", &["world", "earth"]));
         assert!(!StringHelper::ends_with_any("test", &[]));
         assert!(!StringHelper::ends_with_any("", &["a", "b"]));
@@ -686,7 +713,10 @@ mod ext_tests {
     #[test]
     fn test_title_case_ext() {
         assert_eq!("hello world".title_case(), "Hello World");
-        assert_eq!(String::from("rust programming").title_case(), "Rust Programming");
+        assert_eq!(
+            String::from("rust programming").title_case(),
+            "Rust Programming"
+        );
     }
 
     #[test]
