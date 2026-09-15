@@ -144,7 +144,7 @@ impl StringHelper {
                 let prev_is_lower = i > 0 && chars[i - 1].is_ascii_lowercase();
                 let next_is_lower = i + 1 < chars.len() && chars[i + 1].is_ascii_lowercase();
 
-                if !result.is_empty() && !result.ends_with('_') && prev_is_lower || next_is_lower {
+                if !result.is_empty() && !result.ends_with('_') && (prev_is_lower || next_is_lower) {
                     result.push('_');
                 }
                 result.push(c.to_ascii_lowercase());
