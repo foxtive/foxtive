@@ -43,10 +43,10 @@ use tracing::debug;
 
 #[cfg(feature = "cache")]
 use crate::cache::Cache;
+#[cfg(any(feature = "database-async", feature = "database"))]
+use crate::database::DbConfig;
 #[cfg(feature = "database")]
 use crate::database::create_db_pool;
-#[cfg(any(feature = "database-async", feature = "database"))]
-use crate::database::{DbConfig};
 #[cfg(feature = "database-async")]
 use crate::database::{AsyncDBPool, create_async_db_pool};
 #[cfg(feature = "jwe")]

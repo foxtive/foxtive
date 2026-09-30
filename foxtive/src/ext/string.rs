@@ -330,7 +330,10 @@ mod tests {
     #[test]
     fn title_case_converts_correctly() {
         assert_eq!("hello world".title_case(), "Hello World");
-        assert_eq!(String::from("rust programming").title_case(), "Rust Programming");
+        assert_eq!(
+            String::from("rust programming").title_case(),
+            "Rust Programming"
+        );
     }
 
     #[test]
@@ -370,7 +373,10 @@ mod tests {
 
     #[test]
     fn lines_splits_correctly() {
-        assert_eq!(StringExt::lines("line1\nline2\nline3"), vec!["line1", "line2", "line3"]);
+        assert_eq!(
+            StringExt::lines("line1\nline2\nline3"),
+            vec!["line1", "line2", "line3"]
+        );
         assert_eq!(StringExt::lines("single"), vec!["single"]);
         assert_eq!(String::from("a\nb").lines(), vec!["a", "b"]);
     }

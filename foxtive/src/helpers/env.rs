@@ -219,7 +219,10 @@ impl ScopedEnv {
         }
 
         Err(AppMessage::Infrastructure {
-            message: format!("Missing required environment variables: {}", missing.join(", ")),
+            message: format!(
+                "Missing required environment variables: {}",
+                missing.join(", ")
+            ),
             source: None,
         })
     }
@@ -380,7 +383,10 @@ mod tests {
     fn test_load_files_missing_is_error() {
         let err = load_files(["/definitely/not/here/.env.fx-t"]).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("/definitely/not/here/.env.fx-t"), "message was: {msg}");
+        assert!(
+            msg.contains("/definitely/not/here/.env.fx-t"),
+            "message was: {msg}"
+        );
     }
 
     #[test]
@@ -389,11 +395,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let base = dir.path().join("base.env");
         let overlay = dir.path().join("overlay.env");
-        std::fs::write(
-            &base,
-            "FX_T_LOAD_A=from-base\nFX_T_LOAD_B=from-base\n",
-        )
-        .unwrap();
+        std::fs::write(&base, "FX_T_LOAD_A=from-base\nFX_T_LOAD_B=from-base\n").unwrap();
         // dotenvy does not overwrite already-set vars, so a value set before
         // loading wins - emulate layering by loading base first.
         std::fs::write(&overlay, "FX_T_LOAD_C=from-overlay\n").unwrap();

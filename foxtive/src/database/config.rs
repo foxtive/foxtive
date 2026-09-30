@@ -362,8 +362,8 @@ mod tests {
 
     #[test]
     fn connection_timeout_zero_fails_validation() {
-        let config =
-            DbConfig::create("postgres://localhost/db").connection_timeout(Some(Duration::from_secs(0)));
+        let config = DbConfig::create("postgres://localhost/db")
+            .connection_timeout(Some(Duration::from_secs(0)));
         assert!(config.validate().is_err());
     }
 
@@ -375,15 +375,15 @@ mod tests {
 
     #[test]
     fn create_timeout_zero_fails_validation() {
-        let config =
-            DbConfig::create("postgres://localhost/db").create_timeout(Some(Duration::from_secs(0)));
+        let config = DbConfig::create("postgres://localhost/db")
+            .create_timeout(Some(Duration::from_secs(0)));
         assert!(config.validate().is_err());
     }
 
     #[test]
     fn recycle_timeout_zero_fails_validation() {
-        let config =
-            DbConfig::create("postgres://localhost/db").recycle_timeout(Some(Duration::from_secs(0)));
+        let config = DbConfig::create("postgres://localhost/db")
+            .recycle_timeout(Some(Duration::from_secs(0)));
         assert!(config.validate().is_err());
     }
 

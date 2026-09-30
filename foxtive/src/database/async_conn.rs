@@ -1,8 +1,8 @@
 //! Async database connection pool creation using diesel_async + deadpool.
 
-use deadpool::Runtime;
 use crate::database::config::DbConfig;
 use crate::results::AppResult;
+use deadpool::Runtime;
 use diesel_async::AsyncPgConnection;
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use diesel_async::pooled_connection::deadpool::Pool;
