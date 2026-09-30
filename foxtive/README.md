@@ -14,14 +14,14 @@ Foxtive is the **foundation layer** of the Foxtive ecosystem - it provides the c
 
 ```toml
 [dependencies]
-foxtive = "1.1"
+foxtive = "1.4"
 ```
 
 With features:
 
 ```toml
 [dependencies]
-foxtive = { version = "1.1", features = ["database", "database-async", "redis", "jwt", "jwe", "cache-redis"] }
+foxtive = { version = "1.4", features = ["database", "database-async", "redis", "jwt", "jwe", "cache-redis"] }
 ```
 
 ## Quick Start
@@ -45,6 +45,66 @@ async fn main() -> AppResult<()> {
     Ok(())
 }
 ```
+
+## Environment Bootstrap
+
+Load `.env` files eagerly with `App::load_env_files` (fail-fast: every listed file
+must exist; the error names the path). It returns a prefix-bound `ScopedEnv` -
+the single mechanism for reading env vars, replacing `&str` prefix threading:
+
+```rust
+use foxtive::{App, ScopedEnv};
+
+// Pre-build reads (most-specific file first - first file that sets a key wins):
+let env = App::load_env_files("MYAPP", ["apps/my-service/.env", ".env"])?;
+let db_host = env.var("DB_HOST")?;           // reads MYAPP_DB_HOST
+let port: u16 = env.parse_or("PORT", 8080);  // fallback when absent/invalid
+
+// Pass it into user code instead of an env_prefix &str:
+async fn create_app_state(env: &ScopedEnv) -> AppResult<AppState> {
+    Ok(AppState { otp_max_length: env.parse("OTP_MAX_LENGTH")? })
+}
+```
+
+Or let the builder handle bootstrap - files load at the start of `build()`, and
+required vars are validated:
+
+```rust
+let app = App::builder("my-service", "MYSVC")
+    .env_prefix("MYAPP")
+    .env_files(["apps/my-service/.env", ".env"]) // fail-fast at build()
+    .require_env(["DB_DSN", "APP_KEY"])          // one consolidated error listing all missing
+    .panic_hook(true)                 // env-aware panic logging (backtrace outside prod)
+    .build()
+    .await?;
+
+let port: u16 = app.env_vars().parse("SERVER_PORT")?; // MYAPP_SERVER_PORT
+```
+
+The prefix-bound `ScopedEnv` is also registered in the DI container, so services
+can resolve it directly:
+
+```rust
+let env = app.require::<ScopedEnv>()?; // identical to app.env_vars()
+```
+
+Typed config resolves during `build()` into the DI container:
+
+```rust
+let app = App::builder("my-service", "MYSVC")
+    .env_prefix("MYAPP")
+    .config::<MyConfig>()                  // from MYAPP_CONFIG (JSON env var)
+    .config_file::<OtherConfig>("config/other.json")
+    .build()
+    .await?;
+
+let config = app.require::<MyConfig>()?;
+```
+
+Note: `ScopedEnv` (the env-var reader) is distinct from `Environment` (the
+`Local`/`Dev`/`Prod` enum returned by `app.env()`). With the `tracing-setup`
+feature, `.tracing(Tracing::default())` also initializes the global subscriber
+during `build()`.
 
 ## Builder API
 

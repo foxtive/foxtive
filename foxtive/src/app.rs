@@ -6,6 +6,7 @@
 
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
@@ -17,6 +18,7 @@ use crate::container::{Lazy, Mutable, TypeMap};
 use crate::enums::AppMessage;
 use crate::events::EventBus;
 use crate::health::{HealthCheck, HealthReport, aggregate_status};
+use crate::helpers::env::ScopedEnv;
 use crate::lifecycle::{ServiceFactory, ShutdownHook, StartupHook};
 use crate::metrics::{InfraEvent, MetricsSink};
 use crate::results::AppResult;
@@ -148,6 +150,38 @@ impl App {
     /// Create a new [`AppBuilder`] with the given app name and code.
     pub fn builder(app_name: impl Into<String>, app_code: impl Into<String>) -> AppBuilder {
         AppBuilder::new(app_name, app_code)
+    }
+
+    /// Load `.env` files in order (fail-fast) and return a prefix-bound [`ScopedEnv`].
+    ///
+    /// Standalone entry point for pre-build reads - call it *before*
+    /// [`App::builder()`] assembly (and before [`AppBuilder::require_env`]
+    /// or [`AppBuilder::config`] take effect at `build()`).
+    /// Each path must exist and be readable; loading fails with an error naming the
+    /// first missing/unreadable path.
+    ///
+    /// `dotenvy` never overwrites already-set variables, so the *first* file that
+    /// sets a key wins - pass the most-specific file first.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use foxtive::App;
+    ///
+    /// # fn run() -> foxtive::results::AppResult<()> {
+    /// let env = App::load_env_files("MYAPP", ["apps/user/.env", ".env"])?;
+    /// let db_host = env.var("DB_HOST")?; // reads MYAPP_DB_HOST
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    /// [`AppMessage::Infrastructure`] naming the path if any file fails to load.
+    pub fn load_env_files<P: AsRef<Path>>(
+        prefix: impl Into<String>,
+        paths: impl IntoIterator<Item = P>,
+    ) -> AppResult<ScopedEnv> {
+        ScopedEnv::load(prefix, paths)
     }
 
     /// Resolve a registered service by type.
@@ -318,6 +352,19 @@ impl App {
     /// Returns the environment variable prefix.
     pub fn app_env_prefix(&self) -> &str {
         &self.app_env_prefix
+    }
+
+    /// Returns a [`ScopedEnv`] bound to this app's environment variable prefix.
+    ///
+    /// The single mechanism for reading env vars from a built app:
+    /// `app.env_vars().var("DB_HOST")` reads `{PREFIX}_DB_HOST`.
+    /// Cheap to call (clones a small `String`); the result can be retained
+    /// and passed into user code in place of `&str` prefix threading.
+    ///
+    /// Note: distinct from [`env()`](Self::env), which returns the
+    /// [`Environment`] (Local/Dev/Prod) enum.
+    pub fn env_vars(&self) -> ScopedEnv {
+        ScopedEnv::new(self.app_env_prefix.clone())
     }
 
     /// Returns the application public key.

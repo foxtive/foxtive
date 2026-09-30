@@ -1,34 +1,41 @@
 //! # Setup Module
 //!
-//! Application bootstrap utilities: environment variable loading and tracing configuration.
+//! Application bootstrap utilities: environment variable loading, panic handling,
+//! and tracing configuration.
 //!
 //! ## Overview
 //!
-//! - [`load_environment_variables()`] - Loads `.env` files from multiple conventional locations
-//!   (project-level, service-specific, `.env.main`).
-//! - [`trace`] - Tracing subscriber setup with configurable filters and formatters.
+//! - [`App::load_env_files`](crate::App::load_env_files) - the public entry point for
+//!   loading `.env` files (fail-fast, explicit paths). Returns a prefix-bound
+//!   [`ScopedEnv`](crate::ScopedEnv) for immediate reads. The builder equivalents are
+//!   [`AppBuilder::env_file`](crate::AppBuilder::env_file) /
+//!   [`AppBuilder::env_files`](crate::AppBuilder::env_files), loaded at `build()`.
+//! - [`panic`](mod@panic) - Environment-aware panic hook installation
+//!   (also available via [`AppBuilder::panic_hook`](crate::AppBuilder::panic_hook)).
+//! - `trace` - Tracing subscriber setup with configurable filters and formatters.
 //!   (Requires the `tracing-setup` feature)
 //!
-//! ## Environment Loading Order
+//! ## Env File Layering
 //!
-//! The `load_environment_variables()` function loads `.env` files in this order:
-//!
-//! 1. `apps/{service}/.env` - Service-specific env
-//! 2. `.env` - Root env
-//! 3. `.env.main` - Main env override
-//! 4. `.env.{service}` - Service-specific override
-//!
-//! Later files override earlier ones. Missing files are silently ignored;
-//! malformed files are logged at warn level.
-//!
-//! ## Example
+//! Layering is simply **the order you pass paths**. `dotenvy` never overwrites
+//! already-set variables, so the *first* file that sets a key wins - pass the
+//! most-specific file first:
 //!
 //! ```rust,no_run
-//! use foxtive::setup;
+//! use foxtive::App;
 //!
-//! // Load env vars before building the app
-//! setup::load_environment_variables("my-service");
+//! # fn run() -> foxtive::results::AppResult<()> {
+//! let env = App::load_env_files("MYAPP", [
+//!     "apps/my-service/.env", // service-specific (highest precedence)
+//!     ".env",                 // project root
+//!     ".env.main",             // shared overrides
+//! ])?;
+//! # Ok(())
+//! # }
 //! ```
+//!
+//! Every listed file must exist - a missing or unreadable file returns an error
+//! naming the path.
 
 use tracing::{debug, info, warn};
 
@@ -36,6 +43,8 @@ use tracing::{debug, info, warn};
 use crate::redis::Redis;
 #[cfg(feature = "cache")]
 use std::sync::Arc;
+
+pub mod panic;
 
 #[cfg(feature = "tracing-setup")]
 pub mod trace;
@@ -63,17 +72,17 @@ pub enum CacheDriverSetup {
 /// 3. `.env.main`
 /// 4. `.env.{service}` (service-specific)
 ///
-/// Later files override earlier ones. Missing files are silently skipped.
+/// `dotenvy` never overwrites already-set variables, so the first file that sets
+/// a key wins. Missing files are silently skipped.
 /// If a file exists but fails to parse, a warning is logged.
 ///
-/// # Example
+/// # Deprecation Note
 ///
-/// ```rust,no_run
-/// use foxtive::setup::load_environment_variables;
-///
-/// load_environment_variables("my-service");
-/// ```
-pub fn load_environment_variables(service: &str) {
+/// Crate-private as of 1.4: use [`App::load_env_files`](crate::App::load_env_files)
+/// (fail-fast, explicit paths, returns a [`ScopedEnv`](crate::ScopedEnv)) or the
+/// builder's `.env_file()` / `.env_files()` instead.
+#[allow(dead_code)] // retained for one release; no internal callers
+pub(crate) fn load_environment_variables(service: &str) {
     info!(
         "log level: {:?}",
         std::env::var("RUST_LOG").unwrap_or(String::from("info"))

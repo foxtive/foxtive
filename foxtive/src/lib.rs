@@ -54,6 +54,7 @@
 //! | Feature | Description |
 //! |---------|-------------|
 //! | `database` | Diesel + r2d2 connection pool |
+//! | `database-async` | Diesel-async + deadpool async connection pool |
 //! | `redis` | Redis client + deadpool pool |
 //! | `rabbitmq` | Lapin + deadpool-lapin pool |
 //! | `cache` | Cache abstraction (enable a driver below) |
@@ -61,6 +62,7 @@
 //! | `cache-filesystem` | Filesystem cache driver |
 //! | `cache-in-memory` | In-memory (DashMap) cache driver |
 //! | `jwt` | JSON Web Token helpers |
+//! | `jwe` | JSON Web Encryption helpers (jose-rs) |
 //! | `crypto` | Argon2 password hashing |
 //! | `hmac` | HMAC signing/verification |
 //! | `base64` | Base64 encoding/decoding |
@@ -72,6 +74,7 @@
 //! | `strum` | Enum string utilities |
 //! | `html-sanitizer` | Ammonia HTML sanitization |
 //! | `test-utils` | Testing helpers (`TestApp`) |
+//! | `tracing-setup` | Tracing subscriber setup (`setup::trace`, `AppBuilder::tracing`) |
 
 //!
 //! ## Companion Crates
@@ -235,6 +238,7 @@ impl<'a> IntoIterator for &'a ValidationErrors {
 
 pub use app::DiError;
 pub use app::{App, AppBuilder, AppInit};
+pub use helpers::env::ScopedEnv;
 
 pub use ::http::StatusCode;
 

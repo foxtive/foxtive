@@ -20,7 +20,8 @@ use crate::results::AppResult;
 /// The mutable initialization phase of the application.
 ///
 /// Returned by [`AppBuilder::build_init()`](super::AppBuilder::build_init).
-/// Exposes all read-only `App` accessors via `Deref` plus:
+/// Exposes all read-only `App` accessors via `Deref` (including
+/// [`env_vars()`](crate::App::env_vars) for prefix-scoped env reads) plus:
 /// - `register()` for adding service instances
 /// - `register_service::<T>()` for deferred `ServiceInit` construction
 /// - `init_service::<T>()` for async `AsyncInit` construction

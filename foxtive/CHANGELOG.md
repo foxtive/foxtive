@@ -1,6 +1,46 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 1.4.0 (2026-09-30)
+
+#### Environment Bootstrap (`ScopedEnv`)
+- feat(env): add `ScopedEnv` - a prefix-carrying env-var reader (`var`/`parse`/`var_opt`/`parse_opt`/`var_or`/`parse_or`/`try_parse`/`contains`/`require_all`), re-exported as `foxtive::ScopedEnv`; replaces `&str env_prefix` parameter threading
+- feat(app): add `App::env_vars()` and `AppBuilder::env_vars()` returning a prefix-bound `ScopedEnv` (also reachable on `AppInit` via `Deref`)
+- feat(container): register the prefix-bound `ScopedEnv` in the DI container during `build()` - resolve via `app.require::<ScopedEnv>()` (identical to `app.env_vars()`)
+- feat(app): add `App::load_env_files(prefix, paths) -> AppResult<ScopedEnv>` - eager, fail-fast `.env` loading (each file must exist; error names the path); `ScopedEnv::load()` standalone equivalent
+- feat(builder): add `.env_file()` / `.env_files()` - recorded paths loaded fail-fast at the start of `build()`; dotenvy never overwrites already-set vars, so the first file that sets a key wins
+- feat(builder): add `.require_env(keys)` - validated during `build()` with one consolidated error listing all missing keys
+- feat(builder): add `.config::<T>()` (from `{PREFIX}_CONFIG` JSON env var) and `.config_file::<T>(path)` (JSON file) - resolved during `build()` and inserted into the DI container (`app.require::<T>()`)
+- feat(builder): add `.startup_banner(bool)` (default on) and `.panic_hook(bool)` (default off) toggles
+- feat(builder): add `.tracing(Tracing)` (`tracing-setup` feature) - initializes the global subscriber during `build()`
+- feat(setup): add `setup::panic::install(env)` - panic hook logging payload + location via `tracing::error!`; includes a backtrace when `env.allows_debug()`, structured single-line log in production
+- feat(env): add `helpers::env::prefixed_key()` and free `var_or()`; empty prefix now means bare key lookup
+
+#### Breaking Changes
+- **BREAKING** feat(setup): `setup::load_environment_variables` is now crate-private - use `App::load_env_files` (fail-fast, explicit paths, returns a `ScopedEnv`) or the builder's `.env_file()` / `.env_files()`
+
+#### Fixes
+- fix(env): `helpers::env::var` with an empty prefix no longer prepends a leading underscore (`"_KEY"` -> `"KEY"`)
+
+#### Docs
+- docs(lib): Feature Flags table: add missing `tracing-setup`, `jwe`, and `database-async` rows
+- docs(setup): module docs rewritten around `App::load_env_files`; corrected layering semantics (first file wins, pass most-specific first)
+- test: add `env_bootstrap_tests.rs` (16 integration tests) + `ScopedEnv`/`prefixed_key`/`load_files` unit tests + `setup::panic` tests
+
+#### Migration Guide
+
+```rust
+// before (1.3.x):
+foxtive::setup::load_environment_variables("my-service"); // lenient, fixed paths
+let port = foxtive::helpers::env::var("MYAPP", "SERVER_PORT")?;
+
+// after (1.4.0):
+let env = App::load_env_files("MYAPP", ["apps/my-service/.env", ".env"])?; // fail-fast
+let port: u16 = env.parse("SERVER_PORT")?;
+// or via the app:
+let port: u16 = app.env_vars().parse("SERVER_PORT")?;
+```
+
 ### 1.3.0 (2026-09-15)
 
 #### String Utilities

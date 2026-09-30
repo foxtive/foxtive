@@ -2,6 +2,7 @@
 
 use std::collections::HashSet;
 use std::future::Future;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::time::Instant;
@@ -13,31 +14,41 @@ use crate::app::App;
 use crate::app::deps::ServiceResolutionError;
 use crate::app::init::AppInit;
 use crate::container::TypeMap;
+use crate::enums::AppMessage;
 use crate::events::EventBus;
 use crate::health::HealthCheck;
+use crate::helpers::env::ScopedEnv;
 use crate::lifecycle::{
     ClosureFactory, Plugin, ServiceFactoryImpl, ServiceInit, ShutdownFuture, ShutdownHook,
     StartupFuture, StartupHook,
 };
 use crate::metrics::MetricsSink;
 use crate::results::AppResult;
+use serde::de::DeserializeOwned;
 
 /// Type-erased callback that runs after infrastructure is initialized,
 /// receiving `&mut AppInit` so it can register infrastructure-dependent services.
 pub(crate) type AfterBuildHook =
     Box<dyn FnMut(&mut AppInit) -> AppResult<()> + Send + Sync + 'static>;
 
-#[cfg(any(feature = "templating", feature = "cache-redis", feature = "rabbitmq"))]
-use crate::enums::AppMessage;
+/// Deferred config loader recorded via [`AppBuilder::config`] / [`AppBuilder::config_file`].
+///
+/// Runs during `build_inner` *after* env files are loaded; the returned value is
+/// inserted into the DI container keyed on its concrete type (resolvable via
+/// `app.require::<T>()`).
+type ConfigLoader =
+    Box<dyn FnOnce() -> AppResult<Box<dyn std::any::Any + Send + Sync>> + Send + Sync + 'static>;
 
 use tracing::debug;
 
 #[cfg(feature = "cache")]
 use crate::cache::Cache;
+#[cfg(feature = "database")]
+use crate::database::create_db_pool;
+#[cfg(any(feature = "database-async", feature = "database"))]
+use crate::database::{DbConfig};
 #[cfg(feature = "database-async")]
 use crate::database::{AsyncDBPool, create_async_db_pool};
-#[cfg(feature = "database")]
-use crate::database::{DbConfig, create_db_pool};
 #[cfg(feature = "jwe")]
 use crate::helpers::jwe::{Jwe, JweConfig};
 #[cfg(feature = "jwt")]
@@ -123,6 +134,19 @@ pub struct AppBuilder {
     shutdown_hooks: Vec<ShutdownHook>,
     after_build_hooks: Vec<AfterBuildHook>,
 
+    /// Ordered `.env` file paths loaded (fail-fast) at the start of `build_inner`.
+    env_files: Vec<PathBuf>,
+    /// Keys validated (consolidated error) in `build_inner` via `ScopedEnv::require_all`.
+    required_env: Vec<String>,
+    /// When true (default), log a startup banner after `App` construction.
+    startup_banner: bool,
+    /// When true, install the environment-aware panic hook in `build_inner`.
+    install_panic_hook: bool,
+    /// Deferred typed-config loaders, run after env files load; results inserted into DI.
+    config_loaders: Vec<ConfigLoader>,
+    #[cfg(feature = "tracing-setup")]
+    tracing_config: Option<crate::setup::Tracing>,
+
     health_checks: Vec<Box<dyn HealthCheck>>,
     health_check_timeout: std::time::Duration,
     shutdown_timeout: std::time::Duration,
@@ -167,6 +191,14 @@ impl AppBuilder {
             shutdown_hooks: Vec::new(),
             after_build_hooks: Vec::new(),
 
+            env_files: Vec::new(),
+            required_env: Vec::new(),
+            startup_banner: true,
+            install_panic_hook: false,
+            config_loaders: Vec::new(),
+            #[cfg(feature = "tracing-setup")]
+            tracing_config: None,
+
             health_checks: Vec::new(),
             health_check_timeout: std::time::Duration::from_secs(5),
             shutdown_timeout: std::time::Duration::from_secs(30),
@@ -196,6 +228,111 @@ impl AppBuilder {
     /// Set the environment variable prefix.
     pub fn env_prefix(mut self, prefix: impl Into<String>) -> Self {
         self.app_env_prefix = prefix.into();
+        self
+    }
+
+    /// Returns a [`ScopedEnv`] bound to the configured env prefix.
+    ///
+    /// Non-consuming reader for use mid-assembly (bind the builder to a variable
+    /// first). Same prefix semantics as [`App::env_vars()`](crate::App::env_vars).
+    ///
+    /// Note: files recorded via [`env_file()`](Self::env_file) /
+    /// [`env_files()`](Self::env_files) are only loaded at `build()` - reads
+    /// through this accessor see them only if they were already loaded
+    /// (e.g. via [`App::load_env_files`]).
+    pub fn env_vars(&self) -> ScopedEnv {
+        ScopedEnv::new(self.app_env_prefix.clone())
+    }
+
+    /// Record a `.env` file to load (fail-fast) at the start of `build()`.
+    ///
+    /// The file must exist and be readable, otherwise `build()` fails with an
+    /// error naming the path. `dotenvy` never overwrites already-set variables,
+    /// so the first recorded file that sets a key wins.
+    pub fn env_file(mut self, path: impl AsRef<Path>) -> Self {
+        self.env_files.push(path.as_ref().to_path_buf());
+        self
+    }
+
+    /// Record multiple `.env` files to load (fail-fast, in order) at the start of `build()`.
+    ///
+    /// See [`env_file()`](Self::env_file) for existence and precedence semantics.
+    pub fn env_files<P: AsRef<Path>>(mut self, paths: impl IntoIterator<Item = P>) -> Self {
+        self.env_files
+            .extend(paths.into_iter().map(|p| p.as_ref().to_path_buf()));
+        self
+    }
+
+    /// Require the given environment variables to be set; validated during `build()`.
+    ///
+    /// Keys are resolved through the configured prefix (empty prefix -> bare keys).
+    /// A single consolidated error lists *all* missing variables.
+    pub fn require_env<K: AsRef<str>>(mut self, keys: impl IntoIterator<Item = K>) -> Self {
+        self.required_env
+            .extend(keys.into_iter().map(|k| k.as_ref().to_string()));
+        self
+    }
+
+    /// Load a typed config from the `{PREFIX}_CONFIG` JSON environment variable
+    /// during `build()` and insert it into the DI container.
+    ///
+    /// Resolvable afterwards via `app.require::<T>()`. Runs after recorded env
+    /// files are loaded. See [`crate::config::from_env`].
+    pub fn config<T: DeserializeOwned + Send + Sync + 'static>(mut self) -> Self {
+        let prefix = self.app_env_prefix.clone();
+        self.config_loaders.push(Box::new(move || {
+            let value = crate::config::from_env::<T>(&prefix)?;
+            Ok(Box::new(value) as Box<dyn std::any::Any + Send + Sync>)
+        }));
+        self
+    }
+
+    /// Load a typed config from a JSON file during `build()` and insert it into
+    /// the DI container.
+    ///
+    /// Resolvable afterwards via `app.require::<T>()`. The file must exist and
+    /// contain valid JSON. See [`crate::config::from_file`].
+    pub fn config_file<T: DeserializeOwned + Send + Sync + 'static>(
+        mut self,
+        path: impl AsRef<Path>,
+    ) -> Self {
+        let path = path.as_ref().to_path_buf();
+        self.config_loaders.push(Box::new(move || {
+            let path_str = path.to_str().ok_or_else(|| AppMessage::Infrastructure {
+                message: format!("Config file path is not valid UTF-8: {}", path.display()),
+                source: None,
+            })?;
+            let value = crate::config::from_file::<T>(path_str)?;
+            Ok(Box::new(value) as Box<dyn std::any::Any + Send + Sync>)
+        }));
+        self
+    }
+
+    /// Log a startup banner (app name, version, environment, prefix, loaded env
+    /// files) after `build()` completes. Enabled by default.
+    pub fn startup_banner(mut self, enabled: bool) -> Self {
+        self.startup_banner = enabled;
+        self
+    }
+
+    /// Install the environment-aware panic hook ([`crate::setup::panic`]) during
+    /// `build()`. Disabled by default.
+    ///
+    /// Backtrace inclusion reflects the environment set via
+    /// [`environment()`](Self::environment).
+    pub fn panic_hook(mut self, install: bool) -> Self {
+        self.install_panic_hook = install;
+        self
+    }
+
+    /// Initialize the global tracing subscriber ([`crate::setup::init_tracing`])
+    /// during `build()` with the given configuration.
+    ///
+    /// The subscriber initializes globally exactly once - only one builder in a
+    /// process should use this.
+    #[cfg(feature = "tracing-setup")]
+    pub fn tracing(mut self, config: crate::setup::Tracing) -> Self {
+        self.tracing_config = Some(config);
         self
     }
 
@@ -783,12 +920,35 @@ impl AppBuilder {
             set_runtime_config(config);
         }
 
+        // Load recorded env files (fail-fast) before anything reads env.
+        // dotenvy never overwrites already-set vars: first file that sets a key wins.
+        if !self.env_files.is_empty() {
+            debug!("Loading {} recorded env file(s)", self.env_files.len());
+            crate::helpers::env::load_files(&self.env_files)?;
+        }
+
+        // Initialize the global tracing subscriber (single global init).
+        #[cfg(feature = "tracing-setup")]
+        if let Some(tracing_config) = self.tracing_config.take() {
+            crate::setup::init_tracing(tracing_config)?;
+        }
+
         if self.env.is_dev_like() {
             tracing::warn!(
                 app = self.app_name,
                 env = self.env.as_str(),
                 "Running in dev-like environment - ensure this is intentional for production deployments"
             );
+        }
+
+        if self.install_panic_hook {
+            crate::setup::panic::install(self.env);
+        }
+
+        let scoped_env = ScopedEnv::new(self.app_env_prefix.clone());
+        // Validate required env vars (consolidated error listing all missing keys).
+        if !self.required_env.is_empty() {
+            scoped_env.require_all(&self.required_env)?;
         }
 
         // Validate all feature configurations
@@ -828,6 +988,9 @@ impl AppBuilder {
         let mut services = self.services;
         services.insert(crate::helpers::StringHelper);
         services.insert(crate::helpers::InputSanitizer);
+        // Register the prefix-bound ScopedEnv so services resolve it via
+        // app.require::<ScopedEnv>() - identical to app.env_vars().
+        services.insert(scoped_env);
         #[cfg(feature = "base64")]
         services.insert(crate::helpers::Base64);
         #[cfg(feature = "hmac")]
@@ -899,6 +1062,13 @@ impl AppBuilder {
             services.insert(p.clone());
         }
 
+        // Run deferred config loaders (.config()/.config_file()) and insert each
+        // into the DI container, keyed on the concrete type (app.require::<T>()).
+        for loader in self.config_loaders {
+            let value = loader()?;
+            services.insert_boxed(value);
+        }
+
         debug!("All components initialized, constructing App");
 
         let app = App {
@@ -950,11 +1120,37 @@ impl AppBuilder {
 
         debug!("App built successfully: {}", app.app_name());
 
+        if self.startup_banner {
+            tracing::info!(
+                app = app.app_name(),
+                code = app.app_code(),
+                version = app.version().unwrap_or("unknown"),
+                env = app.env().as_str(),
+                prefix = app.app_env_prefix(),
+                env_files = ?self.env_files,
+                "Foxtive app started"
+            );
+        }
+
         Ok((AppInit::new(app), self.after_build_hooks))
     }
 
     /// Validate all feature-gated configurations
     fn validate_configs(&self) -> AppResult<()> {
+        if self.app_code.is_empty() {
+            return Err(AppMessage::Infrastructure {
+                message: "app_code cannot be empty".to_string(),
+                source: None,
+            });
+        }
+
+        if self.app_name.is_empty() {
+            return Err(AppMessage::Infrastructure {
+                message: "app_name cannot be empty".to_string(),
+                source: None,
+            });
+        }
+
         #[cfg(feature = "database")]
         if let Some(ref config) = self.db_config {
             config.validate()?;

@@ -5,7 +5,7 @@ static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 
 /// Configuration for the global fallback Tokio runtime.
 ///
-/// Set via [`AppBuilder::runtime_config()`] before calling `build()`.
+/// Set via [`AppBuilder::runtime_config()`](crate::AppBuilder::runtime_config) before calling `build()`.
 /// Once the runtime is created, configuration changes have no effect.
 ///
 /// # Example
