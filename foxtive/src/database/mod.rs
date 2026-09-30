@@ -24,7 +24,7 @@
 //! let config = DbConfig::create("postgres://user:pass@localhost/mydb")
 //!     .max_size(20)
 //!     .min_idle(Some(5))
-//!     .connection_timeout(Duration::from_secs(10));
+//!     .connection_timeout(Some(Duration::from_secs(10)));
 //!
 //! // Validate before connecting
 //! config.validate().expect("Invalid config");
@@ -84,3 +84,6 @@ pub mod async_ext;
 
 #[cfg(feature = "database-async")]
 pub use async_conn::{AsyncDBPool, create_async_db_pool};
+
+#[cfg(feature = "database-async")]
+pub use config::PoolQueueMode;

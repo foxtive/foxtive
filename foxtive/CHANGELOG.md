@@ -1,6 +1,12 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 1.4.1 (2026-09-30)
+
+- feat(database): add `create_timeout`, `recycle_timeout`, and `queue_mode` (`PoolQueueMode`) to `DbConfig` for async pool tuning
+- fix(database): fix "Timeouts require a runtime" error by attaching `Runtime::Tokio1` and adding `dep:deadpool` + `rt_tokio_1` to `database-async` feature
+- **BREAKING** feat(database): `connection_timeout()` now takes `Option<Duration>` (was `Duration`); defaults aligned with deadpool — `max_size` is now `cpu_count * 2`, `connection_timeout` is now `None`
+
 ### 1.4.0 (2026-09-30)
 
 #### Environment Bootstrap (`ScopedEnv`)

@@ -1,6 +1,6 @@
 [package]
 name = "foxtive"
-version = "1.4.0"
+version = "1.4.1"
 edition = "2024"
 rust-version = "1.97"
 license = "MIT"
@@ -10,7 +10,7 @@ authors = ["ahmard"]
 
 [features]
 database = ["dep:diesel", "diesel/r2d2"]
-database-async = ["dep:diesel-async", "dep:diesel"]
+database-async = ["dep:diesel-async", "dep:diesel", "dep:deadpool"]
 openapi = ["dep:utoipa"]
 rabbitmq = ["dep:lapin", "dep:deadpool", "dep:deadpool-lapin", "dep:async-rs"]
 redis = ["dep:redis", "dep:deadpool", "dep:deadpool-redis"]
@@ -38,7 +38,7 @@ tracing-setup = ["dep:tracing-subscriber"]
 [dependencies]
 utoipa = {version = "5.5.0", features = ["chrono", "uuid"], optional = true}
 
-deadpool = { version = "0.13.1", optional = true }
+deadpool = { version = "0.13.1", features = ["rt_tokio_1"], optional = true }
 
 # RabbitMQ
 lapin = { version = "4.11.0", optional = true }

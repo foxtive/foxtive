@@ -9,8 +9,11 @@ pub fn create_db_pool(config: DbConfig) -> AppResult<crate::database::DBPool> {
         .max_size(config.max_size)
         .max_lifetime(config.max_lifetime)
         .min_idle(config.min_idle)
-        .idle_timeout(config.idle_timeout)
-        .connection_timeout(config.connection_timeout);
+        .idle_timeout(config.idle_timeout);
+
+    if let Some(timeout) = config.connection_timeout {
+        builder = builder.connection_timeout(timeout);
+    }
 
     // Wire up connection validation if enabled
     if config.test_on_check_out {

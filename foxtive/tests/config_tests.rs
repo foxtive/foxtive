@@ -44,7 +44,7 @@ mod db_config {
         let config = DbConfig::create("postgres://localhost/test")
             .max_size(20)
             .min_idle(Some(5))
-            .connection_timeout(Duration::from_secs(10))
+            .connection_timeout(Some(Duration::from_secs(10)))
             .idle_timeout(Some(Duration::from_secs(300)))
             .max_lifetime(Some(Duration::from_secs(1800)));
         assert!(config.validate().is_ok());
