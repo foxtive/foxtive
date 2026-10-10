@@ -111,8 +111,7 @@ impl<T> Paginated<T> {
         Self: diesel_async::methods::LoadQuery<'query, AsyncPgConnection, (U, i64)> + Send + 'query,
     {
         let per_page = self.per_page;
-        let load =
-            <Self as diesel_async::RunQueryDsl<AsyncPgConnection>>::load(self, conn);
+        let load = <Self as diesel_async::RunQueryDsl<AsyncPgConnection>>::load(self, conn);
         async move {
             let results = load.await?;
             let total = results.first().map(|x| x.1).unwrap_or(0);
