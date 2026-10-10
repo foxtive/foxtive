@@ -101,27 +101,30 @@ impl<T> Paginated<T> {
     }
 
     #[cfg(feature = "database-async")]
-    pub async fn load_and_count_pages_async<'a, U>(
+    pub fn load_and_count_pages_async<'conn, 'query, U>(
         self,
-        conn: &mut AsyncPgConnection,
-    ) -> AppPaginationResult<U>
+        conn: &'conn mut AsyncPgConnection,
+    ) -> impl Future<Output = AppPaginationResult<U>> + Send + 'conn
     where
-        U: Send,
-        T: 'a,
-        Self: diesel_async::methods::LoadQuery<'a, AsyncPgConnection, (U, i64)>,
+        U: Send + 'static,
+        'query: 'conn,
+        Self: diesel_async::methods::LoadQuery<'query, AsyncPgConnection, (U, i64)> + Send + 'query,
     {
         let per_page = self.per_page;
-        let results =
-            <Self as diesel_async::RunQueryDsl<AsyncPgConnection>>::load(self, conn).await?;
-        let total = results.first().map(|x| x.1).unwrap_or(0);
-        let records = results.into_iter().map(|x| x.0).collect();
-        let total_pages = (total as f64 / per_page as f64).ceil() as i64;
+        let load =
+            <Self as diesel_async::RunQueryDsl<AsyncPgConnection>>::load(self, conn);
+        async move {
+            let results = load.await?;
+            let total = results.first().map(|x| x.1).unwrap_or(0);
+            let records = results.into_iter().map(|x| x.0).collect();
+            let total_pages = (total as f64 / per_page as f64).ceil() as i64;
 
-        Ok(PageData {
-            records,
-            total_pages,
-            total_records: total,
-        })
+            Ok(PageData {
+                records,
+                total_pages,
+                total_records: total,
+            })
+        }
     }
 }
 

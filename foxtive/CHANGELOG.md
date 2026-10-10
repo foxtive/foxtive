@@ -1,6 +1,10 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 1.4.2 (2026-10-10)
+
+- fix(database): `Paginated::load_and_count_pages_async` now returns a concrete `impl Future + Send + 'conn` instead of an `async fn` with an early-bound lifetime, so axum handlers built on a boxed diesel query (`into_boxed()`) pass `Handler`'s `Send` check — fixes `diesel::query_builder::Query is not general enough` at router-registration sites; existing `.load_and_count_pages_async::<U>(&mut conn).await` call sites are unchanged
+
 ### 1.4.1 (2026-09-30)
 
 - feat(database): add `create_timeout`, `recycle_timeout`, and `queue_mode` (`PoolQueueMode`) to `DbConfig` for async pool tuning
