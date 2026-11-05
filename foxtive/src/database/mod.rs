@@ -1,17 +1,23 @@
 //! # Database Module
 //!
-//! Provides database connection pools for PostgreSQL via Diesel.
+//! Provides database connection pools for PostgreSQL and MySQL via Diesel.
 //!
 //! ## Feature Flags
 //!
-//! - `database` — Blocking Diesel + r2d2 connection pool ([`DBPool`])
-//! - `database-async` — Async Diesel + deadpool connection pool ([`AsyncDBPool`])
+//! - `database` — Blocking Diesel + r2d2 connection pool ([`DBPool`]) (implies `database-postgres`)
+//! - `database-async` — Async Diesel + deadpool connection pool ([`AsyncDBPool`]) (implies `database-async-postgres`)
+//! - `database-postgres` — PostgreSQL backend for blocking pool
+//! - `database-mysql` — MySQL backend for blocking pool (requires MySQL 8.0+ for pagination)
+//! - `database-async-postgres` — PostgreSQL backend for async pool
+//! - `database-async-mysql` — MySQL backend for async pool (requires MySQL 8.0+ for pagination)
 //!
-//! Both features can be enabled simultaneously for mixed workloads.
+//! Multiple backend features can be enabled simultaneously; PostgreSQL takes precedence
+//! when both `database-postgres` and `database-mysql` are active.
 //!
 //! ## Overview
 //!
 //! - [`DbConfig`] - Builder-style configuration for the connection pool (DSN, pool size, timeouts).
+//! - [`backend`] - Backend-specific type aliases (`DbConnection`, `AsyncDbConnection`).
 //! - [`pagination`] - Query pagination helpers with `Paginate` trait and `PageData` result type.
 //! - [`ext`] - Extension traits for running queries against the pool.
 //!
@@ -21,10 +27,15 @@
 //! use foxtive::database::DbConfig;
 //! use std::time::Duration;
 //!
+//! // PostgreSQL (default)
 //! let config = DbConfig::create("postgres://user:pass@localhost/mydb")
 //!     .max_size(20)
 //!     .min_idle(Some(5))
 //!     .connection_timeout(Some(Duration::from_secs(10)));
+//!
+//! // MySQL (enable `database-mysql` feature)
+//! let config = DbConfig::create("mysql://user:pass@localhost:3306/mydb")
+//!     .max_size(20);
 //!
 //! // Validate before connecting
 //! config.validate().expect("Invalid config");
@@ -48,6 +59,15 @@
 //! ```
 
 use serde::Serialize;
+
+#[cfg(any(feature = "database", feature = "database-async"))]
+pub mod backend;
+
+#[cfg(any(feature = "database", feature = "database-async"))]
+pub use backend::DbConnection;
+
+#[cfg(feature = "database-async")]
+pub use backend::AsyncDbConnection;
 
 #[cfg(any(feature = "database", feature = "database-async"))]
 mod config;
@@ -75,7 +95,7 @@ mod ext_impl;
 pub use conn::create_db_pool;
 
 #[cfg(feature = "database")]
-pub type DBPool = diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<diesel::PgConnection>>;
+pub type DBPool = diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<backend::DbConnection>>;
 
 #[cfg(feature = "database-async")]
 mod async_conn;

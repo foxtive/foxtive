@@ -1,3 +1,4 @@
+use crate::database::backend::DbConnection;
 use crate::database::ext::{
     DatabaseConnectionExt, OptionalResultExt, PaginationResultExt, ShareablePaginationResultExt,
     ShareableResultExt,
@@ -8,7 +9,7 @@ use crate::prelude::AppResult;
 use crate::results::{AppOptionalResult, AppPaginationResult};
 use diesel::r2d2::{ConnectionManager, PooledConnection};
 use diesel::result::Error;
-use diesel::{PgConnection, QueryResult};
+use diesel::QueryResult;
 use serde::Serialize;
 
 impl<Sha, Ent> ShareableResultExt<Sha, Ent> for AppResult<Ent>
@@ -32,7 +33,7 @@ where
 }
 
 impl DatabaseConnectionExt for DBPool {
-    fn connection(&self) -> AppResult<PooledConnection<ConnectionManager<PgConnection>>> {
+    fn connection(&self) -> AppResult<PooledConnection<ConnectionManager<DbConnection>>> {
         Ok(self.get()?)
     }
 }

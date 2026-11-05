@@ -1,19 +1,19 @@
 //! Async database connection pool creation using diesel_async + deadpool.
 
+use crate::database::backend::AsyncDbConnection;
 use crate::database::config::DbConfig;
 use crate::results::AppResult;
 use deadpool::Runtime;
-use diesel_async::AsyncPgConnection;
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use diesel_async::pooled_connection::deadpool::Pool;
 
 /// Type alias for the async connection pool.
-pub type AsyncDBPool = Pool<AsyncPgConnection>;
+pub type AsyncDBPool = Pool<AsyncDbConnection>;
 
 /// Create an async database connection pool from the given configuration.
 ///
 /// Uses `diesel_async::AsyncDieselConnectionManager` with `deadpool::Pool`
-/// for async PostgreSQL connection management.
+/// for async connection management.
 ///
 /// The following `DbConfig` fields are honoured by this builder:
 /// - `max_size` → pool capacity
@@ -26,7 +26,7 @@ pub type AsyncDBPool = Pool<AsyncPgConnection>;
 /// regardless of whether the caller already has a runtime on the current
 /// thread (this also fixes the "Timeouts require a runtime" build error).
 pub fn create_async_db_pool(config: DbConfig) -> AppResult<AsyncDBPool> {
-    let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(config.dsn.to_string());
+    let manager = AsyncDieselConnectionManager::<AsyncDbConnection>::new(config.dsn.to_string());
 
     let pool = Pool::builder(manager)
         .max_size(config.max_size as usize)

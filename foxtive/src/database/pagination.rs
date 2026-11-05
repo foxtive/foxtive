@@ -1,16 +1,21 @@
 use std::fmt::Debug;
 
-use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::query_builder::*;
 use diesel::query_dsl::methods::LoadQuery;
 use diesel::sql_types::BigInt;
 use serde::Serialize;
 
+use crate::database::backend::DbConnection;
+#[cfg(feature = "database-async")]
+use crate::database::backend::AsyncDbConnection;
 use crate::results::AppPaginationResult;
 
-#[cfg(feature = "database-async")]
-use diesel_async::AsyncPgConnection;
+#[cfg(any(feature = "database-postgres", all(feature = "database", not(any(feature = "database-postgres", feature = "database-mysql")))))]
+use diesel::pg::Pg;
+
+#[cfg(all(feature = "database-mysql", not(feature = "database-postgres")))]
+use diesel::mysql::Mysql;
 
 pub trait Paginate: Sized {
     fn paginate(self, page: i64) -> Paginated<Self>;
@@ -83,9 +88,9 @@ impl<T> Paginated<T> {
     }
 
     #[cfg(feature = "database")]
-    pub fn load_and_count_pages<'a, U>(self, conn: &mut PgConnection) -> AppPaginationResult<U>
+    pub fn load_and_count_pages<'a, U>(self, conn: &mut DbConnection) -> AppPaginationResult<U>
     where
-        Self: LoadQuery<'a, PgConnection, (U, i64)>,
+        Self: LoadQuery<'a, DbConnection, (U, i64)>,
     {
         let per_page = self.per_page;
         let results = self.load::<(U, i64)>(conn)?;
@@ -103,15 +108,15 @@ impl<T> Paginated<T> {
     #[cfg(feature = "database-async")]
     pub fn load_and_count_pages_async<'conn, 'query, U>(
         self,
-        conn: &'conn mut AsyncPgConnection,
+        conn: &'conn mut AsyncDbConnection,
     ) -> impl Future<Output = AppPaginationResult<U>> + Send + 'conn
     where
         U: Send + 'static,
         'query: 'conn,
-        Self: diesel_async::methods::LoadQuery<'query, AsyncPgConnection, (U, i64)> + Send + 'query,
+        Self: diesel_async::methods::LoadQuery<'query, AsyncDbConnection, (U, i64)> + Send + 'query,
     {
         let per_page = self.per_page;
-        let load = <Self as diesel_async::RunQueryDsl<AsyncPgConnection>>::load(self, conn);
+        let load = <Self as diesel_async::RunQueryDsl<AsyncDbConnection>>::load(self, conn);
         async move {
             let results = load.await?;
             let total = results.first().map(|x| x.1).unwrap_or(0);
@@ -133,14 +138,33 @@ impl<T: Query> Query for Paginated<T> {
 }
 
 #[cfg(feature = "database")]
-impl<T> RunQueryDsl<PgConnection> for Paginated<T> {}
+impl<T> RunQueryDsl<DbConnection> for Paginated<T> {}
 
-#[cfg(any(feature = "database", feature = "database-async"))]
+// --- PostgreSQL backend: QueryFragment<Pg> ---
+#[cfg(any(feature = "database-postgres", all(feature = "database", not(any(feature = "database-postgres", feature = "database-mysql")))))]
 impl<T> QueryFragment<Pg> for Paginated<T>
 where
     T: QueryFragment<Pg>,
 {
     fn walk_ast<'b>(&'b self, mut out: AstPass<'_, 'b, Pg>) -> QueryResult<()> {
+        out.push_sql("SELECT *, COUNT(*) OVER () FROM (");
+        self.query.walk_ast(out.reborrow())?;
+        out.push_sql(") t LIMIT ");
+        out.push_bind_param::<BigInt, _>(&self.per_page)?;
+        out.push_sql(" OFFSET ");
+        out.push_bind_param::<BigInt, _>(&self.offset)?;
+        Ok(())
+    }
+}
+
+// --- MySQL backend: QueryFragment<Mysql> (requires MySQL 8.0+ for window functions) ---
+#[cfg(all(feature = "database-mysql", not(feature = "database-postgres")))]
+impl<T> QueryFragment<Mysql> for Paginated<T>
+where
+    T: QueryFragment<Mysql>,
+{
+    fn walk_ast<'b>(&'b self, mut out: AstPass<'_, 'b, Mysql>) -> QueryResult<()> {
+        // MySQL 8.0+ supports COUNT(*) OVER() window functions
         out.push_sql("SELECT *, COUNT(*) OVER () FROM (");
         self.query.walk_ast(out.reborrow())?;
         out.push_sql(") t LIMIT ");

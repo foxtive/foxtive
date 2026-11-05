@@ -9,8 +9,15 @@ repository = "https://github.com/foxtive/foxtive"
 authors = ["ahmard"]
 
 [features]
-database = ["dep:diesel", "diesel/r2d2"]
-database-async = ["dep:diesel-async", "dep:diesel", "dep:deadpool"]
+# Base database features (database implies postgres for backward compatibility)
+database = ["dep:diesel", "diesel/r2d2", "diesel/postgres"]
+database-async = ["dep:diesel-async", "dep:diesel", "dep:deadpool", "diesel/postgres", "diesel-async/postgres", "diesel-async/deadpool"]
+
+# Backend-specific features (enable the base + backend dialect)
+database-postgres = ["database"]
+database-mysql = ["database", "diesel/mysql"]
+database-async-postgres = ["database-async", "database-postgres"]
+database-async-mysql = ["database-async", "database-mysql", "diesel-async/mysql", "diesel-async/deadpool"]
 openapi = ["dep:utoipa"]
 rabbitmq = ["dep:lapin", "dep:deadpool", "dep:deadpool-lapin", "dep:async-rs"]
 redis = ["dep:redis", "dep:deadpool", "dep:deadpool-redis"]
@@ -72,8 +79,8 @@ hmac = { version = "0.13.0", optional = true }
 fancy-regex = { version = "0.19.2", optional = true }
 tera = { version = "2.4.0", optional = true, features = ["glob_fs"] }
 reqwest = { version = "0.13.5", features = ["native-tls"], optional = true }
-diesel = { version = "2.3.13", features = ["postgres"], optional = true }
-diesel-async = { version = "0.9.2", features = ["postgres", "deadpool"], optional = true }
+diesel = { version = "2.3.13", optional = true }
+diesel-async = { version = "0.9.2", optional = true }
 jsonwebtoken = { version = "11.0.0", optional = true, features = ["rust_crypto"] }
 jose-rs = { version = "0.7", optional = true }
 rsa = { version = "0.9", optional = true }
@@ -121,6 +128,10 @@ required-features = ["tracing-setup"]
 [[example]]
 name = "optional_dependencies"
 required-features = ["tracing-setup"]
+
+[[example]]
+name = "mysql_example"
+required-features = ["database-mysql", "tracing-setup"]
 
 [dev-dependencies]
 anyhow = { version = "1.0.104", features = ["backtrace"] }

@@ -657,7 +657,18 @@ let report = cache.get_or_run(&app).await;  // Returns cached result
 
 ## Database
 
-Foxtive supports both **blocking** (diesel + r2d2) and **async** (diesel-async + deadpool) PostgreSQL connection pools. Both can be enabled simultaneously for mixed workloads.
+Foxtive supports both **blocking** (diesel + r2d2) and **async** (diesel-async + deadpool) connection pools for **PostgreSQL** and **MySQL** (8.0+). Multiple backends can be enabled simultaneously; PostgreSQL takes precedence when both are active.
+
+### Feature Flags
+
+| Feature | Description |
+|---------|-------------|
+| `database` | Blocking pool (implies `database-postgres`) |
+| `database-async` | Async pool (implies `database-async-postgres`) |
+| `database-postgres` | PostgreSQL backend for blocking pool |
+| `database-mysql` | MySQL backend for blocking pool (requires MySQL 8.0+) |
+| `database-async-postgres` | PostgreSQL backend for async pool |
+| `database-async-mysql` | MySQL backend for async pool (requires MySQL 8.0+) |
 
 ### Blocking Pool (`database` feature)
 
@@ -666,11 +677,15 @@ use foxtive::database::DbConfig;
 use foxtive::database::ext::DatabaseConnectionExt;
 use diesel::prelude::*;
 
+// PostgreSQL (default)
 let app = App::builder("my-service", "MYSVC")
-    .database(DbConfig {
-        dsn: "postgres://localhost/mydb".into(),
-        ..Default::default()
-    })
+    .database(DbConfig::create("postgres://localhost/mydb"))
+    .build()
+    .await?;
+
+// MySQL (enable `database-mysql` feature)
+let app = App::builder("my-service", "MYSVC")
+    .database(DbConfig::create("mysql://root:password@localhost:3306/mydb"))
     .build()
     .await?;
 
@@ -686,11 +701,15 @@ use foxtive::database::DbConfig;
 use foxtive::database::async_ext::AsyncDatabaseConnectionExt;
 use diesel_async::RunQueryDsl;
 
+// PostgreSQL (default)
 let app = App::builder("my-service", "MYSVC")
-    .async_database(DbConfig {
-        dsn: "postgres://localhost/mydb".into(),
-        ..Default::default()
-    })
+    .async_database(DbConfig::create("postgres://localhost/mydb"))
+    .build()
+    .await?;
+
+// MySQL (enable `database-async-mysql` feature)
+let app = App::builder("my-service", "MYSVC")
+    .async_database(DbConfig::create("mysql://root:password@localhost:3306/mydb"))
     .build()
     .await?;
 
@@ -705,8 +724,8 @@ Both pools can coexist. Use the blocking pool for simple synchronous queries and
 
 ```rust
 let app = App::builder("my-service", "MYSVC")
-    .database(DbConfig { dsn: "postgres://localhost/mydb".into(), ..Default::default() })
-    .async_database(DbConfig { dsn: "postgres://localhost/mydb".into(), ..Default::default() })
+    .database(DbConfig::create("postgres://localhost/mydb"))
+    .async_database(DbConfig::create("postgres://localhost/mydb"))
     .build()
     .await?;
 
@@ -716,6 +735,19 @@ let mut sync_conn = app.db()?.connection()?;
 // Async pool
 let mut async_conn = app.async_db()?.connection().await?;
 ```
+
+### Backend Types
+
+The `database::backend` module provides type aliases that resolve to the active backend:
+
+```rust
+use foxtive::database::backend::{DbConnection, AsyncDbConnection};
+
+// DbConnection resolves to PgConnection or MysqlConnection based on active feature.
+// AsyncDbConnection resolves to AsyncPgConnection or AsyncMysqlConnection.
+```
+
+When both `database-postgres` and `database-mysql` are enabled, PostgreSQL takes precedence.
 
 ### Async Extension Traits
 
@@ -729,11 +761,20 @@ The `database::async_ext` module provides async counterparts to all blocking ext
 | `ShareablePaginationResultExt` | `AsyncShareablePaginationResultExt` |
 | `PaginationResultExt` | `AsyncPaginationResultExt` |
 
-### Async Pagination
+### Pagination
+
+Pagination uses `COUNT(*) OVER()` window functions, which require **MySQL 8.0+** for MySQL backends.
 
 ```rust
 use foxtive::database::pagination::Paginate;
 
+// Blocking
+let page = users::table
+    .paginate(1)
+    .per_page(25)
+    .load_and_count_pages::<User>(&mut conn)?;
+
+// Async
 let page = users::table
     .paginate(1)
     .per_page(25)
@@ -1198,8 +1239,12 @@ let password = Password::with_config("pepper".to_string(), config);
 
 | Feature | Description |
 |---|---|
-| `database` | Blocking Diesel + r2d2 connection pool |
-| `database-async` | Async Diesel + deadpool connection pool (diesel-async) |
+| `database` | Blocking Diesel + r2d2 connection pool (implies `database-postgres`) |
+| `database-async` | Async Diesel + deadpool connection pool (implies `database-async-postgres`) |
+| `database-postgres` | PostgreSQL backend for blocking pool |
+| `database-mysql` | MySQL backend for blocking pool (requires MySQL 8.0+) |
+| `database-async-postgres` | PostgreSQL backend for async pool |
+| `database-async-mysql` | MySQL backend for async pool (requires MySQL 8.0+) |
 | `redis` | Redis connection pooling and operations |
 | `rabbitmq` | RabbitMQ message queue integration |
 | `jwt` | JWT token encoding/decoding (RSA, HMAC) |

@@ -1,10 +1,10 @@
 //! Async extension traits for diesel-async + deadpool.
 
+use crate::database::backend::AsyncDbConnection;
 use crate::database::Model;
 use crate::prelude::AppResult;
 use crate::results::{AppOptionalResult, AppPaginationResult};
 use diesel::result::Error;
-use diesel_async::AsyncPgConnection;
 use diesel_async::pooled_connection::deadpool::{Object, Pool};
 use serde::Serialize;
 
@@ -14,11 +14,11 @@ use serde::Serialize;
 pub trait AsyncDatabaseConnectionExt {
     fn connection(
         &self,
-    ) -> impl std::future::Future<Output = AppResult<Object<AsyncPgConnection>>> + Send;
+    ) -> impl std::future::Future<Output = AppResult<Object<AsyncDbConnection>>> + Send;
 }
 
-impl AsyncDatabaseConnectionExt for Pool<AsyncPgConnection> {
-    async fn connection(&self) -> AppResult<Object<AsyncPgConnection>> {
+impl AsyncDatabaseConnectionExt for Pool<AsyncDbConnection> {
+    async fn connection(&self) -> AppResult<Object<AsyncDbConnection>> {
         self.get()
             .await
             .map_err(|e| crate::enums::AppMessage::Infrastructure {

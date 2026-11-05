@@ -53,8 +53,12 @@
 //!
 //! | Feature | Description |
 //! |---------|-------------|
-//! | `database` | Diesel + r2d2 connection pool |
-//! | `database-async` | Diesel-async + deadpool async connection pool |
+//! | `database` | Diesel + r2d2 connection pool (implies `database-postgres`) |
+//! | `database-async` | Diesel-async + deadpool async connection pool (implies `database-async-postgres`) |
+//! | `database-postgres` | PostgreSQL backend for blocking pool |
+//! | `database-mysql` | MySQL backend for blocking pool (requires MySQL 8.0+) |
+//! | `database-async-postgres` | PostgreSQL backend for async pool |
+//! | `database-async-mysql` | MySQL backend for async pool (requires MySQL 8.0+) |
 //! | `redis` | Redis client + deadpool pool |
 //! | `rabbitmq` | Lapin + deadpool-lapin pool |
 //! | `cache` | Cache abstraction (enable a driver below) |

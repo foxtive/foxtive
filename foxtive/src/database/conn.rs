@@ -1,10 +1,11 @@
+use crate::database::backend::DbConnection;
 use crate::database::config::DbConfig;
 use crate::results::AppResult;
 use diesel::r2d2::ConnectionManager;
-use diesel::{PgConnection, r2d2};
+use diesel::r2d2;
 
 pub fn create_db_pool(config: DbConfig) -> AppResult<crate::database::DBPool> {
-    let manager = ConnectionManager::<PgConnection>::new(config.dsn.to_string());
+    let manager = ConnectionManager::<DbConnection>::new(config.dsn.to_string());
     let mut builder = r2d2::Pool::builder()
         .max_size(config.max_size)
         .max_lifetime(config.max_lifetime)

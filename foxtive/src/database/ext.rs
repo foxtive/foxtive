@@ -1,7 +1,7 @@
+use crate::database::backend::DbConnection;
 use crate::database::Model;
 use crate::prelude::AppResult;
 use crate::results::{AppOptionalResult, AppPaginationResult};
-use diesel::PgConnection;
 use diesel::r2d2::{ConnectionManager, PooledConnection};
 use serde::Serialize;
 
@@ -20,7 +20,7 @@ pub trait OptionalResultExt<'a, T> {
 }
 
 pub trait DatabaseConnectionExt {
-    fn connection(&self) -> AppResult<PooledConnection<ConnectionManager<PgConnection>>>;
+    fn connection(&self) -> AppResult<PooledConnection<ConnectionManager<DbConnection>>>;
 }
 
 pub trait PaginationResultExt<T> {
