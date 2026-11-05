@@ -1,6 +1,6 @@
 [package]
 name = "foxtive"
-version = "1.4.2"
+version = "1.5.0"
 edition = "2024"
 rust-version = "1.97"
 license = "MIT"
@@ -36,59 +36,59 @@ tracing-setup = ["dep:tracing-subscriber"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-utoipa = {version = "5.5.0", features = ["chrono", "uuid"], optional = true}
+utoipa = {version = "6.0", features = ["chrono", "uuid"], optional = true}
 
-deadpool = { version = "0.13.1", features = ["rt_tokio_1"], optional = true }
+deadpool = { version = "0.13", features = ["rt_tokio_1"], optional = true }
 
 # RabbitMQ
-lapin = { version = "4.11.0", optional = true }
-deadpool-lapin = { version = "0.14.0", features = ["rt_tokio_1"], optional = true }
+lapin = { version = "4.12", optional = true }
+deadpool-lapin = { version = "0.14", features = ["rt_tokio_1"], optional = true }
 async-rs = { version = "0.8", default-features = false, features = ["tokio"], optional = true }
 
 # Redis
-redis = { version = "1.7.0", default-features = false, optional = true, features = [
+redis = { version = "1.7", default-features = false, optional = true, features = [
     "tokio-native-tls-comp", "connection-manager"
 ] }
-deadpool-redis = { version = "0.23.1", features = ["rt_tokio_1"], optional = true }
+deadpool-redis = { version = "0.23", features = ["rt_tokio_1"], optional = true }
 
 # Dashmap
-dashmap = { version = "6.1.0", optional = true }
+dashmap = { version = "6.1", optional = true }
 
-http = "1.5.0"
-thiserror = "2.0.20"
-uuid = { version = "1.26.0", features = ["v4", "serde"] }
-serde = { version = "1.0.229", features = ["derive"] }
-tokio = { version = "1.53.1", features = ["rt-multi-thread", "time", "macros", "net"] }
-tokio-util = { version = "0.7.19", features = ["rt"] }
-tokio-stream = "0.1.19"
-chrono = { version = "0.4.45", features = ["std", "serde"] }
-dotenvy = { version = "0.15.7" }
-serde_json = { version = "1.0.151", default-features = false, features = ["std"] }
-futures-util = { version = "0.3.34", default-features = false, features = ["alloc"] }
+http = "1.5"
+thiserror = "2.0"
+uuid = { version = "1.29", features = ["v4", "serde"] }
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.54", features = ["rt-multi-thread", "time", "macros", "net"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+tokio-stream = "0.1"
+chrono = { version = "0.4", features = ["std", "serde"] }
+dotenvy = { version = "0.15" }
+serde_json = { version = "1.0", default-features = false, features = ["std"] }
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
 base64 = { version = "0.23", optional = true }
-hex = { version = "0.4.3", optional = true }
-sha2 = { version = "0.11.0", optional = true }
-hmac = { version = "0.13.0", optional = true }
-fancy-regex = { version = "0.19.2", optional = true }
-tera = { version = "2.4.0", optional = true, features = ["glob_fs"] }
-reqwest = { version = "0.13.5", features = ["native-tls"], optional = true }
-diesel = { version = "2.3.13", features = ["postgres"], optional = true }
-diesel-async = { version = "0.9.2", features = ["postgres", "deadpool"], optional = true }
-jsonwebtoken = { version = "11.0.0", optional = true, features = ["rust_crypto"] }
-jose-rs = { version = "0.7", optional = true }
+hex = { version = "0.4", optional = true }
+sha2 = { version = "0.11", optional = true }
+hmac = { version = "0.13", optional = true }
+fancy-regex = { version = "0.20", optional = true }
+tera = { version = "2.4", optional = true, features = ["glob_fs"] }
+reqwest = { version = "0.13", features = ["native-tls"], optional = true }
+diesel = { version = "2.3", features = ["postgres"], optional = true }
+diesel-async = { version = "0.9", features = ["postgres", "deadpool"], optional = true }
+jsonwebtoken = { version = "11.1", optional = true, features = ["rust_crypto"] }
+jose-rs = { version = "0.10", optional = true }
 rsa = { version = "0.9", optional = true }
-strum = { version = "0.28.0", default-features = false, features = ["std"], optional = true }
-rust-argon2 = { version = "3.0.0", optional = true }
-ammonia = { version = "4.1.4", default-features = false, optional = true }
+strum = { version = "0.28", default-features = false, features = ["std"], optional = true }
+rust-argon2 = { version = "3.0", optional = true }
+ammonia = { version = "4.1", default-features = false, optional = true }
 
-tracing = "0.1.44"
-parking_lot = "0.12.5"
+tracing = "0.1"
+parking_lot = "0.13"
 zeroize = "1.9"
-subtle = "2.6.1"
+subtle = "2.6"
 rand = { version = "0.10", optional = true }
-serde_urlencoded = { version = "0.7.1", optional = true }
-tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"], optional = true }
-foxtive-macros = { path = "../foxtive-macros", version = "0.6.0" }
+serde_urlencoded = { version = "0.7", optional = true }
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"], optional = true }
+foxtive-macros = { path = "../foxtive-macros", version = "0.6" }
 
 [[example]]
 name = "jwe_encryption"
@@ -123,9 +123,9 @@ name = "optional_dependencies"
 required-features = ["tracing-setup"]
 
 [dev-dependencies]
-anyhow = { version = "1.0.104", features = ["backtrace"] }
-tokio = { version = "1.53.1", features = ["rt-multi-thread", "time", "macros", "net"] }
-futures = { version = "0.3.34" }
-tempfile = { version = "3.27.0" }
+anyhow = { version = "1.0", features = ["backtrace"] }
+tokio = { version = "1.54", features = ["rt-multi-thread", "time", "macros", "net"] }
+futures = { version = "0.3" }
+tempfile = { version = "3.27" }
 rsa = "0.9"
 rand = "0.10"

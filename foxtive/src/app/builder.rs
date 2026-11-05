@@ -20,7 +20,7 @@ use crate::health::HealthCheck;
 use crate::helpers::env::ScopedEnv;
 use crate::lifecycle::{
     ClosureFactory, Plugin, ServiceFactoryImpl, ServiceInit, ShutdownFuture, ShutdownHook,
-    StartupFuture, StartupHook,
+    StartupFuture, StartupHook, TraitBindingFactory,
 };
 use crate::metrics::MetricsSink;
 use crate::results::AppResult;
@@ -103,6 +103,7 @@ pub struct AppBuilder {
 
     services: TypeMap,
     service_factories: Vec<Box<dyn crate::lifecycle::ServiceFactory>>,
+    trait_binding_factories: Vec<TraitBindingFactory>,
     /// Tracks registered service type names to detect duplicates.
     registered_service_types: HashSet<&'static str>,
 
@@ -168,6 +169,7 @@ impl AppBuilder {
             app_private_key: Zeroizing::new(String::new()),
             services: TypeMap::new(),
             service_factories: Vec::new(),
+            trait_binding_factories: Vec::new(),
             registered_service_types: HashSet::new(),
 
             #[cfg(feature = "database")]
@@ -609,6 +611,57 @@ impl AppBuilder {
         Trait: ?Sized + Send + Sync + 'static,
     {
         self.services.insert_trait::<Trait>(impl_);
+        self
+    }
+
+    /// Register a trait binding via a factory closure (deferred construction).
+    ///
+    /// The closure receives `&App` and returns an `AppResult<Arc<Trait>>`.
+    /// This is the builder-phase equivalent of `AppInit::register_trait_with`.
+    ///
+    /// Factories are executed during `freeze()` after all services are constructed.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use foxtive::App;
+    /// use foxtive::prelude::AppResult;
+    /// use std::sync::Arc;
+    ///
+    /// trait Notifier: Send + Sync {
+    ///     fn notify(&self, msg: &str);
+    /// }
+    ///
+    /// struct EmailNotifier;
+    /// impl Notifier for EmailNotifier {
+    ///     fn notify(&self, msg: &str) { println!("[EMAIL] {}", msg); }
+    /// }
+    ///
+    /// # async fn run() -> AppResult<()> {
+    /// let app = App::builder("my-app", "MYAPP")
+    ///     .register(EmailNotifier)
+    ///     .register_trait_with::<dyn Notifier, _>(|app| {
+    ///         let notifier = app.require::<EmailNotifier>()?;
+    ///         Ok(notifier as Arc<dyn Notifier>)
+    ///     })
+    ///     .build()
+    ///     .await?;
+    ///
+    /// let notifier = app.require_trait::<dyn Notifier>()?;
+    /// notifier.notify("Hello!");
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn register_trait_with<Trait, F>(mut self, factory: F) -> Self
+    where
+        Trait: ?Sized + Send + Sync + 'static,
+        F: Fn(&App) -> AppResult<Arc<Trait>> + Send + Sync + 'static,
+    {
+        self.trait_binding_factories.push(Box::new(move |app| {
+            let arc = factory(app)?;
+            let boxed: Box<dyn std::any::Any + Send + Sync> = Box::new(arc);
+            Ok((std::any::TypeId::of::<Trait>(), Arc::from(boxed)))
+        }));
         self
     }
 
@@ -1084,6 +1137,7 @@ impl AppBuilder {
             shutdown_initiated: AtomicBool::new(false),
             services,
             service_factories: self.service_factories,
+            trait_binding_factories: self.trait_binding_factories,
 
             #[cfg(feature = "database")]
             db,

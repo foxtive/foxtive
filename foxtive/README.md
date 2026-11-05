@@ -14,14 +14,14 @@ Foxtive is the **foundation layer** of the Foxtive ecosystem - it provides the c
 
 ```toml
 [dependencies]
-foxtive = "1.4"
+foxtive = "1.5"
 ```
 
 With features:
 
 ```toml
 [dependencies]
-foxtive = { version = "1.4", features = ["database", "database-async", "redis", "jwt", "jwe", "cache-redis"] }
+foxtive = { version = "1.5", features = ["database", "database-async", "redis", "jwt", "jwe", "cache-redis"] }
 ```
 
 ## Quick Start
@@ -462,6 +462,51 @@ let notifier: Arc<dyn Notifier> = app.require_trait::<dyn Notifier>()?;
 println!("{}", notifier.notify("hello"));
 ```
 
+#### Deferred Trait Binding
+
+Use `register_trait_with()` when a trait implementation depends on services registered via `register_service::<T>()`. The factory closure runs during `freeze()` after all services are constructed:
+
+```rust
+use foxtive::prelude::*;
+use foxtive::lifecycle::ServiceInit;
+use std::sync::Arc;
+
+trait Notifier: Send + Sync {
+    fn notify(&self, msg: &str) -> String;
+}
+
+struct EmailNotifier {
+    config: Arc<ConfigService>,
+}
+
+impl Notifier for EmailNotifier {
+    fn notify(&self, msg: &str) -> String {
+        format!("[EMAIL via {}] {}", self.config.smtp_host, msg)
+    }
+}
+
+struct ConfigService {
+    smtp_host: String,
+}
+
+impl ServiceInit for ConfigService {
+    async fn init(_app: &App) -> AppResult<Self> {
+        Ok(Self { smtp_host: "smtp.example.com".to_string() })
+    }
+}
+
+let app = App::builder("my-service", "MYSVC")
+    .register_service::<ConfigService>()
+    .register_trait_with::<dyn Notifier, _>(|app| {
+        let config = app.require::<ConfigService>()?;
+        Ok(Arc::new(EmailNotifier { config }) as Arc<dyn Notifier>)
+    })
+    .build()
+    .await?;
+
+let notifier = app.require_trait::<dyn Notifier>()?;
+```
+
 The derive macro auto-detects `Arc<dyn Trait>` fields and resolves them via `require_trait`:
 
 ```rust
@@ -849,6 +894,7 @@ let redis = app.try_redis();    // returns Option<&Redis>
 | `.register_service::<T>()` | Register a service for deferred construction via `ServiceInit` |
 | `.register_mutable_service::<T>()` | Register a service wrapped in `Mutable<T>` for shared interior mutability |
 | `.register_trait::<dyn T>(arc)` | Register a trait object binding (`Arc<dyn Trait>`) |
+| `.register_trait_with::<dyn T>(closure)` | Register a trait binding via factory closure (deferred construction during `freeze()`) |
 | `.register_with(closure)` | Register a service via factory closure (no `ServiceInit` needed) |
 | `.register_service_if::<T>(cond)` | Register a service only if `cond` is true |
 | `.register_if(cond, service)` | Register a service instance only if `cond` is true |

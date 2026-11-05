@@ -491,6 +491,16 @@ pub(crate) type StartupHook = Box<dyn Fn(Arc<App>) -> StartupFuture + Send + Syn
 /// Type-erased shutdown hook (closure form).
 pub(crate) type ShutdownHook = Box<dyn Fn(Arc<App>) -> ShutdownFuture + Send + Sync + 'static>;
 
+/// Type-erased trait binding factory for deferred construction.
+///
+/// Returns `(TypeId, Arc<dyn Any + Send + Sync>)` where TypeId is the
+/// trait's TypeId and the Arc is the trait object.
+pub(crate) type TraitBindingFactory = Box<
+    dyn Fn(&App) -> AppResult<(std::any::TypeId, Arc<dyn std::any::Any + Send + Sync>)>
+        + Send
+        + Sync,
+>;
+
 /// A self-contained module that bundles services, lifecycle hooks, and health checks.
 ///
 /// Plugins let you package a reusable feature (auth, metrics, etc.) into a single
