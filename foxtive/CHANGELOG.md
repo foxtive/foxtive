@@ -1,6 +1,21 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 1.6.0 (2026-11-05)
+
+#### Database - MySQL Support
+- feat(database): add MySQL 8.0+ backend support alongside PostgreSQL
+- feat(database): add new feature flags: `database-postgres`, `database-mysql`, `database-async-postgres`, `database-async-mysql`
+- feat(database): add `backend` module with compile-time type aliases (`DbConnection`, `AsyncDbConnection`) that resolve based on active feature
+- feat(database): add MySQL pagination support using `COUNT(*) OVER()` window functions (MySQL 8.0+)
+- feat(database): PostgreSQL takes precedence when both `database-postgres` and `database-mysql` are enabled
+- refactor(database): update `conn.rs`, `async_conn.rs`, `ext.rs`, `ext_impl.rs`, `async_ext.rs`, `pagination.rs` to use backend-agnostic type aliases
+- refactor(deps): remove hardcoded `postgres` feature from diesel/diesel-async dependencies; backend selection now controlled entirely via feature flags
+
+#### Backward Compatibility
+- The existing `database` and `database-async` features continue to work identically (default to PostgreSQL)
+- No breaking changes to public API
+
 ### 1.5.0 (2026-11-05)
 
 #### DI Container

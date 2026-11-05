@@ -14,14 +14,14 @@ Foxtive is the **foundation layer** of the Foxtive ecosystem - it provides the c
 
 ```toml
 [dependencies]
-foxtive = "1.5"
+foxtive = "1.6"
 ```
 
 With features:
 
 ```toml
 [dependencies]
-foxtive = { version = "1.5", features = ["database", "database-async", "redis", "jwt", "jwe", "cache-redis"] }
+foxtive = { version = "1.6", features = ["database", "database-async", "redis", "jwt", "jwe", "cache-redis"] }
 ```
 
 ## Quick Start
