@@ -185,6 +185,60 @@ impl AppInit {
         self
     }
 
+    /// Register a trait binding via a factory closure (deferred construction).
+    ///
+    /// The closure receives `&App` and returns an `AppResult<Arc<Trait>>`.
+    /// Factories are executed during `freeze()` after all services are constructed.
+    ///
+    /// Use this when a trait implementation depends on services registered via
+    /// `register_service::<T>()`.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use foxtive::App;
+    /// use foxtive::prelude::AppResult;
+    /// use std::sync::Arc;
+    ///
+    /// trait Notifier: Send + Sync {
+    ///     fn notify(&self, msg: &str);
+    /// }
+    ///
+    /// struct EmailNotifier;
+    /// impl Notifier for EmailNotifier {
+    ///     fn notify(&self, msg: &str) { println!("[EMAIL] {}", msg); }
+    /// }
+    ///
+    /// # async fn run() -> AppResult<()> {
+    /// let mut init = App::builder("my-app", "MYAPP")
+    ///     .build_init()
+    ///     .await?;
+    ///
+    /// init.register(EmailNotifier);
+    /// init.register_trait_with::<dyn Notifier, _>(|app| {
+    ///     let notifier = app.require::<EmailNotifier>()?;
+    ///     Ok(notifier as Arc<dyn Notifier>)
+    /// });
+    ///
+    /// let app = init.freeze().await?;
+    /// let notifier = app.require_trait::<dyn Notifier>()?;
+    /// notifier.notify("Hello!");
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn register_trait_with<Trait, F>(&mut self, factory: F) -> &mut Self
+    where
+        Trait: ?Sized + Send + Sync + 'static,
+        F: Fn(&App) -> AppResult<Arc<Trait>> + Send + Sync + 'static,
+    {
+        self.inner.trait_binding_factories.push(Box::new(move |app| {
+            let arc = factory(app)?;
+            let boxed: Box<dyn std::any::Any + Send + Sync> = Box::new(arc);
+            Ok((std::any::TypeId::of::<Trait>(), Arc::from(boxed)))
+        }));
+        self
+    }
+
     /// Register a service via a factory closure (post-build_init).
     ///
     /// The closure receives `&App` and returns an `AppResult<T>`.
@@ -371,6 +425,13 @@ impl AppInit {
                 )
                 .into());
             }
+        }
+
+        // Phase 2.5: Execute deferred trait binding factories
+        let trait_factories = std::mem::take(&mut self.inner.trait_binding_factories);
+        for factory in trait_factories {
+            let (type_id, arc_any) = factory(&self.inner)?;
+            self.inner.services.insert_trait_boxed(type_id, arc_any);
         }
 
         // Wrap in Arc

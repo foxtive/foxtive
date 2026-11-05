@@ -19,7 +19,7 @@ use crate::enums::AppMessage;
 use crate::events::EventBus;
 use crate::health::{HealthCheck, HealthReport, aggregate_status};
 use crate::helpers::env::ScopedEnv;
-use crate::lifecycle::{ServiceFactory, ShutdownHook, StartupHook};
+use crate::lifecycle::{ServiceFactory, ShutdownHook, StartupHook, TraitBindingFactory};
 use crate::metrics::{InfraEvent, MetricsSink};
 use crate::results::AppResult;
 use crate::tokio::Tokio;
@@ -105,6 +105,7 @@ pub struct App {
 
     pub(crate) services: TypeMap,
     pub(crate) service_factories: Vec<Box<dyn ServiceFactory>>,
+    pub(crate) trait_binding_factories: Vec<TraitBindingFactory>,
 
     #[cfg(feature = "database")]
     pub(crate) db: Option<DBPool>,

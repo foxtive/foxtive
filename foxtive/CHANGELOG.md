@@ -1,6 +1,25 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 1.5.0 (2026-11-05)
+
+#### DI Container
+- feat(container): add `register_trait_with()` for deferred trait binding construction via sync closures
+- feat(container): `register_trait_with()` executes during `freeze()` after all services are constructed, enabling trait objects to depend on registered services
+- feat(init): add `AppInit::register_trait_with()` for post-build_init trait binding registration
+- feat(builder): add `AppBuilder::register_trait_with()` for builder-phase trait binding registration
+
+#### Dependencies
+- bump: all dependencies updated to latest compatible versions
+- chore: standardize dependency version format to `x.x` for better flexibility
+- Updated 40+ dependencies including tokio, serde, uuid, thiserror, diesel, lapin, redis, and more
+
+#### Examples
+- docs(examples): add `deferred_trait_binding.rs`: demonstrates `register_trait_with` for trait objects with service dependencies
+
+#### Tests
+- test: add `trait_factory_tests.rs` (6 integration tests) covering basic usage, multiple dependencies, error propagation, replacement, complex setup, and service dependencies
+
 ### 1.4.2 (2026-10-10)
 
 - fix(database): `Paginated::load_and_count_pages_async` now returns a concrete `impl Future + Send + 'conn` instead of an `async fn` with an early-bound lifetime, so axum handlers built on a boxed diesel query (`into_boxed()`) pass `Handler`'s `Send` check — fixes `diesel::query_builder::Query is not general enough` at router-registration sites; existing `.load_and_count_pages_async::<U>(&mut conn).await` call sites are unchanged

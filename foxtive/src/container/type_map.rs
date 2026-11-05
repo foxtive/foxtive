@@ -157,6 +157,18 @@ impl TypeMap {
         self.inner.contains_key(&TypeId::of::<T>())
     }
 
+    /// Insert a trait object by TypeId key (for deferred registration).
+    ///
+    /// This is used internally for type-erased trait construction.
+    /// The TypeId should correspond to a `?Sized` trait type.
+    pub(crate) fn insert_trait_boxed(
+        &mut self,
+        type_id: TypeId,
+        arc: Arc<dyn Any + Send + Sync>,
+    ) {
+        self.inner.insert(type_id, arc);
+    }
+
     /// Remove all entries from the map.
     ///
     /// After calling `clear()`, `len()` returns 0 and `is_empty()` returns true.
