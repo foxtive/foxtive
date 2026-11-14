@@ -337,11 +337,11 @@ mod tests {
     #[test]
     fn test_rsa_oaep_256_round_trip() {
         use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
-        use rsa::{RsaPrivateKey, RsaPublicKey};
+        use rsa::{PrivateKey, PublicKey};
 
-        let mut rng = rsa::rand_core::OsRng;
-        let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
-        let public_key = RsaPublicKey::from(&private_key);
+        let mut rng = rand::rng();
+        let private_key = PrivateKey::new(&mut rng, 2048).unwrap();
+        let public_key = PublicKey::from(&private_key);
 
         // jose-rs expects SPKI DER for encrypt, PKCS#8 DER for decrypt
         let spki_der = public_key.to_public_key_der().unwrap().as_ref().to_vec();

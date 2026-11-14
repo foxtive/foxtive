@@ -58,7 +58,9 @@ fn main() {
     // HMAC with builder override via with_algorithm()
     println!("--- 2. HMAC with with_algorithm() builder ---");
 
-    let config = JwtConfig::hmac(b"my-shared-secret", 60).with_algorithm(JwtAlgorithm::HS384);
+    let config = JwtConfig::hmac(b"my-shared-secret", 60)
+        .expect("valid HMAC config")
+        .with_algorithm(JwtAlgorithm::HS384);
     println!("Algorithm: {:?}", config.algorithm());
 
     let jwt_hmac = Jwt::new(config);
@@ -77,7 +79,7 @@ fn main() {
     println!("--- 3. Combined JWT + JWE: sign then encrypt ---");
 
     // Set up JWT (HMAC HS256)
-    let jwt = Jwt::from_hmac(b"jwt-signing-secret", 45);
+    let jwt = Jwt::from_hmac(b"jwt-signing-secret", 45).expect("valid HMAC config");
 
     // Set up JWE (symmetric A256KW + A256GCM)
     let jwe_key = b"0123456789abcdef0123456789abcdef"; // 32 bytes

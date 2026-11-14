@@ -137,8 +137,13 @@ impl<T: Query> Query for Paginated<T> {
     type SqlType = (T::SqlType, BigInt);
 }
 
-#[cfg(feature = "database")]
-impl<T> RunQueryDsl<DbConnection> for Paginated<T> {}
+// Diesel 2.4 stopped providing `RunQueryDsl` through unconditional blanket impls: diesel
+// and diesel-async now both derive it from the `RunQueryDslSupport` marker, which only
+// covers `QueryRelation` types by default. `Paginated` is a custom query type rather than
+// a table, so it opts in through the marker once and picks up the sync and async
+// `RunQueryDsl` impls from the respective blanket impls.
+#[cfg(any(feature = "database", feature = "database-async"))]
+impl<T> diesel::query_dsl::RunQueryDslSupport for Paginated<T> {}
 
 // --- PostgreSQL backend: QueryFragment<Pg> ---
 #[cfg(any(feature = "database-postgres", all(feature = "database", not(any(feature = "database-postgres", feature = "database-mysql")))))]
@@ -229,5 +234,81 @@ mod tests {
     #[test]
     fn default_per_page_is_ten() {
         assert_eq!(DEFAULT_PER_PAGE, 10);
+    }
+
+    // Diesel 2.4 wiring coverage. `Paginated` is a custom query type, so neither the
+    // blocking nor the async `RunQueryDsl` impl exists on its own - both come from the
+    // `RunQueryDslSupport` marker. These tests pin that marker (and the SQL it renders)
+    // so a future diesel or diesel-async bump cannot silently drop it again.
+    #[cfg(any(feature = "database", feature = "database-async"))]
+    mod dsl_wiring {
+        use super::*;
+
+        diesel::table! {
+            users (id) {
+                id -> BigInt,
+                name -> Varchar,
+            }
+        }
+
+        fn paginated<Q>(query: Q) -> Paginated<Q> {
+            query.paginate(3).per_page(25)
+        }
+
+        #[test]
+        fn marker_provides_blocking_dsl_and_load_query() {
+            fn assert_blocking<Q>(page: Paginated<Q>)
+            where
+                for<'a> Paginated<Q>:
+                    RunQueryDsl<DbConnection> + LoadQuery<'a, DbConnection, ((i64, String), i64)>,
+            {
+                let _ = page;
+            }
+
+            assert_blocking(paginated(users::table.select((users::id, users::name))));
+        }
+
+        #[cfg(feature = "database-async")]
+        #[test]
+        fn marker_provides_async_dsl_and_load_query() {
+            // This is the bound set `load_and_count_pages_async` relies on, and exactly the
+            // one that stopped resolving once diesel-async 0.10 gated its blanket impl.
+            fn assert_async<Q>(page: Paginated<Q>)
+            where
+                for<'a> Paginated<Q>: diesel_async::RunQueryDsl<AsyncDbConnection>
+                    + diesel_async::methods::LoadQuery<'a, AsyncDbConnection, ((i64, String), i64)>
+                    + Send
+                    + 'a,
+            {
+                let _ = page;
+            }
+
+            assert_async(paginated(users::table.select((users::id, users::name))));
+        }
+
+        #[cfg(any(
+            feature = "database-postgres",
+            all(feature = "database", not(feature = "database-mysql"))
+        ))]
+        fn render<Q: QueryFragment<Pg>>(page: &Paginated<Q>) -> String {
+            diesel::debug_query::<Pg, _>(page).to_string()
+        }
+
+        #[cfg(all(feature = "database-mysql", not(feature = "database-postgres")))]
+        fn render<Q: QueryFragment<Mysql>>(page: &Paginated<Q>) -> String {
+            diesel::debug_query::<Mysql, _>(page).to_string()
+        }
+
+        #[test]
+        fn paginated_sql_keeps_count_window_and_page_bounds() {
+            let sql = render(&paginated(users::table.select((users::id, users::name))));
+            // page 3 at 25 per page -> LIMIT 25 OFFSET 50, wrapped so COUNT(*) OVER ()
+            // reports the total of the unpaged result set
+            assert!(sql.contains("FROM (SELECT"), "{sql}");
+            assert!(sql.contains("COUNT(*) OVER ()"), "{sql}");
+            assert!(sql.contains(") t LIMIT"), "{sql}");
+            assert!(sql.contains("OFFSET"), "{sql}");
+            assert!(sql.contains("[25, 50]"), "{sql}");
+        }
     }
 }

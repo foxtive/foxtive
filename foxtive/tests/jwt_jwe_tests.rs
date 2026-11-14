@@ -36,7 +36,7 @@ fn jwe_with_defaults() -> Jwe {
 
 #[test]
 fn test_hmac_jwt_generate_encrypted_round_trip() {
-    let jwt = Jwt::from_hmac(b"hmac-secret", 60);
+    let jwt = Jwt::from_hmac(b"hmac-secret", 60).unwrap();
     let jwe = jwe_with_defaults();
     let claims = sample_claims("alice", "my-app");
 
@@ -75,7 +75,7 @@ fn test_hmac_jwt_with_custom_algorithm() {
 
 #[test]
 fn test_generate_encrypted_with_algorithm_override() {
-    let jwt = Jwt::from_hmac(b"default-hs256", 60);
+    let jwt = Jwt::from_hmac(b"default-hs256", 60).unwrap();
     let jwe = jwe_with_defaults();
     let claims = sample_claims("charlie", "override-app");
 
@@ -139,7 +139,7 @@ fn test_rsa_jwt_with_rs512_generate_encrypted() {
 
 #[test]
 fn test_decrypt_with_wrong_jwe_key_fails() {
-    let jwt = Jwt::from_hmac(b"jwt-secret", 60);
+    let jwt = Jwt::from_hmac(b"jwt-secret", 60).unwrap();
     let jwe_encrypt = jwe_with_defaults();
     let jwe_decrypt = Jwe::from_symmetric(b"wrong-key-0123456789abcdef01234567").unwrap();
 
@@ -153,8 +153,8 @@ fn test_decrypt_with_wrong_jwe_key_fails() {
 
 #[test]
 fn test_decrypt_with_wrong_jwt_secret_fails() {
-    let jwt_encrypt = Jwt::from_hmac(b"correct-secret", 60);
-    let jwt_decrypt = Jwt::from_hmac(b"wrong-secret", 60);
+    let jwt_encrypt = Jwt::from_hmac(b"correct-secret", 60).unwrap();
+    let jwt_decrypt = Jwt::from_hmac(b"wrong-secret", 60).unwrap();
     let jwe = jwe_with_defaults();
 
     let claims = sample_claims("user", "app");
@@ -169,7 +169,7 @@ fn test_decrypt_with_wrong_jwt_secret_fails() {
 
 #[test]
 fn test_decrypt_with_wrong_audience_fails() {
-    let jwt = Jwt::from_hmac(b"secret", 60);
+    let jwt = Jwt::from_hmac(b"secret", 60).unwrap();
     let jwe = jwe_with_defaults();
     let claims = sample_claims("user", "correct-aud");
 
@@ -184,7 +184,7 @@ fn test_decrypt_with_wrong_audience_fails() {
 
 #[test]
 fn test_decrypt_with_wrong_algorithm_validation_fails() {
-    let jwt = Jwt::from_hmac(b"secret", 60);
+    let jwt = Jwt::from_hmac(b"secret", 60).unwrap();
     let jwe = jwe_with_defaults();
     let claims = sample_claims("user", "app");
 
@@ -200,7 +200,7 @@ fn test_decrypt_with_wrong_algorithm_validation_fails() {
 
 #[test]
 fn test_generate_encrypted_with_default_jwe() {
-    let jwt = Jwt::from_hmac(b"secret", 60);
+    let jwt = Jwt::from_hmac(b"secret", 60).unwrap();
     let jwe = Jwe::from_symmetric(&jwe_key()).unwrap();
     let claims = sample_claims("user", "app");
 
@@ -220,7 +220,7 @@ fn test_generate_encrypted_with_default_jwe() {
 
 #[test]
 fn test_cloned_jwt_can_decrypt_encrypted_token() {
-    let jwt = Jwt::from_hmac(b"clone-secret", 60);
+    let jwt = Jwt::from_hmac(b"clone-secret", 60).unwrap();
     let jwt_clone = jwt.clone();
     let jwe = jwe_with_defaults();
 
@@ -240,7 +240,7 @@ fn test_cloned_jwt_can_decrypt_encrypted_token() {
 
 #[test]
 fn test_jwt_encrypted_with_a128kw() {
-    let jwt = Jwt::from_hmac(b"jwt-secret", 60);
+    let jwt = Jwt::from_hmac(b"jwt-secret", 60).unwrap();
     let key_128 = b"0123456789abcdef"; // 16 bytes for A128KW
     let jwe_config = JweConfig::symmetric(key_128)
         .unwrap()
@@ -261,7 +261,7 @@ fn test_jwt_encrypted_with_a128kw() {
 
 #[test]
 fn test_jwt_encrypted_with_cbc_encryption() {
-    let jwt = Jwt::from_hmac(b"jwt-secret", 60);
+    let jwt = Jwt::from_hmac(b"jwt-secret", 60).unwrap();
     let jwe_config = JweConfig::symmetric(&jwe_key())
         .unwrap()
         .with_defaults(JweAlgorithm::A256KW, JweEncryption::A256CbcHs512);

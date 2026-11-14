@@ -14,14 +14,14 @@ Foxtive is the **foundation layer** of the Foxtive ecosystem - it provides the c
 
 ```toml
 [dependencies]
-foxtive = "1.6"
+foxtive = "1.7"
 ```
 
 With features:
 
 ```toml
 [dependencies]
-foxtive = { version = "1.6", features = ["database", "database-async", "redis", "jwt", "jwe", "cache-redis"] }
+foxtive = { version = "1.7", features = ["database", "database-async", "redis", "jwt", "jwe", "cache-redis"] }
 ```
 
 ## Quick Start
@@ -993,7 +993,7 @@ RFC 7519 compliant JWT helper with support for RSA (asymmetric) and HMAC (symmet
 use foxtive::helpers::jwt::{Jwt, JwtConfig, JwtAlgorithm, Validation};
 
 // Create from shared secret (HS256 by default)
-let jwt = Jwt::from_hmac(b"my-secret-key", 60);
+let jwt = Jwt::from_hmac(b"my-secret-key", 60)?;
 
 // Generate token
 let token = jwt.generate(claims)?;
@@ -1046,7 +1046,7 @@ Sign-then-encrypt for token confidentiality:
 use foxtive::helpers::jwt::Jwt;
 use foxtive::helpers::jwe::Jwe;
 
-let jwt = Jwt::from_hmac(b"jwt-secret", 60);
+let jwt = Jwt::from_hmac(b"jwt-secret", 60)?;
 let jwe = Jwe::from_symmetric(b"0123456789abcdef0123456789abcdef")?;
 
 // Sign + encrypt in one step

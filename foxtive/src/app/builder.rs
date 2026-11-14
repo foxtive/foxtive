@@ -408,7 +408,7 @@ impl AppBuilder {
     /// use foxtive::helpers::jwt::JwtConfig;
     ///
     /// // HMAC-based JWT
-    /// builder.jwt(JwtConfig::hmac(b"my-secret", 60));
+    /// builder.jwt(JwtConfig::hmac(b"my-secret", 60)?);
     ///
     /// // RSA-based JWT
     /// builder.jwt(JwtConfig::rsa_pem(public_pem, private_pem, 60)?);

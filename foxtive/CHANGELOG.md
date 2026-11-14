@@ -1,6 +1,52 @@
 # Foxtive Changelog
 Foxtive changelog file 
 
+### 1.7.0 (2026-11-14)
+
+#### Dependencies
+- bump(diesel): 2.3 -> 2.4 and diesel-async 0.9 -> 0.10
+- bump(jsonwebtoken): 11.0 -> 12.0
+- bump(jose-rs): 0.10 -> 0.11
+- bump(rsa): 0.9 -> 0.10 (rand_core 0.10 drops `OsRng`)
+- bump: uuid 1.29, tokio 1.54, chrono/futures-util/serde_json/reqwest/sha2/hmac/hex refreshed
+- chore: standardize dependency version format to `x.x` (matches the 1.5.0 convention)
+
+#### Database - Diesel 2.4
+- fix(database): `Paginated<T>` now opts into the new `diesel::query_dsl::RunQueryDslSupport` marker instead of carrying a hand-written `impl RunQueryDsl<DbConnection>`
+- fix(database): restores `Paginated<T>: diesel_async::RunQueryDsl<AsyncPgConnection>`, which diesel-async 0.10 no longer provides unconditionally; without this, `load_and_count_pages_async` failed to compile against diesel 2.4
+- refactor(database): the marker is emitted once and covers both sync and async, so the same pagination type no longer needs a per-flavour `RunQueryDsl` impl
+- test(database): add `pagination::tests::dsl_wiring` - compile-time assertions that `Paginated<Q>` satisfies `RunQueryDsl` + `LoadQuery` for both the blocking and the async connection, plus a rendered-SQL check that the `COUNT(*) OVER ()` wrapper and the `LIMIT`/`OFFSET` binds are unchanged
+
+#### JWT - HMAC Secrets
+- **BREAKING** feat(jwt): `JwtConfig::hmac`, `Jwt::from_hmac` and `JwtVerifier::from_hmac` now return `AppResult<Self>`; jsonwebtoken 12 rejects empty HMAC secrets instead of building a silently unusable key
+- feat(jwt): HMAC key parse failures surface as `AppMessage::Infrastructure` with the underlying error attached as `source`, consistent with `rsa_pem` and the already-fallible `hmac_with_algorithm`/`JweConfig::symmetric`
+- test(jwt): add `test_hmac_empty_secret_rejected`
+
+#### Testing
+- feat(test-utils): the `test-utils` feature now also enables `rand`, since `Jwt::dummy_keys()` generates RSA keys through `rand::rng()`
+- fix(test): migrate RSA test keys to the renamed rsa 0.10 types (`rsa::PrivateKey`/`rsa::PublicKey`) and drop the deprecated `RsaPrivateKey`/`RsaPublicKey` aliases
+
+#### Migration Guide
+
+```rust
+// before (1.6.x):
+let jwt = Jwt::from_hmac(b"my-secret-key", 60);
+builder.jwt(JwtConfig::hmac(b"my-secret", 60));
+
+// after (1.7.0):
+let jwt = Jwt::from_hmac(b"my-secret-key", 60)?;
+builder.jwt(JwtConfig::hmac(b"my-secret", 60)?);
+```
+
+```rust
+// before (1.6.x) - test key generation:
+let private_key = rsa::RsaPrivateKey::new(&mut rsa::rand_core::OsRng, 2048).unwrap();
+
+// after (1.7.0):
+let mut rng = rand::rng();
+let private_key = rsa::PrivateKey::new(&mut rng, 2048).unwrap();
+```
+
 ### 1.6.0 (2026-11-05)
 
 #### Database - MySQL Support

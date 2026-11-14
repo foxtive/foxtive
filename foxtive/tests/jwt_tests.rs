@@ -85,7 +85,7 @@ fn test_rsa_pem_with_non_rsa_algorithm_rejected() {
 
 #[test]
 fn test_hmac_default_algorithm_is_hs256() {
-    let config = JwtConfig::hmac(b"secret", 60);
+    let config = JwtConfig::hmac(b"secret", 60).unwrap();
     assert_eq!(config.algorithm(), Algorithm::HS256);
 }
 
@@ -123,7 +123,9 @@ fn test_hmac_with_non_hmac_algorithm_rejected() {
 
 #[test]
 fn test_with_algorithm_overrides_hmac_default() {
-    let config = JwtConfig::hmac(b"secret", 60).with_algorithm(Algorithm::HS512);
+    let config = JwtConfig::hmac(b"secret", 60)
+        .unwrap()
+        .with_algorithm(Algorithm::HS512);
     assert_eq!(config.algorithm(), Algorithm::HS512);
 
     let jwt = Jwt::new(config);
@@ -160,7 +162,7 @@ fn test_with_algorithm_overrides_rsa_default() {
 
 #[test]
 fn test_config_mut_algorithm_change() {
-    let mut jwt = Jwt::from_hmac(b"mutable-secret", 60);
+    let mut jwt = Jwt::from_hmac(b"mutable-secret", 60).unwrap();
     assert_eq!(jwt.config().algorithm(), Algorithm::HS256);
 
     // Change algorithm via mutable config reference
@@ -180,7 +182,7 @@ fn test_config_mut_algorithm_change() {
 
 #[test]
 fn test_generate_with_algorithm_overrides_config_default() {
-    let jwt = Jwt::from_hmac(b"secret", 60);
+    let jwt = Jwt::from_hmac(b"secret", 60).unwrap();
     assert_eq!(jwt.config().algorithm(), Algorithm::HS256);
 
     // Override at generation time
@@ -230,7 +232,9 @@ fn test_decode_rs384_token_with_rs256_validation_fails() {
 
 #[test]
 fn test_jwt_clone_preserves_algorithm() {
-    let config = JwtConfig::hmac(b"secret", 60).with_algorithm(Algorithm::HS512);
+    let config = JwtConfig::hmac(b"secret", 60)
+        .unwrap()
+        .with_algorithm(Algorithm::HS512);
     let jwt1 = Jwt::new(config);
     let jwt2 = jwt1.clone();
 

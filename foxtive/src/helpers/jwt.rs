@@ -31,7 +31,7 @@
 //! let jwt = Jwt::new(config);
 //!
 //! // HMAC-based JWT (symmetric)
-//! let config = JwtConfig::hmac(b"my-secret-key", 60);
+//! let config = JwtConfig::hmac(b"my-secret-key", 60)?;
 //! let jwt = Jwt::new(config);
 //! ```
 
@@ -43,6 +43,25 @@ use serde::{Deserialize, Serialize};
 pub use jsonwebtoken::{Algorithm as JwtAlgorithm, Validation};
 
 use crate::prelude::{AppMessage, AppResult};
+
+/// Parses an HMAC shared secret into a cached signing key.
+///
+/// An empty secret is rejected by jsonwebtoken, so it is reported as an
+/// [`AppMessage`] rather than turning into an unusable key.
+fn hmac_encoding_key(secret: &[u8]) -> AppResult<EncodingKey> {
+    EncodingKey::from_secret(secret).map_err(|e| AppMessage::Infrastructure {
+        message: format!("Failed to parse HMAC secret for JWT: {e}"),
+        source: Some(Box::new(e)),
+    })
+}
+
+/// Parses an HMAC shared secret into a cached verification key.
+fn hmac_decoding_key(secret: &[u8]) -> AppResult<DecodingKey> {
+    DecodingKey::from_secret(secret).map_err(|e| AppMessage::Infrastructure {
+        message: format!("Failed to parse HMAC secret for JWT: {e}"),
+        source: Some(Box::new(e)),
+    })
+}
 
 /// Configuration for JWT token generation and validation.
 ///
@@ -156,18 +175,22 @@ impl JwtConfig {
     /// * `secret` - Shared secret key bytes
     /// * `token_lifetime` - Token lifetime in minutes
     ///
+    /// # Returns
+    ///
+    /// Errors when `secret` is empty.
+    ///
     /// # Example
     ///
     /// ```ignore
-    /// let config = JwtConfig::hmac(b"my-secret-key", 60);
+    /// let config = JwtConfig::hmac(b"my-secret-key", 60).unwrap();
     /// ```
-    pub fn hmac(secret: &[u8], token_lifetime: i64) -> Self {
-        Self {
-            encoding_key: EncodingKey::from_secret(secret),
-            decoding_key: DecodingKey::from_secret(secret),
+    pub fn hmac(secret: &[u8], token_lifetime: i64) -> AppResult<Self> {
+        Ok(Self {
+            encoding_key: hmac_encoding_key(secret)?,
+            decoding_key: hmac_decoding_key(secret)?,
             algorithm: JwtAlgorithm::HS256,
             token_lifetime,
-        }
+        })
     }
 
     /// Create a JWT config from an HMAC shared secret with a specific algorithm.
@@ -177,6 +200,10 @@ impl JwtConfig {
     /// * `secret` - Shared secret key bytes
     /// * `algorithm` - HMAC algorithm (HS256, HS384, or HS512)
     /// * `token_lifetime` - Token lifetime in minutes
+    ///
+    /// # Returns
+    ///
+    /// Errors when `secret` is empty.
     pub fn hmac_with_algorithm(
         secret: &[u8],
         algorithm: JwtAlgorithm,
@@ -194,8 +221,8 @@ impl JwtConfig {
         }
 
         Ok(Self {
-            encoding_key: EncodingKey::from_secret(secret),
-            decoding_key: DecodingKey::from_secret(secret),
+            encoding_key: hmac_encoding_key(secret)?,
+            decoding_key: hmac_decoding_key(secret)?,
             algorithm,
             token_lifetime,
         })
@@ -274,8 +301,10 @@ impl Jwt {
     }
 
     /// Convenience constructor from HMAC secret.
-    pub fn from_hmac(secret: &[u8], token_lifetime: i64) -> Self {
-        Self::new(JwtConfig::hmac(secret, token_lifetime))
+    ///
+    /// Errors when `secret` is empty.
+    pub fn from_hmac(secret: &[u8], token_lifetime: i64) -> AppResult<Self> {
+        Ok(Self::new(JwtConfig::hmac(secret, token_lifetime)?))
     }
 
     pub fn config(&self) -> &JwtConfig {
@@ -368,12 +397,11 @@ impl Jwt {
     /// Only available in test builds or when the `test-utils` feature is enabled.
     #[cfg(any(test, feature = "test-utils"))]
     pub fn dummy_keys() -> (String, String) {
-        use rsa::RsaPrivateKey;
+        use rsa::PrivateKey;
         use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
 
-        let mut rng = rsa::rand_core::OsRng;
-        let private_key =
-            RsaPrivateKey::new(&mut rng, 2048).expect("Failed to generate RSA key pair");
+        let mut rng = rand::rng();
+        let private_key = PrivateKey::new(&mut rng, 2048).expect("Failed to generate RSA key pair");
 
         let public_key = private_key
             .to_public_key()
@@ -483,11 +511,15 @@ impl JwtVerifier {
     /// # Arguments
     ///
     /// * `secret` - Shared secret key bytes
-    pub fn from_hmac(secret: &[u8]) -> Self {
-        Self {
-            decoding_key: DecodingKey::from_secret(secret),
+    ///
+    /// # Returns
+    ///
+    /// Errors when `secret` is empty.
+    pub fn from_hmac(secret: &[u8]) -> AppResult<Self> {
+        Ok(Self {
+            decoding_key: hmac_decoding_key(secret)?,
             algorithm: JwtAlgorithm::HS256,
-        }
+        })
     }
 
     /// Create a verifier from an HMAC shared secret with a specific algorithm.
@@ -508,7 +540,7 @@ impl JwtVerifier {
         }
 
         Ok(Self {
-            decoding_key: DecodingKey::from_secret(secret),
+            decoding_key: hmac_decoding_key(secret)?,
             algorithm,
         })
     }
@@ -675,7 +707,7 @@ mod tests {
     #[test]
     fn test_hmac_round_trip() {
         let secret = b"my-super-secret-key";
-        let jwt = Jwt::from_hmac(secret, 60);
+        let jwt = Jwt::from_hmac(secret, 60).unwrap();
 
         let claims = sample_claims();
         let token = jwt.generate(claims.clone()).unwrap();
@@ -734,11 +766,18 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[test]
+    fn test_hmac_empty_secret_rejected() {
+        assert!(JwtConfig::hmac(b"", 60).is_err());
+        assert!(Jwt::from_hmac(b"", 60).is_err());
+        assert!(JwtVerifier::from_hmac(b"").is_err());
+    }
+
     // Error cases
 
     #[test]
     fn test_decode_invalid_token_fails() {
-        let jwt = Jwt::from_hmac(b"secret", 60);
+        let jwt = Jwt::from_hmac(b"secret", 60).unwrap();
         let result = jwt
             .decode::<JwtTokenClaims>("invalid.token.here", &Validation::new(JwtAlgorithm::HS256));
         assert!(result.is_err());
@@ -746,8 +785,8 @@ mod tests {
 
     #[test]
     fn test_decode_wrong_secret_fails() {
-        let jwt1 = Jwt::from_hmac(b"secret-one", 60);
-        let jwt2 = Jwt::from_hmac(b"secret-two", 60);
+        let jwt1 = Jwt::from_hmac(b"secret-one", 60).unwrap();
+        let jwt2 = Jwt::from_hmac(b"secret-two", 60).unwrap();
 
         let token = jwt1.generate(sample_claims()).unwrap();
 
@@ -758,7 +797,7 @@ mod tests {
 
     #[test]
     fn test_decode_wrong_algorithm_fails() {
-        let jwt = Jwt::from_hmac(b"secret", 60);
+        let jwt = Jwt::from_hmac(b"secret", 60).unwrap();
         let token = jwt.generate(sample_claims()).unwrap();
 
         // Try to decode with wrong algorithm
@@ -771,7 +810,7 @@ mod tests {
 
     #[test]
     fn test_jwt_clone() {
-        let jwt1 = Jwt::from_hmac(b"clone-secret", 60);
+        let jwt1 = Jwt::from_hmac(b"clone-secret", 60).unwrap();
         let jwt2 = jwt1.clone();
 
         let token = jwt1.generate(sample_claims()).unwrap();
@@ -839,7 +878,9 @@ mod tests {
 
     #[test]
     fn test_config_with_algorithm_builder() {
-        let config = JwtConfig::hmac(b"secret", 60).with_algorithm(JwtAlgorithm::HS512);
+        let config = JwtConfig::hmac(b"secret", 60)
+            .unwrap()
+            .with_algorithm(JwtAlgorithm::HS512);
         assert_eq!(config.algorithm(), JwtAlgorithm::HS512);
 
         let jwt = Jwt::new(config);
@@ -902,10 +943,10 @@ mod tests {
     #[test]
     fn test_verifier_from_hmac() {
         let secret = b"shared-secret";
-        let signer = Jwt::from_hmac(secret, 60);
+        let signer = Jwt::from_hmac(secret, 60).unwrap();
         let token = signer.generate(sample_claims()).unwrap();
 
-        let verifier = JwtVerifier::from_hmac(secret);
+        let verifier = JwtVerifier::from_hmac(secret).unwrap();
         let mut validation = Validation::new(JwtAlgorithm::HS256);
         validation.set_audience(&["test_audience"]);
 
@@ -1006,7 +1047,7 @@ mod jwe_combined_tests {
 
     #[test]
     fn test_generate_encrypted_round_trip() {
-        let jwt = Jwt::from_hmac(b"jwt-secret", 60);
+        let jwt = Jwt::from_hmac(b"jwt-secret", 60).unwrap();
         let jwe = jwe_with_defaults();
         let claims = JwtTokenClaims {
             sub: "user-42".into(),
@@ -1035,7 +1076,7 @@ mod jwe_combined_tests {
 
     #[test]
     fn test_generate_encrypted_with_algorithm() {
-        let jwt = Jwt::from_hmac(b"jwt-secret", 60);
+        let jwt = Jwt::from_hmac(b"jwt-secret", 60).unwrap();
         let jwe = jwe_with_defaults();
         let claims = JwtTokenClaims {
             sub: "user-99".into(),
@@ -1061,7 +1102,7 @@ mod jwe_combined_tests {
 
     #[test]
     fn test_decode_decrypted_wrong_jwe_key_fails() {
-        let jwt = Jwt::from_hmac(b"jwt-secret", 60);
+        let jwt = Jwt::from_hmac(b"jwt-secret", 60).unwrap();
         let jwe_encrypt = jwe_with_defaults();
         let jwe_decrypt = Jwe::from_symmetric(b"wrong-key-0123456789abcdef01234567").unwrap();
 
