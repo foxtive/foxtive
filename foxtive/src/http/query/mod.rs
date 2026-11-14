@@ -12,6 +12,10 @@ use std::collections::HashMap;
 
 pub use ordering::OrderBy;
 
+/// Codec used to build [`QueryParams`] from a URL query string, re-exported so
+/// downstream crates stay on the version this crate was built against.
+pub use serde_urlencoded;
+
 /// Enum representing the type of ordering format detected
 #[derive(Debug, Clone, PartialEq)]
 pub enum OrderingFormat {

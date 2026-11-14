@@ -1307,8 +1307,8 @@ let password = Password::with_config("pepper".to_string(), config);
 | `hmac` | HMAC cryptographic functions |
 | `openapi` | OpenAPI schema derivation for query params |
 | `html-sanitizer` | HTML and filename sanitization |
-| `http` | HTTP query param parsing |
-| `strum` | Enum utility derivations |
+| `http` | HTTP query param parsing (+ `serde_urlencoded` re-export) |
+| `strum` | Enum utility derivations (`strum` runtime traits re-export) |
 | `test-utils` | Testing utilities and helpers |
 | `tracing-setup` | Tracing subscriber configuration |
 

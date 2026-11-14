@@ -217,11 +217,7 @@ impl StringHelper {
         }
 
         let domain_parts: Vec<&str> = domain.split('.').collect();
-        if domain_parts.iter().any(|p| p.is_empty()) {
-            return false;
-        }
-
-        true
+        !domain_parts.iter().any(|p| p.is_empty())
     }
 
     /// Checks if the string is a valid URL format (basic check).

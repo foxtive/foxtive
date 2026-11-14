@@ -26,6 +26,11 @@ Foxtive changelog file
 - feat(test-utils): the `test-utils` feature now also enables `rand`, since `Jwt::dummy_keys()` generates RSA keys through `rand::rng()`
 - fix(test): migrate RSA test keys to the renamed rsa 0.10 types (`rsa::PrivateKey`/`rsa::PublicKey`) and drop the deprecated `RsaPrivateKey`/`RsaPublicKey` aliases
 
+#### CI Fixes
+- fix(string): `StringHelper::is_email` now returns the domain-label check directly instead of an `if` guard followed by a `true` tail, which clippy 1.100 rejects under `needless_bool`; `-D warnings` was failing `cargo clippy --package foxtive --all-features`. Behaviour is unchanged
+- feat(http): the `http` feature re-exports `serde_urlencoded` (`foxtive::http::query::serde_urlencoded`), pinning the codec that `QueryParams` is deserialized with to the version foxtive was built against
+- feat(enums): the `strum` feature re-exports the `strum` runtime traits (`IntoEnumIterator`, `EnumMessage`, ...) that the `strum_macros` derives emitted by `foxtive-macros` rely on
+
 #### Migration Guide
 
 ```rust

@@ -73,9 +73,9 @@
 //! | `regex` | Fancy-regex utilities |
 //! | `templating` | Tera template engine |
 //! | `reqwest` | HTTP client helpers |
-//! | `http` | URL-encoded query params |
+//! | `http` | URL-encoded query params (+ `serde_urlencoded` re-export) |
 //! | `openapi` | utoipa OpenAPI integration |
-//! | `strum` | Enum string utilities |
+//! | `strum` | Enum string utilities (`strum` runtime traits re-export) |
 //! | `html-sanitizer` | Ammonia HTML sanitization |
 //! | `test-utils` | Testing helpers (`TestApp`) |
 //! | `tracing-setup` | Tracing subscriber setup (`setup::trace`, `AppBuilder::tracing`) |
