@@ -7,9 +7,9 @@ use crate::database::{DBPool, Model};
 use crate::enums::AppMessage;
 use crate::prelude::AppResult;
 use crate::results::{AppOptionalResult, AppPaginationResult};
+use diesel::QueryResult;
 use diesel::r2d2::{ConnectionManager, PooledConnection};
 use diesel::result::Error;
-use diesel::QueryResult;
 use serde::Serialize;
 
 impl<Sha, Ent> ShareableResultExt<Sha, Ent> for AppResult<Ent>

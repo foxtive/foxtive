@@ -231,11 +231,13 @@ impl AppInit {
         Trait: ?Sized + Send + Sync + 'static,
         F: Fn(&App) -> AppResult<Arc<Trait>> + Send + Sync + 'static,
     {
-        self.inner.trait_binding_factories.push(Box::new(move |app| {
-            let arc = factory(app)?;
-            let boxed: Box<dyn std::any::Any + Send + Sync> = Box::new(arc);
-            Ok((std::any::TypeId::of::<Trait>(), Arc::from(boxed)))
-        }));
+        self.inner
+            .trait_binding_factories
+            .push(Box::new(move |app| {
+                let arc = factory(app)?;
+                let boxed: Box<dyn std::any::Any + Send + Sync> = Box::new(arc);
+                Ok((std::any::TypeId::of::<Trait>(), Arc::from(boxed)))
+            }));
         self
     }
 

@@ -161,11 +161,7 @@ impl TypeMap {
     ///
     /// This is used internally for type-erased trait construction.
     /// The TypeId should correspond to a `?Sized` trait type.
-    pub(crate) fn insert_trait_boxed(
-        &mut self,
-        type_id: TypeId,
-        arc: Arc<dyn Any + Send + Sync>,
-    ) {
+    pub(crate) fn insert_trait_boxed(&mut self, type_id: TypeId, arc: Arc<dyn Any + Send + Sync>) {
         self.inner.insert(type_id, arc);
     }
 

@@ -6,12 +6,18 @@ use diesel::query_dsl::methods::LoadQuery;
 use diesel::sql_types::BigInt;
 use serde::Serialize;
 
-use crate::database::backend::DbConnection;
 #[cfg(feature = "database-async")]
 use crate::database::backend::AsyncDbConnection;
+use crate::database::backend::DbConnection;
 use crate::results::AppPaginationResult;
 
-#[cfg(any(feature = "database-postgres", all(feature = "database", not(any(feature = "database-postgres", feature = "database-mysql")))))]
+#[cfg(any(
+    feature = "database-postgres",
+    all(
+        feature = "database",
+        not(any(feature = "database-postgres", feature = "database-mysql"))
+    )
+))]
 use diesel::pg::Pg;
 
 #[cfg(all(feature = "database-mysql", not(feature = "database-postgres")))]
@@ -146,7 +152,13 @@ impl<T: Query> Query for Paginated<T> {
 impl<T> diesel::query_dsl::RunQueryDslSupport for Paginated<T> {}
 
 // --- PostgreSQL backend: QueryFragment<Pg> ---
-#[cfg(any(feature = "database-postgres", all(feature = "database", not(any(feature = "database-postgres", feature = "database-mysql")))))]
+#[cfg(any(
+    feature = "database-postgres",
+    all(
+        feature = "database",
+        not(any(feature = "database-postgres", feature = "database-mysql"))
+    )
+))]
 impl<T> QueryFragment<Pg> for Paginated<T>
 where
     T: QueryFragment<Pg>,

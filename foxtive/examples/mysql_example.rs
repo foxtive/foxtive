@@ -24,9 +24,8 @@ use std::time::Duration;
 #[tokio::main]
 async fn main() -> AppResult<()> {
     // Read MySQL DSN from environment
-    let dsn = std::env::var("MYSQL_DSN").unwrap_or_else(|_| {
-        "mysql://root:password@localhost:3306/foxtive_test".to_string()
-    });
+    let dsn = std::env::var("MYSQL_DSN")
+        .unwrap_or_else(|_| "mysql://root:password@localhost:3306/foxtive_test".to_string());
 
     // Configure the database connection pool
     let db_config = DbConfig::create(&dsn)
@@ -44,7 +43,11 @@ async fn main() -> AppResult<()> {
         .build()
         .await?;
 
-    println!("App: {} v{}", app.app_name(), app.version().unwrap_or("0.0.0"));
+    println!(
+        "App: {} v{}",
+        app.app_name(),
+        app.version().unwrap_or("0.0.0")
+    );
     println!("MySQL connection pool created successfully!");
 
     // Access the pool

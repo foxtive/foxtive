@@ -1,8 +1,8 @@
 use crate::database::backend::DbConnection;
 use crate::database::config::DbConfig;
 use crate::results::AppResult;
-use diesel::r2d2::ConnectionManager;
 use diesel::r2d2;
+use diesel::r2d2::ConnectionManager;
 
 pub fn create_db_pool(config: DbConfig) -> AppResult<crate::database::DBPool> {
     let manager = ConnectionManager::<DbConnection>::new(config.dsn.to_string());

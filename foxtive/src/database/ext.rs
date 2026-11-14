@@ -1,5 +1,5 @@
-use crate::database::backend::DbConnection;
 use crate::database::Model;
+use crate::database::backend::DbConnection;
 use crate::prelude::AppResult;
 use crate::results::{AppOptionalResult, AppPaginationResult};
 use diesel::r2d2::{ConnectionManager, PooledConnection};

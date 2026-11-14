@@ -65,7 +65,11 @@ fn create_mysql_pool() {
     let config = DbConfig::create(&dsn).max_size(5);
 
     let pool = foxtive::database::create_db_pool(config);
-    assert!(pool.is_ok(), "Failed to create MySQL pool: {:?}", pool.err());
+    assert!(
+        pool.is_ok(),
+        "Failed to create MySQL pool: {:?}",
+        pool.err()
+    );
 }
 
 /// Integration test: Create an async MySQL connection pool.
@@ -77,5 +81,9 @@ fn create_async_mysql_pool() {
     let config = DbConfig::create(&dsn).max_size(5);
 
     let pool = foxtive::database::create_async_db_pool(config);
-    assert!(pool.is_ok(), "Failed to create async MySQL pool: {:?}", pool.err());
+    assert!(
+        pool.is_ok(),
+        "Failed to create async MySQL pool: {:?}",
+        pool.err()
+    );
 }

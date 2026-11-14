@@ -24,10 +24,16 @@
 //! ```
 
 // --- PostgreSQL backend (explicit or default when only `database` is enabled) ---
-#[cfg(any(feature = "database-postgres", all(feature = "database", not(any(feature = "database-postgres", feature = "database-mysql")))))]
+#[cfg(any(
+    feature = "database-postgres",
+    all(
+        feature = "database",
+        not(any(feature = "database-postgres", feature = "database-mysql"))
+    )
+))]
 mod inner {
-    pub use diesel::pg::Pg;
     pub use diesel::PgConnection;
+    pub use diesel::pg::Pg;
 
     #[cfg(feature = "database-async")]
     pub use diesel_async::AsyncPgConnection;
@@ -43,8 +49,8 @@ mod inner {
 // --- MySQL backend (only when database-mysql is enabled AND database-postgres is NOT) ---
 #[cfg(all(feature = "database-mysql", not(feature = "database-postgres")))]
 mod inner {
-    pub use diesel::mysql::Mysql;
     pub use diesel::MysqlConnection;
+    pub use diesel::mysql::Mysql;
 
     #[cfg(feature = "database-async")]
     pub use diesel_async::AsyncMysqlConnection;

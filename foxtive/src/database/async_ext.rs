@@ -1,7 +1,7 @@
 //! Async extension traits for diesel-async + deadpool.
 
-use crate::database::backend::AsyncDbConnection;
 use crate::database::Model;
+use crate::database::backend::AsyncDbConnection;
 use crate::prelude::AppResult;
 use crate::results::{AppOptionalResult, AppPaginationResult};
 use diesel::result::Error;
